@@ -125,7 +125,7 @@
       font-weight: 500;
     }
     
-    input {
+    input, select {
       width: 100%;
       padding: 8px 12px; 
       border: 2px solid transparent;
@@ -136,9 +136,11 @@
       transition: all 0.2s;
       color: #333;
       font-family: "Noto Sans TC";
+      -webkit-appearance: none;
+      appearance: none;
     }
     
-    input:focus {
+    input:focus, select:focus {
       outline: none;
       background: #fff;
       border-color: var(--primary);
@@ -281,6 +283,15 @@
         </div>
         <input type="hidden" id="payment" value="💵現金">
       </div>
+
+      <!-- 刷卡才會出現：卡別（預設 Cube；會記住上次選擇） -->
+      <div class="input-group" id="cardGroup" style="display:none;">
+        <label>卡別</label>
+        <select id="card">
+          <option value="Cube">Cube</option>
+          <option value="其他">其他</option>
+        </select>
+      </div>
       
       <button type="submit" id="submitBtn">記下來</button>
     </form>
@@ -294,7 +305,20 @@
     
     // 初始化
     document.getElementById('date').valueAsDate = new Date();
-    let realAssetValue = "$0"; 
+    let realAssetValue = "$0";
+
+    // 卡別：預設 Cube，會記住上次選擇
+    (function initCard() {
+      const cardEl = document.getElementById('card');
+      if (!cardEl) return;
+      const last = localStorage.getItem('myledger_last_card') || 'Cube';
+      cardEl.value = last;
+      cardEl.addEventListener('change', () => {
+        localStorage.setItem('myledger_last_card', cardEl.value);
+      });
+      updateCardVisibility();
+    })();
+
     fetchStats(); 
 
     // 切換 收入/支出
@@ -304,11 +328,29 @@
       document.getElementById('type').value = val;
     }
 
+    function isCardPayment(val) {
+      return val && val.includes('刷卡');
+    }
+
+    function updateCardVisibility() {
+      const pay = document.getElementById('payment').value;
+      const group = document.getElementById('cardGroup');
+      group.style.display = isCardPayment(pay) ? 'block' : 'none';
+    }
+
     // 切換 付款方式
     function setPay(el, val) {
       document.querySelectorAll('.payment-btn').forEach(b => b.classList.remove('active'));
       el.classList.add('active');
       document.getElementById('payment').value = val;
+      updateCardVisibility();
+
+      // 預設：切到刷卡時就帶出上次選擇（或 Cube）
+      if (isCardPayment(val)) {
+        const last = localStorage.getItem('myledger_last_card') || 'Cube';
+        const cardEl = document.getElementById('card');
+        cardEl.value = last;
+      }
     }
 
     // 送出表單
@@ -320,12 +362,19 @@
       btn.innerText = "⏳ 寫入中...";
       btn.disabled = true;
 
+      const paymentVal = document.getElementById("payment").value;
+      const cardVal = document.getElementById("card")?.value || "Cube";
+      if (isCardPayment(paymentVal)) {
+        localStorage.setItem('myledger_last_card', cardVal);
+      }
+
       const data = {
         date: document.getElementById("date").value,
         type: document.getElementById("type").value,
         item: document.getElementById("item").value,
         amount: document.getElementById("amount").value,
-        payment: document.getElementById("payment").value
+        payment: paymentVal,
+        card: isCardPayment(paymentVal) ? cardVal : ""
       };
 
       try {
