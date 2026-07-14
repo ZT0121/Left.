@@ -1,4 +1,4 @@
-window.MYLEDGER_SUPABASE = {
+window.LEFT_SUPABASE = {
   url: "",
   anonKey: ""
 };

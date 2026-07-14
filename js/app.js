@@ -1,5 +1,5 @@
 (function () {
-  const config = window.MYLEDGER_SUPABASE || {};
+  const config = window.LEFT_SUPABASE || window.MYLEDGER_SUPABASE || {};
   const hasConfig = Boolean(config.url && config.anonKey);
   const client = hasConfig && window.supabase
     ? window.supabase.createClient(config.url, config.anonKey)
@@ -522,7 +522,7 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `myledger-backup-${today()}.json`;
+    a.download = `left-backup-${today()}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }
