@@ -34,6 +34,25 @@
   const supabaseUrl = String(config.url || "").replace(/\/+$/, "");
   const daysBetween = window.LeftBudget.daysBetween;
 
+  function registerServiceWorker() {
+    if (!("serviceWorker" in navigator)) return;
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("./sw.js?v=20260714-meal2")
+        .then((registration) => {
+          registration.addEventListener("updatefound", () => {
+            const worker = registration.installing;
+            if (!worker) return;
+            worker.addEventListener("statechange", () => {
+              if (worker.state === "activated" && navigator.serviceWorker.controller) {
+                window.location.reload();
+              }
+            });
+          });
+        })
+        .catch((error) => console.warn("Service worker registration failed", error));
+    });
+  }
+
   function showToast(message) {
     const toast = $("toast");
     toast.textContent = message;
@@ -1363,6 +1382,7 @@
   }
 
   setDefaultDates();
+  registerServiceWorker();
   wireEvents();
   initAuth().catch((error) => {
     console.error(error);

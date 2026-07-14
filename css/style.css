@@ -465,6 +465,13 @@ select:focus {
   text-align: center;
 }
 
+.app-version {
+  margin: 18px 0 0;
+  color: rgba(136, 119, 106, 0.72);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
 dialog {
   width: min(calc(100% - 28px), 420px);
   border: 0;
