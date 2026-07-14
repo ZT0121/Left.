@@ -95,7 +95,7 @@ create table if not exists public.credit_card_charges (
   source_type text not null check (source_type in ('general', 'advance', 'installment', 'opening_bill', 'fee')),
   title text not null,
   charge_date date not null,
-  due_date date not null,
+  due_date date,
   amount numeric(12, 0) not null check (amount > 0),
   status text not null default 'pending' check (status in ('pending', 'paid')),
   paid_at date,

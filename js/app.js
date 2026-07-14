@@ -212,6 +212,7 @@
     });
 
     toggleCardFields();
+    fillOpeningBillDatesFromCard();
   }
 
   function renderCreditCards() {
@@ -240,7 +241,7 @@
   function renderCardCharges() {
     const list = $("cardChargeList");
     const rows = [...state.cardCharges]
-      .sort((a, b) => `${b.due_date}${b.created_at}`.localeCompare(`${a.due_date}${a.created_at}`));
+      .sort((a, b) => `${b.due_date || ""}${b.created_at}`.localeCompare(`${a.due_date || ""}${a.created_at}`));
 
     if (!rows.length) {
       list.innerHTML = '<p class="empty-state">目前沒有本期信用卡待繳。</p>';
@@ -261,7 +262,7 @@
         <article class="record-item">
           <div>
             <p class="record-title">${escapeHtml(row.title)}</p>
-            <p class="record-meta">${sourceLabel} · ${escapeHtml(card?.name || "信用卡")} · 繳款 ${row.due_date}${row.status === "paid" ? ` · 已繳 ${row.paid_at || ""}` : ""}</p>
+            <p class="record-meta">${sourceLabel} · ${escapeHtml(card?.name || "信用卡")} · 繳款 ${row.due_date || "未設定"}${row.status === "paid" ? ` · 已繳 ${row.paid_at || ""}` : ""}</p>
           </div>
           <div class="record-amount">${money(row.amount)}</div>
           <div class="record-actions">
@@ -329,6 +330,34 @@
     const cardId = $(selectId).value;
     if (!cardId) throw new Error("請先新增並選擇一張信用卡");
     return cardId;
+  }
+
+  function getLatestCardClosingDate(cardId, baseDate = today()) {
+    const card = state.creditCards.find((item) => item.id === cardId);
+    if (!card) return baseDate;
+    const base = new Date(`${baseDate}T00:00:00`);
+    let year = base.getFullYear();
+    let month = base.getMonth();
+    const closingDay = Number(card.closing_day);
+    if (base.getDate() < closingDay) {
+      month -= 1;
+      if (month < 0) {
+        month = 11;
+        year -= 1;
+      }
+    }
+
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const closing = new Date(year, month, Math.min(closingDay, lastDay));
+    return closing.toISOString().slice(0, 10);
+  }
+
+  function fillOpeningBillDatesFromCard() {
+    const select = $("openingBillCardSelect");
+    if (!select?.value) return;
+    const closingDate = getLatestCardClosingDate(select.value);
+    $("openingBillDate").value = closingDate;
+    $("openingBillDueDate").value = getCardDueDate(select.value, closingDate);
   }
 
   function getCardDueDate(cardId, chargeDate) {
@@ -444,6 +473,7 @@
       .order("name", { ascending: true });
     if (error) throw error;
     state.creditCards = data || [];
+    fillOpeningBillDatesFromCard();
   }
 
   async function loadInstallmentPlans() {
@@ -638,11 +668,21 @@
     event.preventDefault();
     const gross = toNumber($("advanceGross").value);
     const people = toNumber($("advancePeople").value);
+    const personal = toNumber($("advancePersonal").value);
+    const shared = toNumber($("advanceShared").value);
+    const usesItemizedSplit = Boolean($("advancePersonal").value || $("advanceShared").value);
+    if (usesItemizedSplit && shared > 0 && people <= 0) {
+      throw new Error("有平均分攤費時，請填分攤人數。");
+    }
+
     const own = $("advanceOwn").value
       ? toNumber($("advanceOwn").value)
+      : usesItemizedSplit
+        ? personal + (people > 0 ? Math.ceil(shared / people) : 0)
       : people > 0
         ? Math.ceil(gross / people)
         : gross;
+    if (own > gross) throw new Error("自己負擔不能大於總金額。");
     const receivable = Math.max(0, gross - own);
     const title = $("advanceTitle").value.trim() || "代墊";
     const paymentMethod = $("advancePaymentMethod").value;
@@ -808,11 +848,12 @@
       source_type: "opening_bill",
       title,
       charge_date: date,
-      due_date: $("openingBillDueDate").value,
+      due_date: $("openingBillDueDate").value || null,
       amount
     });
     event.target.reset();
     setDefaultDates();
+    fillOpeningBillDatesFromCard();
     showToast("期初帳單已新增");
     await refresh();
   }
@@ -976,14 +1017,14 @@
     if (title === null) return;
     const amountText = window.prompt("金額", row.amount);
     if (amountText === null) return;
-    const dueDate = window.prompt("繳款日（YYYY-MM-DD）", row.due_date);
+    const dueDate = window.prompt("繳款日（YYYY-MM-DD，可留空）", row.due_date || "");
     if (dueDate === null) return;
     const amount = toNumber(amountText);
     if (amount <= 0) throw new Error("金額必須大於 0");
 
     const { error } = await client
       .from("credit_card_charges")
-      .update({ title: title.trim() || row.title, amount, due_date })
+      .update({ title: title.trim() || row.title, amount, due_date: dueDate.trim() || null })
       .eq("id", id)
       .eq("user_id", state.user.id);
     if (error) throw error;
@@ -1117,7 +1158,7 @@
   }
 
   function setDefaultDates() {
-    ["expenseDate", "advanceDate", "openingBillDate", "openingBillDueDate", "installmentFirstDate", "cardFeeDate", "cardFeeDueDate"].forEach((id) => {
+    ["expenseDate", "advanceDate", "openingBillDate", "installmentFirstDate", "cardFeeDate", "cardFeeDueDate"].forEach((id) => {
       const input = $(id);
       if (input) input.value = today();
     });
@@ -1198,6 +1239,7 @@
     $("restoreInput").addEventListener("change", wrap(restoreBackup));
     $("expensePaymentMethod").addEventListener("change", toggleCardFields);
     $("advancePaymentMethod").addEventListener("change", toggleCardFields);
+    $("openingBillCardSelect").addEventListener("change", fillOpeningBillDatesFromCard);
 
     document.querySelectorAll(".tab-button").forEach((button) => {
       button.addEventListener("click", () => {

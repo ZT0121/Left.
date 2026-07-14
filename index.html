@@ -157,12 +157,20 @@
             <input id="advanceDate" type="date" required>
           </label>
           <label>
-            自己負擔
-            <input id="advanceOwn" type="number" min="0" step="1" inputmode="numeric" placeholder="留空可用人數平均">
+            自己餐點／個人費用
+            <input id="advancePersonal" type="number" min="0" step="1" inputmode="numeric" placeholder="只填自己的餐點金額">
           </label>
           <label>
-            總人數
+            平均分攤費
+            <input id="advanceShared" type="number" min="0" step="1" inputmode="numeric" placeholder="平台費、運費">
+          </label>
+          <label>
+            分攤人數
             <input id="advancePeople" type="number" min="1" step="1" inputmode="numeric" placeholder="3">
+          </label>
+          <label>
+            自己負擔（直接指定）
+            <input id="advanceOwn" type="number" min="0" step="1" inputmode="numeric" placeholder="填了會覆蓋上面計算">
           </label>
           <label class="full-width">
             名稱
@@ -179,7 +187,8 @@
             信用卡
             <select id="advanceCardSelect"></select>
           </label>
-          <button class="primary-button full-width" type="submit">新增代墊</button>
+          <button class="primary-button full-width" type="submit">新增代墊／補貼待收</button>
+          <p class="helper-text full-width">如果是你先付大筆開銷、媽媽之後補貼，總金額填實際付款，自己負擔填扣掉媽媽補貼後你要承擔的金額；媽媽要轉你的部分會進待收款。</p>
         </form>
       </section>
 
@@ -221,7 +230,7 @@
             <input id="openingBillAmount" type="number" min="1" step="1" inputmode="numeric" required>
           </label>
           <label>
-            帳單日期
+            帳單日期（依信用卡結帳日自動帶入）
             <input id="openingBillDate" type="date" required>
           </label>
           <label>
@@ -229,8 +238,8 @@
             <select id="openingBillCardSelect" required></select>
           </label>
           <label>
-            繳款日
-            <input id="openingBillDueDate" type="date" required>
+            繳款日（可空白）
+            <input id="openingBillDueDate" type="date">
           </label>
           <button class="secondary-button full-width" type="submit">新增期初帳單</button>
           <p class="helper-text full-width">從 0 開始使用時，把目前這期卡費整筆輸入；未來尚未到期的分期不要放進來。</p>
