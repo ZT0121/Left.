@@ -352,7 +352,7 @@
     return closing.toISOString().slice(0, 10);
   }
 
-  function parseReceivableLines(value) {
+  function parseAmountLines(value, fieldName) {
     return String(value || "")
       .split(/\r?\n/)
       .map((line) => line.trim())
@@ -360,17 +360,28 @@
       .map((line) => {
         const match = line.match(/^(.*?)[\s:：,，]+(\d+(?:\.\d+)?)$/);
         if (!match) {
-          throw new Error(`待收明細格式看不懂：「${line}」。請用「姓名 金額」。`);
+          throw new Error(`${fieldName}格式看不懂：「${line}」。請用「姓名 金額」。`);
         }
 
         const title = match[1].trim();
         const amount = toNumber(match[2]);
         if (!title || amount <= 0) {
-          throw new Error(`待收明細格式看不懂：「${line}」。請用「姓名 金額」。`);
+          throw new Error(`${fieldName}格式看不懂：「${line}」。請用「姓名 金額」。`);
         }
 
         return { title, amount };
       });
+  }
+
+  function splitSharedFee(total, count) {
+    if (!total || !count) return Array.from({ length: count }, () => 0);
+    const base = Math.floor(total / count);
+    const remainder = total - (base * count);
+    return Array.from({ length: count }, (_, index) => base + (index < remainder ? 1 : 0));
+  }
+
+  function findSelfMeal(rows) {
+    return rows.find((row) => ["自己", "我", "me", "self"].includes(String(row.title).trim().toLowerCase())) || rows[0];
   }
 
   function fillOpeningBillDatesFromCard() {
@@ -687,25 +698,43 @@
 
   async function addAdvance(event) {
     event.preventDefault();
-    const gross = toNumber($("advanceGross").value);
+    const grossInput = toNumber($("advanceGross").value);
     const people = toNumber($("advancePeople").value);
     const personal = toNumber($("advancePersonal").value);
     const shared = toNumber($("advanceShared").value);
+    const mealRows = parseAmountLines($("advanceMeals").value, "個別餐點明細");
+    const mealShares = splitSharedFee(shared, mealRows.length);
+    const mealTotals = mealRows.map((row, index) => ({
+      ...row,
+      amount: row.amount + mealShares[index]
+    }));
+    const mealSubtotal = mealRows.reduce((sum, row) => sum + row.amount, 0);
+    const mealTotal = mealTotals.reduce((sum, row) => sum + row.amount, 0);
+    const selfMeal = findSelfMeal(mealTotals);
+    const usesMealSplit = mealRows.length > 0;
+    const gross = usesMealSplit && grossInput === mealSubtotal ? mealTotal : grossInput;
     const usesItemizedSplit = Boolean($("advancePersonal").value || $("advanceShared").value);
-    if (usesItemizedSplit && shared > 0 && people <= 0) {
+    if (!usesMealSplit && usesItemizedSplit && shared > 0 && people <= 0) {
       throw new Error("有平均分攤費時，請填分攤人數。");
     }
 
     const own = $("advanceOwn").value
       ? toNumber($("advanceOwn").value)
+      : usesMealSplit
+        ? selfMeal.amount
       : usesItemizedSplit
         ? personal + (people > 0 ? Math.ceil(shared / people) : 0)
       : people > 0
         ? Math.ceil(gross / people)
         : gross;
     if (own > gross) throw new Error("自己負擔不能大於總金額。");
+    if (usesMealSplit && mealTotal !== gross) {
+      throw new Error(`個別餐點加分攤費合計 ${money(mealTotal)}，但總金額是 ${money(gross)}。`);
+    }
     const receivable = Math.max(0, gross - own);
-    const receivableRows = parseReceivableLines($("advanceReceivables").value);
+    const receivableRows = usesMealSplit
+      ? mealTotals.filter((row) => row !== selfMeal)
+      : [];
     const detailedReceivable = receivableRows.reduce((sum, row) => sum + row.amount, 0);
     if (receivableRows.length && detailedReceivable !== receivable) {
       throw new Error(`待收明細合計 ${money(detailedReceivable)}，但應待收 ${money(receivable)}。`);
