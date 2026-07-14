@@ -37,7 +37,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260714.01")
+      navigator.serviceWorker.register("./sw.js?v=20260714.02")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -399,6 +399,23 @@
     return Array.from({ length: count }, (_, index) => base + (index < remainder ? 1 : 0));
   }
 
+  function splitSharedFeeForMealRows(total, count) {
+    const otherCount = Math.max(0, count - 1);
+    if (!total || !count) {
+      return {
+        own: 0,
+        others: Array.from({ length: otherCount }, () => 0)
+      };
+    }
+
+    const base = Math.floor(total / count);
+    const remainder = total - (base * count);
+    return {
+      own: base + remainder,
+      others: Array.from({ length: otherCount }, () => base)
+    };
+  }
+
   function fillOpeningBillDatesFromCard() {
     const select = $("openingBillCardSelect");
     if (!select?.value) return;
@@ -720,15 +737,21 @@
     const mealRows = parseAmountLines($("advanceMeals").value, "別人的餐點明細");
     const usesMealSplit = mealRows.length > 0;
     const splitPeople = peopleInput || (usesMealSplit ? mealRows.length + 1 : 0);
-    const mealShares = splitSharedFee(shared, splitPeople);
-    const ownMealTotal = personal + (mealShares[0] || 0);
+    const mealSubtotal = personal + mealRows.reduce((sum, row) => sum + row.amount, 0);
+    if (usesMealSplit && grossInput < mealSubtotal) {
+      throw new Error(`個別餐點合計 ${money(mealSubtotal)}，已經超過總金額 ${money(grossInput)}。`);
+    }
+    const sharedToSplit = usesMealSplit
+      ? Math.max(0, grossInput - mealSubtotal)
+      : shared;
+    const mealShares = splitSharedFeeForMealRows(sharedToSplit, splitPeople);
+    const ownMealTotal = personal + mealShares.own;
     const mealTotals = mealRows.map((row, index) => ({
       ...row,
-      amount: row.amount + (mealShares[index + 1] || 0)
+      amount: row.amount + (mealShares.others[index] || 0)
     }));
-    const mealSubtotal = personal + mealRows.reduce((sum, row) => sum + row.amount, 0);
     const mealTotal = ownMealTotal + mealTotals.reduce((sum, row) => sum + row.amount, 0);
-    const gross = usesMealSplit && grossInput === mealSubtotal ? mealTotal : grossInput;
+    const gross = usesMealSplit ? mealTotal : grossInput;
     const usesItemizedSplit = Boolean($("advancePersonal").value || $("advanceShared").value);
     if (!usesMealSplit && usesItemizedSplit && shared > 0 && peopleInput <= 0) {
       throw new Error("有平均分攤費時，請填分攤人數。");
@@ -747,9 +770,6 @@
         ? Math.ceil(gross / peopleInput)
         : gross;
     if (own > gross) throw new Error("自己負擔不能大於總金額。");
-    if (usesMealSplit && mealTotal !== gross) {
-      throw new Error(`個別餐點加分攤費合計 ${money(mealTotal)}，但總金額是 ${money(gross)}。`);
-    }
     const receivable = Math.max(0, gross - own);
     const receivableRows = usesMealSplit
       ? mealTotals

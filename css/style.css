@@ -452,7 +452,8 @@ select:focus {
 .toast {
   position: fixed;
   right: 16px;
-  bottom: 16px;
+  top: 14px;
+  bottom: auto;
   left: 16px;
   max-width: 488px;
   margin: 0 auto;
@@ -463,6 +464,7 @@ select:focus {
   box-shadow: var(--shadow);
   font-weight: 800;
   text-align: center;
+  z-index: 30;
 }
 
 .app-version {
