@@ -1,0 +1,132 @@
+(function (root) {
+  const DAY_MS = 86400000;
+
+  function toNumber(value) {
+    return Number(value || 0);
+  }
+
+  function parseDate(value) {
+    return new Date(`${value}T00:00:00`);
+  }
+
+  function addMonths(dateValue, months) {
+    const date = parseDate(dateValue);
+    const day = date.getDate();
+    const next = new Date(date);
+    next.setMonth(next.getMonth() + months, 1);
+    const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+    next.setDate(Math.min(day, lastDay));
+    return next.toISOString().slice(0, 10);
+  }
+
+  function daysBetween(from, to) {
+    const start = parseDate(from);
+    const end = parseDate(to);
+    return Math.max(0, Math.ceil((end - start) / DAY_MS));
+  }
+
+  function isDateInCycle(dateValue, cycle) {
+    return Boolean(
+      cycle
+      && dateValue
+      && dateValue >= cycle.start_date
+      && dateValue <= cycle.expected_pay_date
+    );
+  }
+
+  function createInstallmentSchedule(plan) {
+    const count = Math.max(1, Math.trunc(toNumber(plan.installment_count)));
+    const totalWithFees = toNumber(plan.total_amount) + toNumber(plan.fee_total);
+    const base = Math.floor(totalWithFees / count);
+    const finalAmount = totalWithFees - (base * (count - 1));
+
+    return Array.from({ length: count }, (_, index) => ({
+      installment_number: index + 1,
+      due_date: addMonths(plan.first_due_date, index),
+      amount: index === count - 1 ? finalAmount : base
+    }));
+  }
+
+  function summarizeBudget(input, extra = {}) {
+    const cycle = input.cycle;
+    if (!cycle) {
+      return {
+        totalIncome: 0,
+        spent: 0,
+        pending: 0,
+        projected: 0,
+        cashBuffer: 0,
+        commitmentBuffer: 0,
+        daysLeft: 0,
+        daily: 0,
+        cardDue: 0,
+        futureInstallmentBalance: 0
+      };
+    }
+
+    const transactions = input.transactions || [];
+    const reimbursements = input.reimbursements || [];
+    const cardCharges = input.cardCharges || [];
+    const installmentPlans = input.installmentPlans || [];
+    const today = extra.today || new Date().toISOString().slice(0, 10);
+
+    const totalIncome = toNumber(cycle.salary_income) + toNumber(cycle.mother_support);
+    const spent = transactions.reduce((sum, row) => sum + toNumber(row.amount), 0) + toNumber(extra.spend);
+    const pending = reimbursements
+      .filter((row) => row.status === "pending")
+      .reduce((sum, row) => sum + toNumber(row.amount), 0);
+    const cardDue = cardCharges
+      .filter((row) => row.status !== "paid")
+      .reduce((sum, row) => sum + toNumber(row.amount), 0);
+
+    const futureInstallmentBalance = installmentPlans
+      .filter((plan) => plan.is_active !== false)
+      .reduce((sum, plan) => {
+        const paidNumbers = new Set(
+          cardCharges
+            .filter((charge) => charge.installment_plan_id === plan.id)
+            .map((charge) => Number(charge.installment_number))
+        );
+        const futureAmount = createInstallmentSchedule(plan)
+          .filter((item) => {
+            if (paidNumbers.has(item.installment_number)) return false;
+            if (isDateInCycle(item.due_date, cycle)) return false;
+            return item.due_date > cycle.expected_pay_date;
+          })
+          .reduce((subtotal, item) => subtotal + toNumber(item.amount), 0);
+        return sum + futureAmount;
+      }, 0) + toNumber(extra.futureCommitment);
+
+    const projected = totalIncome - spent;
+    const cashBuffer = projected - toNumber(cycle.minimum_savings);
+    const commitmentBuffer = cashBuffer - futureInstallmentBalance;
+    const daysLeft = daysBetween(today, cycle.expected_pay_date);
+    const daily = daysLeft > 0 ? Math.max(0, Math.floor(cashBuffer / daysLeft)) : Math.max(0, cashBuffer);
+
+    return {
+      totalIncome,
+      spent,
+      pending,
+      projected,
+      cashBuffer,
+      commitmentBuffer,
+      daysLeft,
+      daily,
+      cardDue,
+      futureInstallmentBalance
+    };
+  }
+
+  root.LeftBudget = {
+    addMonths,
+    createInstallmentSchedule,
+    daysBetween,
+    isDateInCycle,
+    summarizeBudget,
+    toNumber
+  };
+
+  if (typeof module !== "undefined") {
+    module.exports = root.LeftBudget;
+  }
+})(typeof window !== "undefined" ? window : globalThis);
