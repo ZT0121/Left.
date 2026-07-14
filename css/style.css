@@ -45,6 +45,7 @@ body {
 
 button,
 input,
+textarea,
 select {
   font: inherit;
 }
@@ -151,6 +152,7 @@ label {
 }
 
 input,
+textarea,
 select {
   width: 100%;
   min-height: 46px;
@@ -162,7 +164,14 @@ select {
   outline: none;
 }
 
+textarea {
+  min-height: 104px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
 input:focus,
+textarea:focus,
 select:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(159, 118, 80, 0.16);

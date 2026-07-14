@@ -352,6 +352,27 @@
     return closing.toISOString().slice(0, 10);
   }
 
+  function parseReceivableLines(value) {
+    return String(value || "")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const match = line.match(/^(.*?)[\s:：,，]+(\d+(?:\.\d+)?)$/);
+        if (!match) {
+          throw new Error(`待收明細格式看不懂：「${line}」。請用「姓名 金額」。`);
+        }
+
+        const title = match[1].trim();
+        const amount = toNumber(match[2]);
+        if (!title || amount <= 0) {
+          throw new Error(`待收明細格式看不懂：「${line}」。請用「姓名 金額」。`);
+        }
+
+        return { title, amount };
+      });
+  }
+
   function fillOpeningBillDatesFromCard() {
     const select = $("openingBillCardSelect");
     if (!select?.value) return;
@@ -684,6 +705,11 @@
         : gross;
     if (own > gross) throw new Error("自己負擔不能大於總金額。");
     const receivable = Math.max(0, gross - own);
+    const receivableRows = parseReceivableLines($("advanceReceivables").value);
+    const detailedReceivable = receivableRows.reduce((sum, row) => sum + row.amount, 0);
+    if (receivableRows.length && detailedReceivable !== receivable) {
+      throw new Error(`待收明細合計 ${money(detailedReceivable)}，但應待收 ${money(receivable)}。`);
+    }
     const title = $("advanceTitle").value.trim() || "代墊";
     const paymentMethod = $("advancePaymentMethod").value;
     const cardId = paymentMethod === "credit_card" ? requireCard("advanceCardSelect") : null;
@@ -711,14 +737,24 @@
     }
 
     if (receivable > 0) {
-      const { error } = await client.from("reimbursements").insert({
-        user_id: state.user.id,
-        cycle_id: state.cycle.id,
-        transaction_id: tx.id,
-        title,
-        amount: receivable,
-        status: "pending"
-      });
+      const rows = receivableRows.length
+        ? receivableRows.map((row) => ({
+          user_id: state.user.id,
+          cycle_id: state.cycle.id,
+          transaction_id: tx.id,
+          title: `${title} - ${row.title}`,
+          amount: row.amount,
+          status: "pending"
+        }))
+        : [{
+          user_id: state.user.id,
+          cycle_id: state.cycle.id,
+          transaction_id: tx.id,
+          title,
+          amount: receivable,
+          status: "pending"
+        }];
+      const { error } = await client.from("reimbursements").insert(rows);
       if (error) throw error;
     }
 
