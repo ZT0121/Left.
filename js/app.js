@@ -21,6 +21,7 @@
   }).format(Number(value || 0));
   const today = () => new Date().toISOString().slice(0, 10);
   const toNumber = (value) => Number(value || 0);
+  const supabaseUrl = String(config.url || "").replace(/\/+$/, "");
   const daysBetween = (from, to) => {
     const start = new Date(`${from}T00:00:00`);
     const end = new Date(`${to}T00:00:00`);
@@ -39,6 +40,35 @@
 
   function setVisible(id, visible) {
     $(id).hidden = !visible;
+  }
+
+  function formatSupabaseFetchError(error) {
+    const message = error?.message || "";
+    if (/failed to fetch|networkerror|load failed/i.test(message)) {
+      return "無法連到 Supabase 專案。請確認 js/config.js 的 url 是 Dashboard 顯示的 Project URL，且專案沒有被暫停或刪除。";
+    }
+    return message;
+  }
+
+  async function checkSupabaseConnection() {
+    try {
+      const response = await fetch(`${supabaseUrl}/auth/v1/settings`, {
+        headers: { apikey: config.anonKey }
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        return "Supabase key 驗證失敗。請確認 js/config.js 使用的是 publishable/anon key，不是 service role key。";
+      }
+
+      if (!response.ok) {
+        return `Supabase 連線異常（HTTP ${response.status}）。請稍後再試，或到 Supabase Dashboard 檢查專案狀態。`;
+      }
+
+      return "";
+    } catch (error) {
+      console.error(error);
+      return formatSupabaseFetchError(error);
+    }
   }
 
   function getDefaultNextPayDate() {
@@ -274,6 +304,16 @@
     if (!hasConfig || !client) {
       setVisible("configWarning", true);
       setVisible("authPanel", false);
+      return;
+    }
+
+    const connectionError = await checkSupabaseConnection();
+    if (connectionError) {
+      setVisible("configWarning", true);
+      setVisible("authPanel", true);
+      setVisible("cyclePanel", false);
+      setVisible("dashboard", false);
+      $("authMessage").textContent = connectionError;
       return;
     }
 
@@ -566,7 +606,7 @@
         options: { emailRedirectTo: window.location.href }
       });
       $("authMessage").textContent = error
-        ? `寄送失敗：${error.message}`
+        ? `寄送失敗：${formatSupabaseFetchError(error)}`
         : "登入連結已寄出，請去信箱點選連結。";
     });
 
