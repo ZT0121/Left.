@@ -2,438 +2,224 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>📒小帳本</title>
-  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MyLedger | 最低存款控制助手</title>
   <link rel="icon" href="./icon.png" type="image/png">
   <link rel="manifest" href="./manifest.json">
-  <meta name="theme-color" content="#F9F8F6">
+  <meta name="theme-color" content="#f7efe3">
   <meta name="mobile-web-app-capable" content="yes">
-  
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
-
-  <style>
-    :root {
-      --bg-color: #F9F8F6;
-      --card-bg: #FFFFFF;
-      --primary: #C5A073;
-      --primary-dark: #A68358;
-      --text-main: #333333;
-      --text-sub: #999999;
-      --income: #34C759;
-      --expense: #FF3B30;
-      --asset: #007AFF;
-      --radius: 16px;
-    }
-
-    body {
-      font-family: "Noto Sans TC", sans-serif;
-      background: var(--bg-color);
-      margin: 0; 
-      padding: 10px; 
-      display: flex; 
-      flex-direction: column; 
-      align-items: center;
-      min-height: 100vh;
-      -webkit-tap-highlight-color: transparent;
-      /* 讓內容在垂直方向稍微分散，或者靠上 */
-      justify-content: flex-start; 
-    }
-
-    /* === 1. 頂部儀表板 === */
-    .dashboard {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px; 
-      width: 100%; 
-      max-width: 420px;
-      margin-bottom: 10px; 
-    }
-    
-    .card {
-      background: var(--card-bg);
-      padding: 12px 8px; 
-      border-radius: var(--radius);
-      text-align: center;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-      position: relative;
-    }
-    
-    .card:active { transform: scale(0.98); }
-
-    .card h3 { 
-      margin: 0 0 2px 0; 
-      font-size: 12px; 
-      color: var(--text-sub); 
-      font-weight: 500;
-    }
-    
-    .card p { 
-      margin: 0; 
-      font-family: 'Roboto Mono', monospace;
-      font-size: 18px; 
-      font-weight: 600; 
-      color: var(--text-main); 
-      line-height: 1.2;
-    }
-    
-    .income p { color: var(--income); }
-    .expense p { color: var(--expense); }
-    .asset p { color: var(--asset); }
-    
-    .card.asset { cursor: pointer; }
-    .card.asset::after {
-      content: "👁️";
-      position: absolute;
-      top: 4px; right: 4px;
-      font-size: 10px;
-      opacity: 0.3;
-    }
-
-    /* === 2. 記帳表單容器 === */
-    .container {
-      background: var(--card-bg);
-      padding: 15px 20px;
-      border-radius: 20px;
-      box-shadow: 0 5px 20px rgba(0,0,0,0.04);
-      width: 100%; 
-      max-width: 420px;
-      box-sizing: border-box;
-      /* ★★★ 修改這裡：移除 flex-grow，讓高度自動適應內容 ★★★ */
-      height: auto; 
-      display: block; 
-    }
-
-    h2 { 
-      text-align: center; 
-      margin: 0 0 10px 0; 
-      color: var(--primary-dark); 
-      font-size: 18px;
-      font-weight: 700;
-    }
-    
-    /* === 輸入框樣式 === */
-    .input-group { 
-      margin-bottom: 8px; 
-    }
-    
-    label { 
-      display: block; 
-      margin-bottom: 2px; 
-      color: var(--text-sub); 
-      font-size: 12px; 
-      font-weight: 500;
-    }
-    
-    input, select {
-      width: 100%;
-      padding: 8px 12px; 
-      border: 2px solid transparent;
-      background: #F4F4F4;
-      border-radius: 12px;
-      font-size: 16px; 
-      box-sizing: border-box;
-      transition: all 0.2s;
-      color: #333;
-      font-family: "Noto Sans TC";
-      -webkit-appearance: none;
-      appearance: none;
-    }
-    
-    input:focus, select:focus {
-      outline: none;
-      background: #fff;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(197, 160, 115, 0.15);
-    }
-
-    /* === 切換按鈕 === */
-    .toggle-container {
-      background: #F0F0F0;
-      border-radius: 12px;
-      padding: 3px;
-      display: flex;
-      margin-bottom: 12px; 
-    }
-    
-    .type-btn {
-      flex: 1;
-      padding: 6px; 
-      text-align: center;
-      cursor: pointer;
-      border-radius: 10px;
-      font-size: 14px;
-      font-weight: 500;
-      color: #888;
-      transition: all 0.3s;
-    }
-    
-    .type-btn.active {
-      background: #fff;
-      color: var(--text-main);
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      font-weight: bold;
-    }
-    
-    .type-btn.active[onclick*="收入"] { color: var(--income); }
-    .type-btn.active[onclick*="支出"] { color: var(--expense); }
-
-    /* === 付款方式按鈕 === */
-    .payment-options { display: flex; gap: 8px; }
-    
-    .payment-btn {
-      flex: 1;
-      padding: 8px; 
-      border: 1px solid #EEE;
-      border-radius: 12px;
-      background: #fff;
-      cursor: pointer;
-      text-align: center;
-      font-size: 14px;
-      color: var(--text-main);
-      transition: 0.2s;
-    }
-    
-    .payment-btn.active {
-      border-color: var(--primary);
-      background: #FFF9F2;
-      color: var(--primary-dark);
-      font-weight: bold;
-    }
-
-    /* === 送出按鈕 === */
-    button[type="submit"] {
-      width: 100%;
-      padding: 12px; 
-      /* ★★★ 修改這裡：移除 auto，改為固定距離 ★★★ */
-      margin-top: 20px; 
-      margin-bottom: 5px;
-      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-      color: white;
-      border: none;
-      border-radius: 14px;
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-      box-shadow: 0 6px 15px rgba(197, 160, 115, 0.25);
-    }
-    
-    button[type="submit"]:active { transform: scale(0.97); }
-    button[type="submit"]:disabled { background: #ccc; box-shadow: none; }
-
-    #result { 
-      text-align: center; 
-      margin-top: 5px; 
-      font-size: 12px; 
-      height: 18px; 
-    }
-  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./css/style.css">
 </head>
 <body>
-
-  <div class="dashboard">
-    <div class="card income">
-      <h3>本月收入</h3>
-      <p id="inc">$0</p>
-    </div>
-    <div class="card expense">
-      <h3>本月支出</h3>
-      <p id="exp">$0</p>
-    </div>
-    <div class="card">
-      <h3>本月結餘</h3>
-      <p id="net">$0</p>
-    </div>
-    <div class="card asset" onclick="toggleAsset()">
-      <h3>目前總資產</h3>
-      <p id="asset">*****</p>
-    </div>
-  </div>
-
-  <div class="container">
-    <h2>💸 快速記帳</h2>
-    <form id="expenseForm">
-      
-      <div class="toggle-container">
-        <div class="type-btn active" onclick="setType(this, '支出')">支出</div>
-        <div class="type-btn" onclick="setType(this, '收入')">收入</div>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">MyLedger</p>
+        <h1>最低存款控制助手</h1>
       </div>
-      <input type="hidden" id="type" value="支出">
+      <button class="icon-button" id="signOutButton" type="button" hidden title="登出">登出</button>
+    </header>
 
-      <div class="input-group">
-        <label>日期</label>
-        <input type="date" id="date">
-      </div>
-      
-      <div class="input-group">
-        <label>品項</label>
-        <input type="text" id="item" placeholder=" " >
-      </div>
+    <section class="setup-warning" id="configWarning" hidden>
+      <strong>尚未設定 Supabase。</strong>
+      <span>請先依 README 建立 Supabase 專案，並填入 <code>js/config.js</code>。</span>
+    </section>
 
-      <div class="input-group">
-        <label>金額</label>
-        <input type="number" id="amount" placeholder=" " required inputmode="decimal">
+    <section class="auth-panel" id="authPanel" hidden>
+      <div class="panel-heading">
+        <p class="eyebrow">跨裝置同步</p>
+        <h2>先登入再開始記帳</h2>
+        <p>資料會存在 Supabase，不會把收入、支出或代墊存在這台裝置。</p>
       </div>
-      
-      <div class="input-group">
-        <label>付款方式</label>
-        <div class="payment-options">
-          <div class="payment-btn active" onclick="setPay(this, '💵現金')">💵 現金</div>
-          <div class="payment-btn" onclick="setPay(this, '💳刷卡')">💳 刷卡</div>
+      <form id="authForm" class="stack">
+        <label>
+          Email
+          <input id="emailInput" type="email" autocomplete="email" placeholder="you@example.com" required>
+        </label>
+        <button class="primary-button" type="submit">寄出登入連結</button>
+        <p class="helper-text" id="authMessage">使用 Magic Link 登入，同一帳號可在手機和電腦同步。</p>
+      </form>
+    </section>
+
+    <section class="cycle-panel" id="cyclePanel" hidden>
+      <div class="panel-heading">
+        <p class="eyebrow">發薪流程</p>
+        <h2>開始新的記帳週期</h2>
+        <p>月底發薪後填一次，本期就用這些數字計算最低保留。</p>
+      </div>
+      <form id="cycleForm" class="form-grid">
+        <label>
+          本期實領薪水
+          <input id="salaryInput" type="number" min="0" step="1" inputmode="numeric" placeholder="32000" required>
+        </label>
+        <label>
+          媽媽提供
+          <input id="motherInput" type="number" min="0" step="1" inputmode="numeric" value="20000" required>
+        </label>
+        <label>
+          最低希望存下
+          <input id="minimumInput" type="number" min="0" step="1" inputmode="numeric" value="5000" required>
+        </label>
+        <label>
+          下次發薪日
+          <input id="nextPayDateInput" type="date" required>
+        </label>
+        <button class="primary-button full-width" type="submit">開始本期</button>
+      </form>
+    </section>
+
+    <section class="dashboard" id="dashboard" hidden>
+      <section class="hero-card" id="heroCard">
+        <p class="eyebrow">預估月底可留下</p>
+        <strong id="projectedSavings">$0</strong>
+        <span id="statusPill" class="status-pill">讀取中</span>
+        <p id="safetyText">正在整理本期資料...</p>
+      </section>
+
+      <section class="metrics-grid">
+        <article class="metric-card">
+          <span>安全餘裕</span>
+          <strong id="safetyBuffer">$0</strong>
+        </article>
+        <article class="metric-card">
+          <span>本期已花</span>
+          <strong id="spentAmount">$0</strong>
+        </article>
+        <article class="metric-card">
+          <span>待收款</span>
+          <strong id="pendingAmount">$0</strong>
+        </article>
+        <article class="metric-card">
+          <span>每日可花</span>
+          <strong id="dailyAllowance">$0</strong>
+        </article>
+      </section>
+
+      <nav class="action-tabs" aria-label="主要操作">
+        <button class="tab-button active" type="button" data-panel="expensePanel">記一筆</button>
+        <button class="tab-button" type="button" data-panel="advancePanel">代墊</button>
+        <button class="tab-button" type="button" data-panel="wishPanel">我想買</button>
+        <button class="tab-button" type="button" data-panel="toolsPanel">工具</button>
+      </nav>
+
+      <section class="work-panel active" id="expensePanel">
+        <form id="expenseForm" class="form-grid">
+          <label>
+            金額
+            <input id="expenseAmount" type="number" min="1" step="1" inputmode="numeric" required>
+          </label>
+          <label>
+            日期
+            <input id="expenseDate" type="date" required>
+          </label>
+          <label class="full-width">
+            備註
+            <input id="expenseTitle" type="text" maxlength="80" placeholder="全聯、Uber、晚餐...">
+          </label>
+          <button class="primary-button full-width" type="submit">新增支出</button>
+        </form>
+      </section>
+
+      <section class="work-panel" id="advancePanel">
+        <form id="advanceForm" class="form-grid">
+          <label>
+            總金額
+            <input id="advanceGross" type="number" min="1" step="1" inputmode="numeric" required>
+          </label>
+          <label>
+            日期
+            <input id="advanceDate" type="date" required>
+          </label>
+          <label>
+            自己負擔
+            <input id="advanceOwn" type="number" min="0" step="1" inputmode="numeric" placeholder="留空可用人數平均">
+          </label>
+          <label>
+            總人數
+            <input id="advancePeople" type="number" min="1" step="1" inputmode="numeric" placeholder="3">
+          </label>
+          <label class="full-width">
+            名稱
+            <input id="advanceTitle" type="text" maxlength="80" placeholder="Uber、飲料團、早餐">
+          </label>
+          <button class="primary-button full-width" type="submit">新增代墊</button>
+        </form>
+      </section>
+
+      <section class="work-panel" id="wishPanel">
+        <form id="wishForm" class="form-grid">
+          <label>
+            商品金額
+            <input id="wishAmount" type="number" min="1" step="1" inputmode="numeric" required>
+          </label>
+          <label class="full-width">
+            商品名稱
+            <input id="wishTitle" type="text" maxlength="80" placeholder="Pikmin、手機、生活用品">
+          </label>
+          <button class="secondary-button full-width" type="submit">試算能不能買</button>
+        </form>
+        <div class="wish-result" id="wishResult" hidden></div>
+      </section>
+
+      <section class="work-panel" id="toolsPanel">
+        <div class="button-row">
+          <button class="secondary-button" id="backupButton" type="button">下載備份</button>
+          <label class="file-button">
+            還原備份
+            <input id="restoreInput" type="file" accept="application/json">
+          </label>
         </div>
-        <input type="hidden" id="payment" value="💵現金">
-      </div>
+        <button class="ghost-button danger" id="newCycleButton" type="button">結束並開始新週期</button>
+      </section>
 
-      <!-- 刷卡才會出現：卡別（預設 Cube；會記住上次選擇） -->
-      <div class="input-group" id="cardGroup" style="display:none;">
-        <label>卡別</label>
-        <select id="card">
-          <option value="Cube">Cube（預設）</option>
-          <option value="旅人卡">旅人卡</option>
-          <option value="中國信託 ALL ME">中國信託 ALL ME</option>
-          <option value="DBS eco 永續卡">DBS eco 永續卡</option>
-          <option value="Richart 卡">Richart 卡</option>
-          <option value="富邦 x Costco">富邦 x Costco</option>
-          <option value="台新 x Gogoro Rewards">台新 x Gogoro Rewards</option>
-        </select>
+      <section class="list-section">
+        <div class="section-title">
+          <h2>近期紀錄</h2>
+          <span id="cycleRange"></span>
+        </div>
+        <div class="record-list" id="recordList"></div>
+      </section>
+
+      <section class="list-section">
+        <div class="section-title">
+          <h2>待收款</h2>
+          <span>收回後只會結清待收，不算收入</span>
+        </div>
+        <div class="record-list" id="reimbursementList"></div>
+      </section>
+    </section>
+
+    <div class="toast" id="toast" hidden></div>
+  </main>
+
+  <dialog id="editDialog">
+    <form id="editForm" method="dialog" class="dialog-card">
+      <h2>編輯紀錄</h2>
+      <input id="editId" type="hidden">
+      <label>
+        金額
+        <input id="editAmount" type="number" min="1" step="1" inputmode="numeric" required>
+      </label>
+      <label>
+        日期
+        <input id="editDate" type="date" required>
+      </label>
+      <label>
+        備註
+        <input id="editTitle" type="text" maxlength="80">
+      </label>
+      <div class="button-row">
+        <button class="secondary-button" value="cancel" type="button" id="cancelEditButton">取消</button>
+        <button class="primary-button" value="default" type="submit">儲存</button>
       </div>
-      
-      <button type="submit" id="submitBtn">記下來</button>
     </form>
-    <p id="result"></p>
-  </div>
+  </dialog>
 
-  <script>
-    // ★★★ 請確認這裡是你最新的 Google Script 網址 ★★★
-    const scriptURL = "https://script.google.com/macros/s/AKfycbyojG6KK3ikRZb2yZ2XDXcR938qlNHmlkxMZf0W6k7n5dORzpSFFl_IS9W7WBHtbRc2/exec";
-
-    
-    // 初始化
-    document.getElementById('date').valueAsDate = new Date();
-    let realAssetValue = "$0";
-
-    // 卡別：預設 Cube，會記住上次選擇
-    (function initCard() {
-      const cardEl = document.getElementById('card');
-      if (!cardEl) return;
-      const last = localStorage.getItem('myledger_last_card') || 'Cube';
-      cardEl.value = last;
-      cardEl.addEventListener('change', () => {
-        localStorage.setItem('myledger_last_card', cardEl.value);
-      });
-      updateCardVisibility();
-    })();
-
-    fetchStats(); 
-
-    // 切換 收入/支出
-    function setType(el, val) {
-      document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
-      el.classList.add('active');
-      document.getElementById('type').value = val;
-    }
-
-    function isCardPayment(val) {
-      return val && val.includes('刷卡');
-    }
-
-    function updateCardVisibility() {
-      const pay = document.getElementById('payment').value;
-      const group = document.getElementById('cardGroup');
-      group.style.display = isCardPayment(pay) ? 'block' : 'none';
-    }
-
-    // 切換 付款方式
-    function setPay(el, val) {
-      document.querySelectorAll('.payment-btn').forEach(b => b.classList.remove('active'));
-      el.classList.add('active');
-      document.getElementById('payment').value = val;
-      updateCardVisibility();
-
-      // 預設：切到刷卡時就帶出上次選擇（或 Cube）
-      if (isCardPayment(val)) {
-        const last = localStorage.getItem('myledger_last_card') || 'Cube';
-        const cardEl = document.getElementById('card');
-        cardEl.value = last;
-      }
-    }
-
-    // 送出表單
-    document.getElementById("expenseForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const btn = document.getElementById("submitBtn");
-      const originalText = btn.innerText;
-      
-      btn.innerText = "⏳ 寫入中...";
-      btn.disabled = true;
-
-      const paymentVal = document.getElementById("payment").value;
-      const cardVal = document.getElementById("card")?.value || "Cube";
-      if (isCardPayment(paymentVal)) {
-        localStorage.setItem('myledger_last_card', cardVal);
-      }
-
-      const data = {
-        date: document.getElementById("date").value,
-        type: document.getElementById("type").value,
-        item: document.getElementById("item").value,
-        amount: document.getElementById("amount").value,
-        payment: paymentVal,
-        card: isCardPayment(paymentVal) ? cardVal : ""
-      };
-
-      try {
-        await fetch(scriptURL, { method: "POST", body: JSON.stringify(data) });
-        
-        document.getElementById("result").innerText = "✨ 記錄成功！";
-        document.getElementById("result").style.color = "#2e7d32";
-        
-        setTimeout(() => document.getElementById("result").innerText = "", 3000);
-        
-        document.getElementById("item").value = "";
-        document.getElementById("amount").value = "";
-        
-        document.getElementById('type').value = "支出";
-        document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.type-btn')[0].classList.add('active');
-
-        fetchStats();
-
-      } catch (err) {
-        document.getElementById("result").innerText = "❌ 記錄失敗，請檢查網路";
-        document.getElementById("result").style.color = "red";
-      } finally {
-        btn.innerText = originalText;
-        btn.disabled = false;
-      }
-    });
-
-    // 讀取統計
-    async function fetchStats() {
-      try {
-        let res = await fetch(scriptURL);
-        let data = await res.json();
-        
-        document.getElementById('inc').innerText = "$" + data.monthIncome;
-        document.getElementById('exp').innerText = "$" + data.monthExpense;
-        document.getElementById('net').innerText = "$" + data.monthNet;
-        
-        realAssetValue = "$" + data.totalAssets;
-        document.getElementById('asset').innerText = "*****";
-        
-      } catch (e) {
-        console.error("統計讀取失敗", e);
-      }
-    }
-
-    function toggleAsset() {
-      const assetEl = document.getElementById('asset');
-      if (assetEl.innerText === "*****") {
-        assetEl.innerText = realAssetValue;
-      } else {
-        assetEl.innerText = "*****";
-      }
-    }
-  </script>
+  <script src="./js/config.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"></script>
+  <script src="./js/app.js"></script>
 </body>
 </html>

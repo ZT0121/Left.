@@ -1,14 +1,14 @@
 {
-  "name": "MyLedger",
-  "short_name": "記帳本",
+  "name": "MyLedger 最低存款控制助手",
+  "short_name": "MyLedger",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#F9F8F6",
-  "theme_color": "#F9F8F6",
+  "background_color": "#f7efe3",
+  "theme_color": "#d3b48c",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "./icon.png",  
+      "src": "./icon.png",
       "sizes": "192x192",
       "type": "image/png"
     },
