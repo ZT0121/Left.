@@ -29,7 +29,17 @@
     currency: "TWD",
     maximumFractionDigits: 0
   }).format(Number(value || 0));
-  const today = () => new Date().toISOString().slice(0, 10);
+  const formatDate = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+  const parseLocalDate = (value) => {
+    const [year, month, day] = String(value).split("-").map(Number);
+    return new Date(year, month - 1, day);
+  };
+  const today = () => formatDate(new Date());
   const toNumber = window.LeftBudget.toNumber;
   const supabaseUrl = String(config.url || "").replace(/\/+$/, "");
   const daysBetween = window.LeftBudget.daysBetween;
@@ -37,7 +47,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260714.02")
+      navigator.serviceWorker.register("./sw.js?v=20260714.03")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -269,6 +279,7 @@
 
     list.innerHTML = rows.map((row) => {
       const card = state.creditCards.find((item) => item.id === row.card_id);
+      const closingDate = row.card_id ? getCardClosingDate(row.card_id, row.charge_date) : "";
       const sourceLabel = {
         general: "一般刷卡",
         advance: "代墊刷卡",
@@ -281,7 +292,7 @@
         <article class="record-item">
           <div>
             <p class="record-title">${escapeHtml(row.title)}</p>
-            <p class="record-meta">${sourceLabel} · ${escapeHtml(card?.name || "信用卡")} · 繳款 ${row.due_date || "未設定"}${row.status === "paid" ? ` · 已繳 ${row.paid_at || ""}` : ""}</p>
+            <p class="record-meta">${sourceLabel} · ${escapeHtml(card?.name || "信用卡")} · 消費 ${row.charge_date} · 結帳 ${closingDate || "未設定"} · 繳款 ${row.due_date || "未設定"}${row.status === "paid" ? ` · 已繳 ${row.paid_at || ""}` : ""}</p>
           </div>
           <div class="record-amount">${money(row.amount)}</div>
           <div class="record-actions">
@@ -354,7 +365,7 @@
   function getLatestCardClosingDate(cardId, baseDate = today()) {
     const card = state.creditCards.find((item) => item.id === cardId);
     if (!card) return baseDate;
-    const base = new Date(`${baseDate}T00:00:00`);
+    const base = parseLocalDate(baseDate);
     let year = base.getFullYear();
     let month = base.getMonth();
     const closingDay = Number(card.closing_day);
@@ -368,7 +379,27 @@
 
     const lastDay = new Date(year, month + 1, 0).getDate();
     const closing = new Date(year, month, Math.min(closingDay, lastDay));
-    return closing.toISOString().slice(0, 10);
+    return formatDate(closing);
+  }
+
+  function getCardClosingDate(cardId, chargeDate) {
+    const card = state.creditCards.find((item) => item.id === cardId);
+    if (!card) return chargeDate;
+    const date = parseLocalDate(chargeDate);
+    const chargeDay = date.getDate();
+    let closingMonth = date.getMonth();
+    let closingYear = date.getFullYear();
+    if (chargeDay > Number(card.closing_day)) {
+      closingMonth += 1;
+      if (closingMonth > 11) {
+        closingMonth = 0;
+        closingYear += 1;
+      }
+    }
+
+    const lastDay = new Date(closingYear, closingMonth + 1, 0).getDate();
+    const closing = new Date(closingYear, closingMonth, Math.min(Number(card.closing_day), lastDay));
+    return formatDate(closing);
   }
 
   function parseAmountLines(value, fieldName) {
@@ -427,20 +458,10 @@
   function getCardDueDate(cardId, chargeDate) {
     const card = state.creditCards.find((item) => item.id === cardId);
     if (!card) return chargeDate;
-    const date = new Date(`${chargeDate}T00:00:00`);
-    const chargeDay = date.getDate();
-    let closingMonth = date.getMonth();
-    let closingYear = date.getFullYear();
-    if (chargeDay > Number(card.closing_day)) {
-      closingMonth += 1;
-      if (closingMonth > 11) {
-        closingMonth = 0;
-        closingYear += 1;
-      }
-    }
+    const closingDate = parseLocalDate(getCardClosingDate(cardId, chargeDate));
+    let paymentMonth = closingDate.getMonth();
+    let paymentYear = closingDate.getFullYear();
 
-    let paymentMonth = closingMonth;
-    let paymentYear = closingYear;
     if (Number(card.payment_day) <= Number(card.closing_day)) {
       paymentMonth += 1;
       if (paymentMonth > 11) {
@@ -451,7 +472,7 @@
 
     const lastDay = new Date(paymentYear, paymentMonth + 1, 0).getDate();
     const due = new Date(paymentYear, paymentMonth, Math.min(Number(card.payment_day), lastDay));
-    return due.toISOString().slice(0, 10);
+    return formatDate(due);
   }
 
   async function ensureSettings() {
