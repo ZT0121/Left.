@@ -1,4 +1,4 @@
 window.LEFT_SUPABASE = {
-  url: "",
-  anonKey: ""
+  url: "https://fexpqifaqrygwlhkvrvu.supabase.co",
+  anonKey: "sb_publishable_d-DKh3JI1yPPeKSzvvUkag_o-k5eDls"
 };
