@@ -42,6 +42,12 @@
     $(id).hidden = !visible;
   }
 
+  function showConfigWarning(title, text) {
+    $("configWarningTitle").textContent = title;
+    $("configWarningText").innerHTML = text;
+    setVisible("configWarning", true);
+  }
+
   function formatSupabaseFetchError(error) {
     const message = error?.message || "";
     if (/failed to fetch|networkerror|load failed/i.test(message)) {
@@ -302,14 +308,20 @@
 
   async function initAuth() {
     if (!hasConfig || !client) {
-      setVisible("configWarning", true);
+      showConfigWarning(
+        "尚未設定 Supabase。",
+        '請先依 README 建立 Supabase 專案，並填入 <code>js/config.js</code>。'
+      );
       setVisible("authPanel", false);
       return;
     }
 
     const connectionError = await checkSupabaseConnection();
     if (connectionError) {
-      setVisible("configWarning", true);
+      showConfigWarning(
+        "Supabase 設定無法使用。",
+        '目前 <code>js/config.js</code> 有設定值，但專案網址或 key 無法連線。'
+      );
       setVisible("authPanel", true);
       setVisible("cyclePanel", false);
       setVisible("dashboard", false);
