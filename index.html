@@ -8,9 +8,6 @@
   <link rel="manifest" href="./manifest.json">
   <meta name="theme-color" content="#f7efe3">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./css/style.css">
 </head>
 <body>
@@ -96,12 +93,22 @@
           <span>每日可花</span>
           <strong id="dailyAllowance">$0</strong>
         </article>
+        <article class="metric-card">
+          <span>本期信用卡應繳</span>
+          <strong id="cardDueAmount">$0</strong>
+        </article>
+        <article class="metric-card">
+          <span>未來分期未償</span>
+          <strong id="futureInstallmentAmount">$0</strong>
+        </article>
       </section>
 
       <nav class="action-tabs" aria-label="主要操作">
         <button class="tab-button active" type="button" data-panel="expensePanel">記一筆</button>
         <button class="tab-button" type="button" data-panel="advancePanel">代墊</button>
         <button class="tab-button" type="button" data-panel="wishPanel">我想買</button>
+        <button class="tab-button" type="button" data-panel="cardPanel">信用卡</button>
+        <button class="tab-button" type="button" data-panel="installmentPanel">分期</button>
         <button class="tab-button" type="button" data-panel="toolsPanel">工具</button>
       </nav>
 
@@ -118,6 +125,17 @@
           <label class="full-width">
             備註
             <input id="expenseTitle" type="text" maxlength="80" placeholder="全聯、Uber、晚餐...">
+          </label>
+          <label>
+            付款方式
+            <select id="expensePaymentMethod">
+              <option value="cash">現金／轉帳</option>
+              <option value="credit_card">信用卡</option>
+            </select>
+          </label>
+          <label id="expenseCardLabel">
+            信用卡
+            <select id="expenseCardSelect"></select>
           </label>
           <button class="primary-button full-width" type="submit">新增支出</button>
         </form>
@@ -145,6 +163,17 @@
             名稱
             <input id="advanceTitle" type="text" maxlength="80" placeholder="Uber、飲料團、早餐">
           </label>
+          <label>
+            付款方式
+            <select id="advancePaymentMethod">
+              <option value="cash">現金／轉帳</option>
+              <option value="credit_card">信用卡</option>
+            </select>
+          </label>
+          <label id="advanceCardLabel">
+            信用卡
+            <select id="advanceCardSelect"></select>
+          </label>
           <button class="primary-button full-width" type="submit">新增代墊</button>
         </form>
       </section>
@@ -162,6 +191,102 @@
           <button class="secondary-button full-width" type="submit">試算能不能買</button>
         </form>
         <div class="wish-result" id="wishResult" hidden></div>
+      </section>
+
+      <section class="work-panel" id="cardPanel">
+        <form id="cardForm" class="form-grid">
+          <label>
+            卡片名稱
+            <input id="cardName" type="text" maxlength="40" placeholder="富邦、玉山..." required>
+          </label>
+          <label>
+            結帳日
+            <input id="cardClosingDay" type="number" min="1" max="31" step="1" inputmode="numeric" required>
+          </label>
+          <label>
+            繳款日
+            <input id="cardPaymentDay" type="number" min="1" max="31" step="1" inputmode="numeric" required>
+          </label>
+          <button class="primary-button full-width" type="submit">新增信用卡</button>
+        </form>
+
+        <form id="openingBillForm" class="form-grid sub-form">
+          <label>
+            期初帳單金額
+            <input id="openingBillAmount" type="number" min="1" step="1" inputmode="numeric" required>
+          </label>
+          <label>
+            帳單日期
+            <input id="openingBillDate" type="date" required>
+          </label>
+          <label>
+            信用卡
+            <select id="openingBillCardSelect" required></select>
+          </label>
+          <label>
+            繳款日
+            <input id="openingBillDueDate" type="date" required>
+          </label>
+          <button class="secondary-button full-width" type="submit">新增期初帳單</button>
+          <p class="helper-text full-width">從 0 開始使用時，把目前這期卡費整筆輸入；未來尚未到期的分期不要放進來。</p>
+        </form>
+
+        <form id="cardFeeForm" class="form-grid sub-form">
+          <label>
+            費用／利息
+            <input id="cardFeeAmount" type="number" min="1" step="1" inputmode="numeric" required>
+          </label>
+          <label>
+            日期
+            <input id="cardFeeDate" type="date" required>
+          </label>
+          <label>
+            信用卡
+            <select id="cardFeeCardSelect" required></select>
+          </label>
+          <label>
+            繳款日
+            <input id="cardFeeDueDate" type="date" required>
+          </label>
+          <label class="full-width">
+            名稱
+            <input id="cardFeeTitle" type="text" maxlength="80" placeholder="分期手續費、循環利息、年費...">
+          </label>
+          <button class="secondary-button full-width" type="submit">新增費用／利息</button>
+        </form>
+
+        <div class="inline-list" id="cardList"></div>
+      </section>
+
+      <section class="work-panel" id="installmentPanel">
+        <form id="installmentForm" class="form-grid">
+          <label class="full-width">
+            商品名稱
+            <input id="installmentTitle" type="text" maxlength="80" placeholder="手機、家電..." required>
+          </label>
+          <label>
+            總額
+            <input id="installmentTotal" type="number" min="1" step="1" inputmode="numeric" required>
+          </label>
+          <label>
+            期數
+            <input id="installmentCount" type="number" min="1" step="1" inputmode="numeric" required>
+          </label>
+          <label>
+            首期日期
+            <input id="installmentFirstDate" type="date" required>
+          </label>
+          <label>
+            手續費／利息
+            <input id="installmentFee" type="number" min="0" step="1" inputmode="numeric" value="0">
+          </label>
+          <label>
+            信用卡
+            <select id="installmentCardSelect" required></select>
+          </label>
+          <button class="primary-button full-width" type="submit">新增分期</button>
+          <p class="helper-text full-width">首頁會用完整承諾金額檢查安全餘裕，但本期現金流只計入本期應繳。</p>
+        </form>
       </section>
 
       <section class="work-panel" id="toolsPanel">
@@ -189,6 +314,22 @@
           <span>收回後只會結清待收，不算收入</span>
         </div>
         <div class="record-list" id="reimbursementList"></div>
+      </section>
+
+      <section class="list-section">
+        <div class="section-title">
+          <h2>信用卡明細</h2>
+          <span>繳卡費只會標記已繳，不會再算支出</span>
+        </div>
+        <div class="record-list" id="cardChargeList"></div>
+      </section>
+
+      <section class="list-section">
+        <div class="section-title">
+          <h2>分期計畫</h2>
+          <span>用來看未來還綁住多少</span>
+        </div>
+        <div class="record-list" id="installmentList"></div>
       </section>
     </section>
 
@@ -220,6 +361,7 @@
 
   <script src="./js/config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"></script>
+  <script src="./js/budget.js"></script>
   <script src="./js/app.js"></script>
 </body>
 </html>
