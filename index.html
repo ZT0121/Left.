@@ -36,8 +36,13 @@
           Email
           <input id="emailInput" type="email" autocomplete="email" placeholder="you@example.com" required>
         </label>
-        <button class="primary-button" type="submit">寄出登入連結</button>
-        <p class="helper-text" id="authMessage">使用 Magic Link 登入，同一帳號可在手機和電腦同步。</p>
+        <label>
+          密碼
+          <input id="passwordInput" type="password" autocomplete="current-password" minlength="6" placeholder="至少 6 個字元" required>
+        </label>
+        <button class="primary-button" type="submit">登入</button>
+        <button class="secondary-button" id="signUpButton" type="button">建立帳號</button>
+        <p class="helper-text" id="authMessage">使用 Email 和密碼登入，同一帳號可在手機和電腦同步。</p>
       </form>
     </section>
 

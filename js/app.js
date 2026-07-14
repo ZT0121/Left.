@@ -2,7 +2,14 @@
   const config = window.LEFT_SUPABASE || window.MYLEDGER_SUPABASE || {};
   const hasConfig = Boolean(config.url && config.anonKey);
   const client = hasConfig && window.supabase
-    ? window.supabase.createClient(config.url, config.anonKey)
+    ? window.supabase.createClient(config.url, config.anonKey, {
+      auth: {
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        flowType: "implicit",
+        persistSession: true
+      }
+    })
     : null;
 
   const state = {
@@ -1117,17 +1124,59 @@
   }
 
   function wireEvents() {
+    function getAuthCredentials() {
+      const email = $("emailInput").value.trim();
+      const password = $("passwordInput").value;
+      return { email, password };
+    }
+
+    async function signInWithPassword() {
+      const { email, password } = getAuthCredentials();
+      const { data, error } = await client.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        $("authMessage").textContent = `登入失敗：${error.message}`;
+        return;
+      }
+
+      state.user = data.user;
+      $("signOutButton").hidden = false;
+      $("authMessage").textContent = "登入成功。";
+      await refresh();
+    }
+
+    async function signUpWithPassword() {
+      const { email, password } = getAuthCredentials();
+      const { data, error } = await client.auth.signUp({
+        email,
+        password
+      });
+
+      if (error) {
+        $("authMessage").textContent = `建立帳號失敗：${error.message}`;
+        return;
+      }
+
+      if (!data.session) {
+        $("authMessage").textContent = "帳號已建立，請先到信箱完成確認，再回來用密碼登入。";
+        return;
+      }
+
+      state.user = data.user;
+      $("signOutButton").hidden = false;
+      $("authMessage").textContent = "帳號已建立並登入成功。";
+      await refresh();
+    }
+
     $("authForm").addEventListener("submit", async (event) => {
       event.preventDefault();
-      const email = $("emailInput").value.trim();
-      const { error } = await client.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: window.location.href }
-      });
-      $("authMessage").textContent = error
-        ? `寄送失敗：${formatSupabaseFetchError(error)}`
-        : "登入連結已寄出，請去信箱點選連結。";
+      await signInWithPassword();
     });
+
+    $("signUpButton").addEventListener("click", wrap(signUpWithPassword));
 
     $("signOutButton").addEventListener("click", async () => {
       await client.auth.signOut();
