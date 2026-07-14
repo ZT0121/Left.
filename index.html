@@ -4,11 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Left. | 最低存款控制助手</title>
-  <link rel="icon" href="./icon.png?v=20260714.03" type="image/png">
-  <link rel="manifest" href="./manifest.json?v=20260714.03">
+  <link rel="icon" href="./icon.png?v=20260714.04" type="image/png">
+  <link rel="manifest" href="./manifest.json?v=20260714.04">
   <meta name="theme-color" content="#f7efe3">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="./css/style.css?v=20260714.03">
+  <link rel="stylesheet" href="./css/style.css?v=20260714.04">
 </head>
 <body>
   <main class="app-shell">
@@ -194,6 +194,26 @@
           <button class="primary-button full-width" type="submit">新增代墊／補貼待收</button>
           <p class="helper-text full-width">餐點不同時，上面填自己的餐點，這裡只填別人的餐點；平台費／運費會依分攤人數平均，並把每個人分攤後的金額列入待收。</p>
         </form>
+
+        <form id="reimbursementForm" class="form-grid sub-form">
+          <label>
+            回補金額
+            <input id="reimbursementAmount" type="number" min="1" step="1" inputmode="numeric" required>
+          </label>
+          <label>
+            狀態
+            <select id="reimbursementStatus">
+              <option value="received">已收到</option>
+              <option value="pending">待收</option>
+            </select>
+          </label>
+          <label class="full-width">
+            名稱
+            <input id="reimbursementTitle" type="text" maxlength="80" placeholder="媽媽信用卡帳單回補">
+          </label>
+          <button class="secondary-button full-width" type="submit">新增回補 / 待收</button>
+          <p class="helper-text full-width">用在已經包含於帳單或支出裡的回補款；標成已收到會加回月底餘額。</p>
+        </form>
       </section>
 
       <section class="work-panel" id="wishPanel">
@@ -352,7 +372,7 @@
     </section>
 
     <div class="toast" id="toast" hidden></div>
-    <p class="app-version">v20260714.03</p>
+    <p class="app-version">v20260714.04</p>
   </main>
 
   <dialog id="editDialog">
@@ -378,9 +398,9 @@
     </form>
   </dialog>
 
-  <script src="./js/config.js?v=20260714.03"></script>
+  <script src="./js/config.js?v=20260714.04"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"></script>
-  <script src="./js/budget.js?v=20260714.03"></script>
-  <script src="./js/app.js?v=20260714.03"></script>
+  <script src="./js/budget.js?v=20260714.04"></script>
+  <script src="./js/app.js?v=20260714.04"></script>
 </body>
 </html>

@@ -47,7 +47,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260714.03")
+      navigator.serviceWorker.register("./sw.js?v=20260714.04")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -854,6 +854,27 @@
     await refresh();
   }
 
+  async function addManualReimbursement(event) {
+    event.preventDefault();
+    const amount = toNumber($("reimbursementAmount").value);
+    const status = $("reimbursementStatus").value;
+    const title = $("reimbursementTitle").value.trim() || "媽媽信用卡帳單回補";
+    const { error } = await client.from("reimbursements").insert({
+      user_id: state.user.id,
+      cycle_id: state.cycle.id,
+      transaction_id: null,
+      title,
+      amount,
+      status,
+      received_at: status === "received" ? today() : null
+    });
+    if (error) throw error;
+    event.target.reset();
+    $("reimbursementStatus").value = "received";
+    showToast(status === "received" ? "回補已加入月底餘額" : "待收款已新增");
+    await refresh();
+  }
+
   async function insertTransaction(payload, reload = true) {
     const { data, error } = await client
       .from("transactions")
@@ -1352,6 +1373,7 @@
     $("cycleForm").addEventListener("submit", wrap(createCycle));
     $("expenseForm").addEventListener("submit", wrap(addExpense));
     $("advanceForm").addEventListener("submit", wrap(addAdvance));
+    $("reimbursementForm").addEventListener("submit", wrap(addManualReimbursement));
     $("wishForm").addEventListener("submit", runWish);
     $("cardForm").addEventListener("submit", wrap(addCreditCard));
     $("openingBillForm").addEventListener("submit", wrap(addOpeningBill));

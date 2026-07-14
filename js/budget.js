@@ -75,6 +75,9 @@
     const pending = reimbursements
       .filter((row) => row.status === "pending")
       .reduce((sum, row) => sum + toNumber(row.amount), 0);
+    const receivedManualReimbursements = reimbursements
+      .filter((row) => row.status === "received" && !row.transaction_id)
+      .reduce((sum, row) => sum + toNumber(row.amount), 0);
     const cardDue = cardCharges
       .filter((row) => row.status !== "paid")
       .reduce((sum, row) => sum + toNumber(row.amount), 0);
@@ -97,7 +100,7 @@
         return sum + futureAmount;
       }, 0) + toNumber(extra.futureCommitment);
 
-    const projected = totalIncome - spent;
+    const projected = totalIncome + receivedManualReimbursements - spent;
     const cashBuffer = projected - toNumber(cycle.minimum_savings);
     const commitmentBuffer = cashBuffer - futureInstallmentBalance;
     const daysLeft = daysBetween(today, cycle.expected_pay_date);

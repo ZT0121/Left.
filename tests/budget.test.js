@@ -110,4 +110,32 @@ function summarize(overrides = {}) {
   assert.equal(result.projected, 51700);
 }
 
+{
+  const result = summarize({
+    transactions: [
+      { kind: "opening_card_bill", amount: 28000 }
+    ],
+    reimbursements: [
+      { amount: 14000, status: "received", transaction_id: null }
+    ]
+  });
+
+  assert.equal(result.spent, 28000);
+  assert.equal(result.projected, 38000);
+}
+
+{
+  const result = summarize({
+    transactions: [
+      { id: "tx-1", kind: "advance", amount: 300, gross_amount: 900 }
+    ],
+    reimbursements: [
+      { amount: 600, status: "received", transaction_id: "tx-1" }
+    ]
+  });
+
+  assert.equal(result.spent, 300);
+  assert.equal(result.projected, 51700);
+}
+
 console.log("budget tests passed");
