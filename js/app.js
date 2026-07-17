@@ -73,8 +73,28 @@
     return row.source_type === "opening_bill";
   }
 
+  function shouldDeriveStatementDate(row) {
+    return row.source_type === "general" || row.source_type === "advance" || row.source_type === "subscription";
+  }
+
+  function getCardStatementDate(row) {
+    if (!row.card_id) return row.charge_date || row.due_date || "";
+    if (isEstimatedCardCharge(row) && row.charge_date && shouldDeriveStatementDate(row)) {
+      return getCardClosingDate(row.card_id, row.charge_date);
+    }
+    return row.charge_date || row.due_date || "";
+  }
+
+  function getEffectiveCardChargeDueDate(row) {
+    if (!row.card_id) return row.due_date || "";
+    if (isEstimatedCardCharge(row) && row.charge_date && shouldDeriveStatementDate(row)) {
+      return getCardDueDate(row.card_id, row.charge_date);
+    }
+    return row.due_date || "";
+  }
+
   function cardStatementKey(row) {
-    const statementDate = row.charge_date || row.due_date;
+    const statementDate = getCardStatementDate(row);
     return row.card_id && statementDate ? `${row.card_id}:${String(statementDate).slice(0, 7)}` : "";
   }
 
@@ -87,9 +107,9 @@
   function getEstimateFor(cardId, dueDate) {
     if (!cardId || !dueDate) return 0;
     const actualRow = state.cardCharges.find((row) => isActualStatement(row) && row.card_id === cardId && row.due_date === dueDate);
-    const statementMonth = String(actualRow?.charge_date || dueDate).slice(0, 7);
+    const statementKey = actualRow ? cardStatementKey(actualRow) : `${cardId}:${String(dueDate).slice(0, 7)}`;
     return [...state.cardCharges, ...getSubscriptionCardEstimateRows(), ...getUpcomingInstallmentEstimateRows()]
-      .filter((row) => isEstimatedCardCharge(row) && row.card_id === cardId && String(row.charge_date || row.due_date || "").slice(0, 7) === statementMonth)
+      .filter((row) => isEstimatedCardCharge(row) && row.card_id === cardId && cardStatementKey(row) === statementKey)
       .reduce((sum, row) => sum + toNumber(row.amount), 0);
   }
 
@@ -153,20 +173,24 @@
     const groups = new Map();
 
     [...state.cardCharges, ...getSubscriptionCardEstimateRows(), ...getUpcomingInstallmentEstimateRows()]
-      .filter((row) => isEstimatedCardCharge(row) && row.due_date)
+      .filter((row) => isEstimatedCardCharge(row) && (row.due_date || row.charge_date))
       .forEach((row) => {
         const key = cardStatementKey(row);
         if (!key || actualKeys.has(key)) return;
+        const dueDate = getEffectiveCardChargeDueDate(row);
         const current = groups.get(key) || {
           key,
           card_id: row.card_id,
-          due_date: row.due_date,
+          due_date: dueDate,
           amount: 0,
           count: 0,
           items: [],
           first_charge_date: row.charge_date || row.created_at || "",
           last_charge_date: row.charge_date || row.created_at || ""
         };
+        if (dueDate && (!current.due_date || dueDate > current.due_date)) {
+          current.due_date = dueDate;
+        }
         current.amount += toNumber(row.amount);
         current.count += 1;
         current.items.push(row);
@@ -195,7 +219,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.21")
+      navigator.serviceWorker.register("./sw.js?v=20260717.22")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;

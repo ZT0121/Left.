@@ -19,6 +19,32 @@
     return next.toISOString().slice(0, 10);
   }
 
+  function formatDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function getCardClosingDate(cards, cardId, chargeDate) {
+    const card = (cards || []).find((item) => item.id === cardId);
+    if (!card || !chargeDate) return chargeDate;
+    const date = parseDate(chargeDate);
+    let closingMonth = date.getMonth();
+    let closingYear = date.getFullYear();
+    if (date.getDate() > Number(card.closing_day)) {
+      closingMonth += 1;
+      if (closingMonth > 11) {
+        closingMonth = 0;
+        closingYear += 1;
+      }
+    }
+
+    const lastDay = new Date(closingYear, closingMonth + 1, 0).getDate();
+    const closing = new Date(closingYear, closingMonth, Math.min(Number(card.closing_day), lastDay));
+    return formatDate(closing);
+  }
+
   function daysBetween(from, to) {
     const start = parseDate(from);
     const end = parseDate(to);
@@ -76,6 +102,7 @@
     const transactions = input.transactions || [];
     const reimbursements = input.reimbursements || [];
     const cardCharges = input.cardCharges || [];
+    const creditCards = input.creditCards || [];
     const installmentPlans = input.installmentPlans || [];
     const incomeRecords = input.incomeRecords || [];
     const subscriptions = input.subscriptions || [];
@@ -94,8 +121,11 @@
     const receivedManualReimbursements = reimbursements
       .filter((row) => row.status === "received" && !row.transaction_id)
       .reduce((sum, row) => sum + toNumber(row.amount), 0);
+    const shouldDeriveStatementDate = (row) => row.source_type === "general" || row.source_type === "advance" || row.source_type === "subscription";
     const statementKey = (row) => {
-      const statementDate = row.charge_date || row.due_date;
+      const statementDate = row.card_id && row.charge_date && shouldDeriveStatementDate(row)
+        ? getCardClosingDate(creditCards, row.card_id, row.charge_date)
+        : row.charge_date || row.due_date;
       return row.card_id && statementDate ? `${row.card_id}:${String(statementDate).slice(0, 7)}` : "";
     };
     const actualStatementKeys = new Set(
