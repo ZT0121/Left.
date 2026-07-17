@@ -16,8 +16,9 @@ function summarize(overrides = {}) {
     reimbursements: [],
     cardCharges: [],
     installmentPlans: [],
+    subscriptions: [],
     ...overrides
-  }, { today: "2026-08-01" });
+  }, { today: "2026-08-01", currentMonth: "2026-08" });
 }
 
 {
@@ -32,6 +33,8 @@ function summarize(overrides = {}) {
 
   assert.equal(result.spent, 300);
   assert.equal(result.cardDue, 300);
+  assert.equal(result.cardDueActual, 0);
+  assert.equal(result.cardDueEstimate, 300);
   assert.equal(result.projected, 51700);
 }
 
@@ -65,6 +68,8 @@ function summarize(overrides = {}) {
   });
 
   assert.equal(result.cardDue, 480);
+  assert.equal(result.cardDueActual, 480);
+  assert.equal(result.cardDueEstimate, 0);
   assert.equal(result.projected, 51020);
 }
 
@@ -83,6 +88,8 @@ function summarize(overrides = {}) {
   });
 
   assert.equal(result.cardDue, 0);
+  assert.equal(result.cardDueActual, 0);
+  assert.equal(result.cardDueEstimate, 0);
   assert.equal(result.projected, 51020);
 }
 
@@ -110,6 +117,19 @@ function summarize(overrides = {}) {
   assert.equal(result.cardDue, 2000);
   assert.equal(result.futureInstallmentBalance, 10000);
   assert.equal(result.commitmentBuffer, 35000);
+}
+
+{
+  const result = summarize({
+    subscriptions: [
+      { title: "iCloud", amount: 90, is_active: true, last_recorded_month: null },
+      { title: "Spotify", amount: 149, is_active: true, last_recorded_month: "2026-08" },
+      { title: "Paused", amount: 500, is_active: false, last_recorded_month: null }
+    ]
+  });
+
+  assert.equal(result.subscriptionEstimate, 90);
+  assert.equal(result.projected, 51910);
 }
 
 {

@@ -60,7 +60,10 @@
         daysLeft: 0,
         daily: 0,
         cardDue: 0,
-        futureInstallmentBalance: 0
+        cardDueActual: 0,
+        cardDueEstimate: 0,
+        futureInstallmentBalance: 0,
+        subscriptionEstimate: 0
       };
     }
 
@@ -69,11 +72,16 @@
     const cardCharges = input.cardCharges || [];
     const installmentPlans = input.installmentPlans || [];
     const incomeRecords = input.incomeRecords || [];
+    const subscriptions = input.subscriptions || [];
     const today = extra.today || new Date().toISOString().slice(0, 10);
+    const currentMonth = extra.currentMonth || today.slice(0, 7);
 
     const recordedIncome = incomeRecords.reduce((sum, row) => sum + toNumber(row.amount), 0);
     const totalIncome = toNumber(cycle.salary_income) + toNumber(cycle.mother_support) + recordedIncome;
     const spent = transactions.reduce((sum, row) => sum + toNumber(row.amount), 0) + toNumber(extra.spend);
+    const subscriptionEstimate = subscriptions
+      .filter((row) => row.is_active !== false && row.last_recorded_month !== currentMonth)
+      .reduce((sum, row) => sum + toNumber(row.amount), 0);
     const pending = reimbursements
       .filter((row) => row.status === "pending")
       .reduce((sum, row) => sum + toNumber(row.amount), 0);
@@ -87,13 +95,19 @@
         .map(statementKey)
         .filter(Boolean)
     );
-    const cardDue = cardCharges
+    const payableCardCharges = cardCharges
       .filter((row) => row.status !== "paid")
       .filter((row) => {
         const isEstimate = row.source_type === "general" || row.source_type === "advance" || row.source_type === "installment";
         return !isEstimate || !actualStatementKeys.has(statementKey(row));
-      })
+      });
+    const cardDueActual = payableCardCharges
+      .filter((row) => row.source_type !== "general" && row.source_type !== "advance" && row.source_type !== "installment")
       .reduce((sum, row) => sum + toNumber(row.amount), 0);
+    const cardDueEstimate = payableCardCharges
+      .filter((row) => row.source_type === "general" || row.source_type === "advance" || row.source_type === "installment")
+      .reduce((sum, row) => sum + toNumber(row.amount), 0);
+    const cardDue = cardDueActual + cardDueEstimate;
 
     const futureInstallmentBalance = installmentPlans
       .filter((plan) => plan.is_active !== false)
@@ -113,7 +127,7 @@
         return sum + futureAmount;
       }, 0) + toNumber(extra.futureCommitment);
 
-    const projected = totalIncome + receivedManualReimbursements - spent;
+    const projected = totalIncome + receivedManualReimbursements - spent - subscriptionEstimate;
     const cashBuffer = projected - toNumber(cycle.minimum_savings);
     const commitmentBuffer = cashBuffer - futureInstallmentBalance;
     const daysLeft = daysBetween(today, cycle.expected_pay_date);
@@ -129,7 +143,10 @@
       daysLeft,
       daily,
       cardDue,
-      futureInstallmentBalance
+      cardDueActual,
+      cardDueEstimate,
+      futureInstallmentBalance,
+      subscriptionEstimate
     };
   }
 

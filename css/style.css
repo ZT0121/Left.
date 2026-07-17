@@ -311,6 +311,14 @@ select:focus {
   font-size: 1.34rem;
 }
 
+.metric-detail {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
 .action-tabs {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

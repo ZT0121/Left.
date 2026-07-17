@@ -107,6 +107,25 @@ create table if not exists public.income_records (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.monthly_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  title text not null,
+  amount numeric(12, 0) not null check (amount > 0),
+  charge_day integer not null check (charge_day between 1 and 31),
+  payment_method text not null default 'cash' check (payment_method in ('cash', 'credit_card')),
+  credit_card_id uuid references public.credit_cards(id) on delete set null,
+  account_id uuid references public.accounts(id) on delete set null,
+  is_active boolean not null default true,
+  last_recorded_month text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check (
+    (payment_method = 'credit_card' and credit_card_id is not null and account_id is null)
+    or (payment_method = 'cash' and credit_card_id is null)
+  )
+);
+
 create table if not exists public.installment_plans (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -178,6 +197,7 @@ create index if not exists credit_cards_user_idx on public.credit_cards(user_id,
 create index if not exists accounts_user_idx on public.accounts(user_id, is_active, name);
 create index if not exists account_transfers_user_cycle_idx on public.account_transfers(user_id, cycle_id, date desc);
 create index if not exists income_records_user_cycle_idx on public.income_records(user_id, cycle_id, date desc);
+create index if not exists monthly_subscriptions_user_idx on public.monthly_subscriptions(user_id, is_active, charge_day);
 create index if not exists installment_plans_user_card_idx on public.installment_plans(user_id, card_id, is_active);
 create index if not exists credit_card_charges_user_cycle_idx on public.credit_card_charges(user_id, cycle_id, status, due_date);
 create index if not exists credit_card_charges_card_idx on public.credit_card_charges(user_id, card_id, due_date);
@@ -237,6 +257,11 @@ create trigger set_income_records_updated_at
 before update on public.income_records
 for each row execute function public.set_updated_at();
 
+drop trigger if exists set_monthly_subscriptions_updated_at on public.monthly_subscriptions;
+create trigger set_monthly_subscriptions_updated_at
+before update on public.monthly_subscriptions
+for each row execute function public.set_updated_at();
+
 drop trigger if exists set_installment_plans_updated_at on public.installment_plans;
 create trigger set_installment_plans_updated_at
 before update on public.installment_plans
@@ -256,6 +281,7 @@ alter table public.credit_cards enable row level security;
 alter table public.accounts enable row level security;
 alter table public.account_transfers enable row level security;
 alter table public.income_records enable row level security;
+alter table public.monthly_subscriptions enable row level security;
 alter table public.installment_plans enable row level security;
 alter table public.credit_card_charges enable row level security;
 
@@ -662,6 +688,71 @@ on public.income_records for delete
 to authenticated
 using ((select auth.uid()) = user_id);
 
+drop policy if exists "Users can read their monthly subscriptions" on public.monthly_subscriptions;
+create policy "Users can read their monthly subscriptions"
+on public.monthly_subscriptions for select
+to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can insert their monthly subscriptions" on public.monthly_subscriptions;
+create policy "Users can insert their monthly subscriptions"
+on public.monthly_subscriptions for insert
+to authenticated
+with check (
+  (select auth.uid()) = user_id
+  and (
+    credit_card_id is null
+    or exists (
+      select 1
+      from public.credit_cards
+      where credit_cards.id = credit_card_id
+        and credit_cards.user_id = (select auth.uid())
+    )
+  )
+  and (
+    account_id is null
+    or exists (
+      select 1
+      from public.accounts
+      where accounts.id = account_id
+        and accounts.user_id = (select auth.uid())
+    )
+  )
+);
+
+drop policy if exists "Users can update their monthly subscriptions" on public.monthly_subscriptions;
+create policy "Users can update their monthly subscriptions"
+on public.monthly_subscriptions for update
+to authenticated
+using ((select auth.uid()) = user_id)
+with check (
+  (select auth.uid()) = user_id
+  and (
+    credit_card_id is null
+    or exists (
+      select 1
+      from public.credit_cards
+      where credit_cards.id = credit_card_id
+        and credit_cards.user_id = (select auth.uid())
+    )
+  )
+  and (
+    account_id is null
+    or exists (
+      select 1
+      from public.accounts
+      where accounts.id = account_id
+        and accounts.user_id = (select auth.uid())
+    )
+  )
+);
+
+drop policy if exists "Users can delete their monthly subscriptions" on public.monthly_subscriptions;
+create policy "Users can delete their monthly subscriptions"
+on public.monthly_subscriptions for delete
+to authenticated
+using ((select auth.uid()) = user_id);
+
 drop policy if exists "Users can read their installment plans" on public.installment_plans;
 create policy "Users can read their installment plans"
 on public.installment_plans for select
@@ -803,6 +894,7 @@ grant select, insert, update, delete on
   public.accounts,
   public.account_transfers,
   public.income_records,
+  public.monthly_subscriptions,
   public.installment_plans,
   public.credit_card_charges
 to authenticated;
