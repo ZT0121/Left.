@@ -4,11 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Left. | 最低存款控制助手</title>
-  <link rel="icon" href="./icon.png?v=20260717.08" type="image/png">
-  <link rel="manifest" href="./manifest.json?v=20260717.08">
+  <link rel="icon" href="./icon.png?v=20260717.09" type="image/png">
+  <link rel="manifest" href="./manifest.json?v=20260717.09">
   <meta name="theme-color" content="#f3f1ee">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="./css/style.css?v=20260717.08">
+  <link rel="stylesheet" href="./css/style.css?v=20260717.09">
 </head>
 <body>
   <main class="app-shell">
@@ -224,7 +224,7 @@
           <p class="helper-text full-width">餐點不同時，上面填自己的餐點，這裡只填別人的餐點；平台費／運費會依分攤人數平均，並把每個人分攤後的金額列入待收。</p>
         </form>
 
-        <form id="reimbursementForm" class="form-grid sub-form">
+        <form id="reimbursementForm" class="form-grid sub-form" hidden>
           <label>
             回補金額
             <input id="reimbursementAmount" type="number" min="1" step="1" inputmode="numeric" required>
@@ -466,7 +466,7 @@
     </section>
 
     <div class="toast" id="toast" hidden></div>
-    <p class="app-version">v20260717.08</p>
+    <p class="app-version">v20260717.09</p>
   </main>
 
   <dialog id="editDialog">
@@ -492,9 +492,9 @@
     </form>
   </dialog>
 
-  <script src="./js/config.js?v=20260717.08"></script>
+  <script src="./js/config.js?v=20260717.09"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"></script>
-  <script src="./js/budget.js?v=20260717.08"></script>
-  <script src="./js/app.js?v=20260717.08"></script>
+  <script src="./js/budget.js?v=20260717.09"></script>
+  <script src="./js/app.js?v=20260717.09"></script>
 </body>
 </html>
