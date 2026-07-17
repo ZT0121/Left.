@@ -374,6 +374,39 @@ select:focus {
   padding: 16px;
 }
 
+.list-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+  border-radius: 8px;
+  padding: 5px;
+  background: rgba(255, 255, 255, 0.56);
+  border: 1px solid var(--line);
+}
+
+.list-tab-button {
+  min-height: 38px;
+  border: 0;
+  border-radius: 7px;
+  color: var(--muted);
+  background: transparent;
+  font-weight: 800;
+}
+
+.list-tab-button.active {
+  color: var(--primary-dark);
+  background: var(--surface-strong);
+  box-shadow: 0 6px 16px rgba(77, 49, 28, 0.1);
+}
+
+.collapsible-list-section {
+  display: none;
+}
+
+.collapsible-list-section.active {
+  display: block;
+}
+
 .section-title {
   align-items: flex-start;
   margin-bottom: 10px;

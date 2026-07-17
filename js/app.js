@@ -49,7 +49,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.01")
+      navigator.serviceWorker.register("./sw.js?v=20260717.02")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -211,6 +211,7 @@
   function renderReimbursements() {
     const list = $("reimbursementList");
     const rows = [...state.reimbursements]
+      .filter((row) => row.status === "pending")
       .sort((a, b) => {
         if (a.status !== b.status) return a.status === "pending" ? -1 : 1;
         return String(b.created_at).localeCompare(String(a.created_at));
@@ -234,6 +235,54 @@
         </div>
       </article>
     `).join("");
+  }
+
+  function setupListTabs() {
+    if ($("listTabs")) return;
+
+    const sections = [
+      { id: "recordSection", listId: "recordList", label: "近期紀錄" },
+      { id: "reimbursementSection", listId: "reimbursementList", label: "待收款" },
+      { id: "billReminderSection", listId: "billReminderList", label: "帳單提醒" },
+      { id: "cardChargeSection", listId: "cardChargeList", label: "信用卡明細" },
+      { id: "installmentSection", listId: "installmentList", label: "分期計畫" }
+    ].map((item) => ({
+      ...item,
+      section: $(item.listId)?.closest(".list-section")
+    })).filter((item) => item.section);
+
+    if (!sections.length) return;
+
+    const nav = document.createElement("nav");
+    nav.id = "listTabs";
+    nav.className = "list-tabs";
+    nav.setAttribute("aria-label", "資料清單");
+
+    sections.forEach((item, index) => {
+      item.section.id = item.id;
+      item.section.classList.add("collapsible-list-section");
+      item.section.classList.toggle("active", index === 0);
+
+      const button = document.createElement("button");
+      button.className = `list-tab-button${index === 0 ? " active" : ""}`;
+      button.type = "button";
+      button.dataset.listSection = item.id;
+      button.textContent = item.label;
+      nav.appendChild(button);
+    });
+
+    sections[0].section.before(nav);
+
+    nav.addEventListener("click", (event) => {
+      const button = event.target.closest(".list-tab-button");
+      if (!button) return;
+      nav.querySelectorAll(".list-tab-button").forEach((item) => {
+        item.classList.toggle("active", item === button);
+      });
+      sections.forEach((item) => {
+        item.section.classList.toggle("active", item.id === button.dataset.listSection);
+      });
+    });
   }
 
   function renderCardOptions() {
@@ -1622,6 +1671,7 @@
     $("expensePaymentMethod").addEventListener("change", toggleCardFields);
     $("advancePaymentMethod").addEventListener("change", toggleCardFields);
     $("openingBillCardSelect").addEventListener("change", fillOpeningBillDatesFromCard);
+    setupListTabs();
 
     document.querySelectorAll(".tab-button").forEach((button) => {
       button.addEventListener("click", () => {
