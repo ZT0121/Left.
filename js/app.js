@@ -47,7 +47,7 @@
   const toNumber = window.LeftBudget.toNumber;
   const supabaseUrl = String(config.url || "").replace(/\/+$/, "");
   const daysBetween = window.LeftBudget.daysBetween;
-  const estimatedCardSources = new Set(["general", "advance", "installment"]);
+  const estimatedCardSources = new Set(["general", "advance", "installment", "subscription"]);
 
   function currentMonth() {
     return today().slice(0, 7);
@@ -79,9 +79,29 @@
 
   function getEstimateFor(cardId, dueDate) {
     if (!cardId || !dueDate) return 0;
-    return state.cardCharges
+    return [...state.cardCharges, ...getSubscriptionCardEstimateRows()]
       .filter((row) => isEstimatedCardCharge(row) && row.card_id === cardId && row.due_date === dueDate)
       .reduce((sum, row) => sum + toNumber(row.amount), 0);
+  }
+
+  function getSubscriptionCardEstimateRows() {
+    const month = currentMonth();
+    return state.subscriptions
+      .filter((row) => row.is_active !== false && row.payment_method === "credit_card" && row.credit_card_id)
+      .map((row) => {
+        const chargeDate = dateForMonthDay(month, row.charge_day);
+        return {
+          id: `subscription:${row.id}:${month}`,
+          source_type: "subscription",
+          title: row.title,
+          card_id: row.credit_card_id,
+          charge_date: chargeDate,
+          due_date: getCardDueDate(row.credit_card_id, chargeDate),
+          amount: toNumber(row.amount),
+          status: "pending",
+          created_at: row.created_at || chargeDate
+        };
+      });
   }
 
   function getEstimatedStatementGroups() {
@@ -93,7 +113,7 @@
     );
     const groups = new Map();
 
-    state.cardCharges
+    [...state.cardCharges, ...getSubscriptionCardEstimateRows()]
       .filter((row) => isEstimatedCardCharge(row) && row.due_date)
       .forEach((row) => {
         const key = cardStatementKey(row);
@@ -134,7 +154,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.13")
+      navigator.serviceWorker.register("./sw.js?v=20260717.14")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -207,7 +227,10 @@
   }
 
   function calculateSummary(extraSpend = 0) {
-    return window.LeftBudget.summarizeBudget(state, {
+    return window.LeftBudget.summarizeBudget({
+      ...state,
+      cardCharges: [...state.cardCharges, ...getSubscriptionCardEstimateRows()]
+    }, {
       spend: extraSpend,
       today: today(),
       currentMonth: currentMonth()
@@ -537,7 +560,6 @@
     if (!list) return;
     const cardsById = new Map(state.creditCards.map((card) => [card.id, card]));
     const accountsById = new Map(state.accounts.map((account) => [account.id, account]));
-    const month = currentMonth();
     const rows = [...state.subscriptions]
       .sort((a, b) => Number(a.charge_day) - Number(b.charge_day) || String(a.title).localeCompare(String(b.title)));
 
@@ -547,7 +569,6 @@
     }
 
     list.innerHTML = rows.map((row) => {
-      const isRecorded = row.last_recorded_month === month;
       const payTarget = row.payment_method === "credit_card"
         ? cardsById.get(row.credit_card_id)?.name || "信用卡"
         : accountsById.get(row.account_id)?.name || "帳戶／現金";
@@ -562,6 +583,41 @@
           <div class="record-amount">${money(row.amount)}</div>
           <div class="record-actions">
             ${row.is_active !== false && !isRecorded ? `<button type="button" data-record-subscription="${row.id}">記入本月</button>` : ""}
+            <button type="button" data-toggle-subscription="${row.id}">${row.is_active === false ? "啟用" : "停用"}</button>
+            <button type="button" data-delete-subscription="${row.id}">刪除</button>
+          </div>
+        </article>
+      `;
+    }).join("");
+  }
+
+  function renderSubscriptions() {
+    const list = $("subscriptionList");
+    if (!list) return;
+    const cardsById = new Map(state.creditCards.map((card) => [card.id, card]));
+    const accountsById = new Map(state.accounts.map((account) => [account.id, account]));
+    const rows = [...state.subscriptions]
+      .sort((a, b) => Number(a.charge_day) - Number(b.charge_day) || String(a.title).localeCompare(String(b.title)));
+
+    if (!rows.length) {
+      list.innerHTML = '<p class="empty-state">還沒有每月訂閱項目。</p>';
+      return;
+    }
+
+    list.innerHTML = rows.map((row) => {
+      const payTarget = row.payment_method === "credit_card"
+        ? cardsById.get(row.credit_card_id)?.name || "信用卡"
+        : accountsById.get(row.account_id)?.name || "帳戶／現金";
+      const statusText = row.is_active === false ? "已停用" : "每月自動預估";
+
+      return `
+        <article class="record-item">
+          <div>
+            <p class="record-title">${escapeHtml(row.title)}</p>
+            <p class="record-meta">每月 ${row.charge_day} 日 · ${escapeHtml(payTarget)} · ${statusText}</p>
+          </div>
+          <div class="record-amount">${money(row.amount)}</div>
+          <div class="record-actions">
             <button type="button" data-toggle-subscription="${row.id}">${row.is_active === false ? "啟用" : "停用"}</button>
             <button type="button" data-delete-subscription="${row.id}">刪除</button>
           </div>
@@ -1479,49 +1535,6 @@
     await refresh();
   }
 
-  async function recordSubscription(id) {
-    const row = state.subscriptions.find((item) => item.id === id);
-    if (!row || row.is_active === false) return;
-    const month = currentMonth();
-    if (row.last_recorded_month === month) {
-      showToast("這個訂閱本月已記入");
-      return;
-    }
-
-    const date = dateForMonthDay(month, row.charge_day);
-    const tx = await insertTransaction({
-      kind: "expense",
-      date,
-      title: row.title,
-      amount: toNumber(row.amount),
-      gross_amount: toNumber(row.amount),
-      payment_method: row.payment_method,
-      credit_card_id: row.payment_method === "credit_card" ? row.credit_card_id : null,
-      account_id: row.payment_method === "credit_card" ? null : row.account_id
-    }, false);
-
-    if (row.payment_method === "credit_card") {
-      await insertCardCharge({
-        card_id: row.credit_card_id,
-        transaction_id: tx.id,
-        source_type: "general",
-        title: row.title,
-        charge_date: date,
-        due_date: getCardDueDate(row.credit_card_id, date),
-        amount: toNumber(row.amount)
-      });
-    }
-
-    const { error } = await client
-      .from("monthly_subscriptions")
-      .update({ last_recorded_month: month })
-      .eq("id", id)
-      .eq("user_id", state.user.id);
-    if (error) throw error;
-    showToast("訂閱已記入本月");
-    await refresh();
-  }
-
   async function toggleSubscription(id) {
     const row = state.subscriptions.find((item) => item.id === id);
     if (!row) return;
@@ -2202,7 +2215,7 @@
           <select id="subscriptionAccountSelect"></select>
         </label>
         <button class="primary-button full-width" type="submit">新增訂閱</button>
-        <p class="helper-text full-width">訂閱會先納入本月預估；按「記入本月」後才會變成正式支出，避免重複扣。</p>
+        <p class="helper-text full-width">啟用中的訂閱會自動納入每月預估；退訂或暫停時按停用即可。</p>
       </form>
       <div class="inline-list" id="subscriptionList"></div>
     `;
@@ -2359,10 +2372,8 @@
     }));
 
     $("subscriptionList").addEventListener("click", wrap(async (event) => {
-      const recordId = event.target.dataset.recordSubscription;
       const toggleId = event.target.dataset.toggleSubscription;
       const deleteId = event.target.dataset.deleteSubscription;
-      if (recordId) await recordSubscription(recordId);
       if (toggleId) await toggleSubscription(toggleId);
       if (deleteId) await deleteSubscription(deleteId);
     }));

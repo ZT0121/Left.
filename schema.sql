@@ -117,7 +117,6 @@ create table if not exists public.monthly_subscriptions (
   credit_card_id uuid references public.credit_cards(id) on delete set null,
   account_id uuid references public.accounts(id) on delete set null,
   is_active boolean not null default true,
-  last_recorded_month text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   check (

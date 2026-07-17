@@ -55,6 +55,18 @@ function summarize(overrides = {}) {
 
 {
   const result = summarize({
+    cardCharges: [
+      { source_type: "subscription", amount: 149, status: "pending", card_id: "card-1", due_date: "2026-08-15" }
+    ]
+  });
+
+  assert.equal(result.cardDue, 149);
+  assert.equal(result.cardDueActual, 0);
+  assert.equal(result.cardDueEstimate, 149);
+}
+
+{
+  const result = summarize({
     transactions: [
       { kind: "expense", amount: 500, payment_method: "credit_card" },
       { kind: "opening_card_bill", amount: 480 }
@@ -122,14 +134,14 @@ function summarize(overrides = {}) {
 {
   const result = summarize({
     subscriptions: [
-      { title: "iCloud", amount: 90, is_active: true, last_recorded_month: null },
-      { title: "Spotify", amount: 149, is_active: true, last_recorded_month: "2026-08" },
-      { title: "Paused", amount: 500, is_active: false, last_recorded_month: null }
+      { title: "iCloud", amount: 90, is_active: true },
+      { title: "Spotify", amount: 149, is_active: true },
+      { title: "Paused", amount: 500, is_active: false }
     ]
   });
 
-  assert.equal(result.subscriptionEstimate, 90);
-  assert.equal(result.projected, 51910);
+  assert.equal(result.subscriptionEstimate, 239);
+  assert.equal(result.projected, 51761);
 }
 
 {
