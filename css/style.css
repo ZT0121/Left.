@@ -1,16 +1,20 @@
 :root {
-  --bg: #f7efe3;
-  --surface: #fffaf3;
+  --bg: #eef4f3;
+  --surface: #fbfdfc;
   --surface-strong: #ffffff;
-  --text: #372d25;
-  --muted: #88776a;
-  --line: #e5d5c2;
-  --primary: #9f7650;
-  --primary-dark: #6f4e37;
-  --good: #2f855a;
-  --warn: #b7791f;
-  --bad: #c53030;
-  --shadow: 0 14px 40px rgba(77, 49, 28, 0.11);
+  --surface-soft: #f2f7f6;
+  --text: #24323a;
+  --muted: #68777c;
+  --line: #d5e1df;
+  --primary: #4a8a7d;
+  --primary-dark: #2f625c;
+  --accent: #c66b63;
+  --accent-soft: #fff1ed;
+  --good: #25795b;
+  --warn: #b98924;
+  --bad: #bf3f45;
+  --shadow: 0 16px 34px rgba(32, 58, 63, 0.12);
+  --shadow-soft: 0 8px 22px rgba(32, 58, 63, 0.08);
 }
 
 @font-face {
@@ -37,9 +41,7 @@ body {
   margin: 0;
   min-height: 100vh;
   color: var(--text);
-  background:
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.9), transparent 35rem),
-    linear-gradient(180deg, #f9f2e8 0%, #f4e7d6 100%);
+  background: linear-gradient(180deg, #f6fbfa 0%, #eaf2f1 42%, #edf1f4 100%);
   font-family: "Sarasa Mono TC", ui-monospace, SFMono-Regular, Menlo, Consolas, "Noto Sans TC", monospace;
 }
 
@@ -57,7 +59,7 @@ button {
 .app-shell {
   width: min(100%, 520px);
   margin: 0 auto;
-  padding: 18px 14px 32px;
+  padding: 18px 14px 36px;
 }
 
 .topbar,
@@ -71,6 +73,8 @@ button {
 
 .topbar {
   margin-bottom: 18px;
+  border-bottom: 1px solid rgba(74, 138, 125, 0.12);
+  padding-bottom: 12px;
 }
 
 .eyebrow {
@@ -105,9 +109,9 @@ h2 {
 .hero-card,
 .work-panel,
 .list-section {
-  border: 1px solid rgba(159, 118, 80, 0.18);
+  border: 1px solid rgba(74, 138, 125, 0.16);
   border-radius: 8px;
-  background: rgba(255, 250, 243, 0.92);
+  background: rgba(251, 253, 252, 0.94);
   box-shadow: var(--shadow);
 }
 
@@ -159,7 +163,7 @@ select {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 10px 12px;
-  background: #fffdf8;
+  background: #ffffff;
   color: var(--text);
   outline: none;
 }
@@ -174,7 +178,7 @@ input:focus,
 textarea:focus,
 select:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(159, 118, 80, 0.16);
+  box-shadow: 0 0 0 3px rgba(74, 138, 125, 0.16);
 }
 
 .primary-button,
@@ -192,12 +196,13 @@ select:focus {
 .primary-button {
   color: #fff;
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  box-shadow: 0 8px 18px rgba(47, 98, 92, 0.22);
 }
 
 .secondary-button,
 .file-button {
   color: var(--primary-dark);
-  background: #f1dfca;
+  background: #dff0ec;
 }
 
 .ghost-button,
@@ -224,7 +229,10 @@ select:focus {
 }
 
 .hero-card {
-  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  padding: 22px;
+  background: linear-gradient(145deg, #ffffff 0%, #eef8f5 100%);
 }
 
 .hero-card strong {
@@ -240,7 +248,7 @@ select:focus {
 }
 
 .hero-card.safe {
-  border-color: rgba(47, 133, 90, 0.32);
+  border-color: rgba(37, 121, 91, 0.34);
 }
 
 .hero-card.warning {
@@ -284,10 +292,11 @@ select:focus {
 
 .metric-card {
   min-height: 92px;
-  border: 1px solid rgba(159, 118, 80, 0.16);
+  border: 1px solid rgba(74, 138, 125, 0.14);
   border-radius: 8px;
   padding: 14px;
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: var(--shadow-soft);
 }
 
 .metric-card span {
@@ -308,8 +317,9 @@ select:focus {
   gap: 6px;
   border-radius: 8px;
   padding: 5px;
-  background: rgba(255, 255, 255, 0.56);
+  background: rgba(255, 255, 255, 0.7);
   border: 1px solid var(--line);
+  box-shadow: var(--shadow-soft);
 }
 
 .tab-button {
@@ -324,7 +334,7 @@ select:focus {
 .tab-button.active {
   color: var(--primary-dark);
   background: var(--surface-strong);
-  box-shadow: 0 6px 16px rgba(77, 49, 28, 0.1);
+  box-shadow: 0 6px 16px rgba(32, 58, 63, 0.1);
 }
 
 .work-panel {
@@ -357,7 +367,7 @@ select:focus {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 14px;
-  background: #fffdf8;
+  background: #ffffff;
 }
 
 .mom-request-box textarea {
@@ -380,8 +390,9 @@ select:focus {
   gap: 6px;
   border-radius: 8px;
   padding: 5px;
-  background: rgba(255, 255, 255, 0.56);
+  background: rgba(255, 255, 255, 0.76);
   border: 1px solid var(--line);
+  box-shadow: var(--shadow-soft);
 }
 
 .list-tab-button {
@@ -390,13 +401,33 @@ select:focus {
   border-radius: 7px;
   color: var(--muted);
   background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
   font-weight: 800;
 }
 
 .list-tab-button.active {
   color: var(--primary-dark);
   background: var(--surface-strong);
-  box-shadow: 0 6px 16px rgba(77, 49, 28, 0.1);
+  box-shadow: 0 6px 16px rgba(32, 58, 63, 0.1);
+}
+
+.list-tab-count {
+  min-width: 22px;
+  border-radius: 999px;
+  padding: 2px 7px;
+  color: var(--muted);
+  background: var(--surface-soft);
+  font-size: 0.76rem;
+  text-align: center;
+}
+
+.list-tab-button.has-items .list-tab-count {
+  color: #fff;
+  background: var(--accent);
 }
 
 .collapsible-list-section {
@@ -446,8 +477,9 @@ select:focus {
   align-items: center;
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 10px;
-  background: #fffdf8;
+  padding: 12px;
+  background: #ffffff;
+  box-shadow: 0 4px 14px rgba(32, 58, 63, 0.06);
 }
 
 .record-title {
@@ -478,12 +510,13 @@ select:focus {
   border-radius: 7px;
   padding: 6px 10px;
   color: var(--primary-dark);
-  background: #fbf0e3;
+  background: #e8f5f2;
   font-weight: 800;
 }
 
 .reminder-item {
-  border-color: rgba(183, 121, 31, 0.42);
+  border-color: rgba(198, 107, 99, 0.42);
+  background: var(--accent-soft);
 }
 
 .reminder-item.overdue {

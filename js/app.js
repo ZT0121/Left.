@@ -50,7 +50,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.04")
+      navigator.serviceWorker.register("./sw.js?v=20260717.05")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -182,6 +182,7 @@
     renderIncomeRecords();
     renderBillReminders();
     renderMotherRequest();
+    updateListTabCounts();
   }
 
   function renderTransactions() {
@@ -243,11 +244,11 @@
     if ($("listTabs")) return;
 
     const sections = [
-      { id: "recordSection", listId: "recordList", label: "近期紀錄" },
-      { id: "reimbursementSection", listId: "reimbursementList", label: "待收款" },
-      { id: "billReminderSection", listId: "billReminderList", label: "帳單提醒" },
-      { id: "cardChargeSection", listId: "cardChargeList", label: "信用卡明細" },
-      { id: "installmentSection", listId: "installmentList", label: "分期計畫" }
+      { id: "recordSection", key: "records", listId: "recordList", label: "近期紀錄" },
+      { id: "reimbursementSection", key: "reimbursements", listId: "reimbursementList", label: "待收款" },
+      { id: "billReminderSection", key: "billReminders", listId: "billReminderList", label: "帳單提醒" },
+      { id: "cardChargeSection", key: "cardCharges", listId: "cardChargeList", label: "信用卡明細" },
+      { id: "installmentSection", key: "installments", listId: "installmentList", label: "分期計畫" }
     ].map((item) => ({
       ...item,
       section: $(item.listId)?.closest(".list-section")
@@ -269,7 +270,8 @@
       button.className = "list-tab-button";
       button.type = "button";
       button.dataset.listSection = item.id;
-      button.textContent = item.label;
+      button.dataset.listKey = item.key;
+      button.innerHTML = `<span>${item.label}</span><strong class="list-tab-count">0</strong>`;
       nav.appendChild(button);
     });
 
@@ -285,6 +287,24 @@
       sections.forEach((item) => {
         item.section.classList.toggle("active", shouldOpen && item.id === button.dataset.listSection);
       });
+    });
+  }
+
+  function updateListTabCounts() {
+    const nav = $("listTabs");
+    if (!nav) return;
+    const counts = {
+      records: state.transactions.length,
+      reimbursements: state.reimbursements.filter((row) => row.status === "pending").length,
+      billReminders: getBillReminderRows().length,
+      cardCharges: state.cardCharges.length,
+      installments: state.installmentPlans.length
+    };
+    nav.querySelectorAll(".list-tab-button").forEach((button) => {
+      const count = counts[button.dataset.listKey] || 0;
+      const badge = button.querySelector(".list-tab-count");
+      if (badge) badge.textContent = count;
+      button.classList.toggle("has-items", count > 0);
     });
   }
 
@@ -442,6 +462,9 @@
             <p class="record-meta">${escapeHtml(card?.name || "信用卡")} · ${row.due_date} · ${dueText}</p>
           </div>
           <div class="record-amount">${money(row.amount)}</div>
+          <div class="record-actions">
+            <button type="button" data-pay-card-charge="${row.id}">標記已繳</button>
+          </div>
         </article>
       `;
     }).join("");
@@ -1791,6 +1814,11 @@
       if (paidId) await markCardChargePaid(paidId);
       if (editId) await editCardCharge(editId);
       if (deleteId) await deleteCardCharge(deleteId);
+    }));
+
+    $("billReminderList").addEventListener("click", wrap(async (event) => {
+      const paidId = event.target.dataset.payCardCharge;
+      if (paidId) await markCardChargePaid(paidId);
     }));
 
     $("cardList").addEventListener("click", wrap(async (event) => {
