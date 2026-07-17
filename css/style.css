@@ -501,6 +501,43 @@ select:focus {
   font-size: 0.82rem;
 }
 
+.statement-details {
+  margin-top: 10px;
+}
+
+.statement-details summary {
+  cursor: pointer;
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.statement-detail-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.statement-detail-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 7px 0;
+  border-top: 1px solid rgba(111, 104, 96, 0.14);
+}
+
+.statement-detail-row span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.statement-detail-row strong {
+  white-space: nowrap;
+  font-size: 0.86rem;
+}
+
 .record-amount {
   font-weight: 900;
   text-align: right;

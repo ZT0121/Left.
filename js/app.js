@@ -124,11 +124,13 @@
           due_date: row.due_date,
           amount: 0,
           count: 0,
+          items: [],
           first_charge_date: row.charge_date || row.created_at || "",
           last_charge_date: row.charge_date || row.created_at || ""
         };
         current.amount += toNumber(row.amount);
         current.count += 1;
+        current.items.push(row);
         if (row.charge_date && (!current.first_charge_date || row.charge_date < current.first_charge_date)) {
           current.first_charge_date = row.charge_date;
         }
@@ -154,7 +156,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.14")
+      navigator.serviceWorker.register("./sw.js?v=20260717.15")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -440,7 +442,7 @@
       ? activeCards.map((card) => `<option value="${card.id}">${escapeHtml(card.name)}</option>`).join("")
       : '<option value="">請先新增信用卡</option>';
 
-    ["expenseCardSelect", "advanceCardSelect", "openingBillCardSelect", "installmentCardSelect", "cardFeeCardSelect", "subscriptionCardSelect"].forEach((id) => {
+    ["expenseCardSelect", "advanceCardSelect", "openingBillCardSelect", "installmentCardSelect", "cardFeeCardSelect", "subscriptionCardSelect", "editCardSelect"].forEach((id) => {
       const select = $(id);
       if (select) select.innerHTML = options;
     });
@@ -455,7 +457,7 @@
       ? activeAccounts.map((account) => `<option value="${account.id}">${escapeHtml(account.name)}</option>`).join("")
       : '<option value="">請先新增帳戶</option>';
 
-    ["expenseAccountSelect", "advanceAccountSelect", "incomeAccountSelect", "transferFromSelect", "transferToSelect", "subscriptionAccountSelect"].forEach((id) => {
+    ["expenseAccountSelect", "advanceAccountSelect", "incomeAccountSelect", "transferFromSelect", "transferToSelect", "subscriptionAccountSelect", "editAccountSelect"].forEach((id) => {
       const select = $(id);
       if (select) select.innerHTML = options;
     });
@@ -813,11 +815,29 @@
         const periodText = row.first_charge_date && row.last_charge_date
           ? `${row.first_charge_date} 到 ${row.last_charge_date}`
           : "依目前刷卡紀錄";
+        const sourceLabel = {
+          general: "一般刷卡",
+          advance: "代墊",
+          installment: "分期",
+          subscription: "訂閱"
+        };
+        const detailRows = [...(row.items || [])]
+          .sort((a, b) => String(a.charge_date || "").localeCompare(String(b.charge_date || "")))
+          .map((item) => `
+            <div class="statement-detail-row">
+              <span>${item.charge_date || "未填"} · ${sourceLabel[item.source_type] || "預估"} · ${escapeHtml(item.title || "未命名")}</span>
+              <strong>${money(item.amount)}</strong>
+            </div>
+          `).join("");
         return `
           <article class="record-item statement-estimate">
             <div>
               <p class="record-title">${escapeHtml(cardName)} 預估帳單</p>
               <p class="record-meta">繳款日 ${row.due_date} · ${row.count} 筆紀錄預估 · ${periodText} · 尚未輸入實際帳單</p>
+              <details class="statement-details">
+                <summary>查看未出帳明細</summary>
+                <div class="statement-detail-list">${detailRows}</div>
+              </details>
             </div>
             <div class="record-amount">${money(row.amount)}</div>
             <div class="record-actions"></div>
@@ -905,12 +925,15 @@
     const expenseUsesCard = $("expensePaymentMethod")?.value === "credit_card";
     const advanceUsesCard = $("advancePaymentMethod")?.value === "credit_card";
     const subscriptionUsesCard = $("subscriptionPaymentMethod")?.value === "credit_card";
+    const editUsesCard = $("editPaymentMethod")?.value === "credit_card";
     if ($("expenseCardLabel")) $("expenseCardLabel").hidden = !expenseUsesCard;
     if ($("advanceCardLabel")) $("advanceCardLabel").hidden = !advanceUsesCard;
     if ($("subscriptionCardLabel")) $("subscriptionCardLabel").hidden = !subscriptionUsesCard;
+    if ($("editCardLabel")) $("editCardLabel").hidden = !editUsesCard;
     if ($("expenseAccountLabel")) $("expenseAccountLabel").hidden = expenseUsesCard;
     if ($("advanceAccountLabel")) $("advanceAccountLabel").hidden = advanceUsesCard;
     if ($("subscriptionAccountLabel")) $("subscriptionAccountLabel").hidden = subscriptionUsesCard;
+    if ($("editAccountLabel")) $("editAccountLabel").hidden = editUsesCard;
   }
 
   function requireCard(selectId) {
@@ -1884,10 +1907,17 @@
   async function editTransaction(id) {
     const row = state.transactions.find((item) => item.id === id);
     if (!row) return;
+    ensureEditPaymentFields();
+    renderCardOptions();
+    renderAccountOptions();
     $("editId").value = row.id;
     $("editAmount").value = row.amount;
     $("editDate").value = row.date;
     $("editTitle").value = row.title || "";
+    $("editPaymentMethod").value = row.payment_method || "cash";
+    if (row.credit_card_id && $("editCardSelect")) $("editCardSelect").value = row.credit_card_id;
+    if (row.account_id && $("editAccountSelect")) $("editAccountSelect").value = row.account_id;
+    toggleCardFields();
     $("editDialog").showModal();
   }
 
@@ -1917,6 +1947,80 @@
         .eq("user_id", state.user.id);
       if (chargeError.error) throw chargeError.error;
     }
+    $("editDialog").close();
+    showToast("紀錄已更新");
+    await refresh();
+  }
+
+  async function saveEdit(event) {
+    event.preventDefault();
+    const id = $("editId").value;
+    const existing = state.transactions.find((item) => item.id === id);
+    if (!existing) return;
+
+    const amount = toNumber($("editAmount").value);
+    const date = $("editDate").value;
+    const title = $("editTitle").value.trim() || (existing.kind === "advance" ? "代墊" : "一般消費");
+    const paymentMethod = $("editPaymentMethod")?.value || existing.payment_method || "cash";
+    const cardId = paymentMethod === "credit_card" ? requireCard("editCardSelect") : null;
+    const accountId = paymentMethod === "credit_card" ? null : optionalAccount("editAccountSelect");
+    const grossAmount = existing.kind === "advance" ? Math.max(toNumber(existing.gross_amount), amount) : amount;
+
+    const { error } = await client
+      .from("transactions")
+      .update({
+        amount,
+        gross_amount: grossAmount,
+        date,
+        title,
+        payment_method: paymentMethod,
+        credit_card_id: cardId,
+        account_id: accountId
+      })
+      .eq("id", id)
+      .eq("user_id", state.user.id);
+    if (error) throw error;
+
+    if (existing.kind === "expense" || existing.kind === "advance") {
+      if (paymentMethod === "credit_card") {
+        const chargeAmount = existing.kind === "advance" ? grossAmount : amount;
+        const sourceType = existing.kind === "advance" ? "advance" : "general";
+        const existingCharge = state.cardCharges.find((charge) => charge.transaction_id === id);
+        if (existingCharge) {
+          const chargeError = await client
+            .from("credit_card_charges")
+            .update({
+              card_id: cardId,
+              source_type: sourceType,
+              amount: chargeAmount,
+              title,
+              charge_date: date,
+              due_date: getCardDueDate(cardId, date)
+            })
+            .eq("transaction_id", id)
+            .eq("user_id", state.user.id);
+          if (chargeError.error) throw chargeError.error;
+        } else {
+          await insertCardCharge({
+            card_id: cardId,
+            transaction_id: id,
+            source_type: sourceType,
+            title,
+            charge_date: date,
+            due_date: getCardDueDate(cardId, date),
+            amount: chargeAmount
+          });
+        }
+      } else {
+        const chargeDelete = await client
+          .from("credit_card_charges")
+          .delete()
+          .eq("transaction_id", id)
+          .eq("user_id", state.user.id);
+        if (chargeDelete.error) throw chargeDelete.error;
+      }
+    }
+
     $("editDialog").close();
     showToast("紀錄已更新");
     await refresh();
@@ -2168,6 +2272,38 @@
     if ($("subscriptionDay") && !$("subscriptionDay").value) {
       $("subscriptionDay").value = new Date().getDate();
     }
+    ensureEditPaymentFields();
+  }
+
+  function ensureEditPaymentFields() {
+    if ($("editPaymentMethod")) return;
+    const titleInput = $("editTitle");
+    const titleLabel = titleInput?.closest("label");
+    if (!titleLabel) return;
+
+    const paymentLabel = document.createElement("label");
+    paymentLabel.innerHTML = `
+      付款方式
+      <select id="editPaymentMethod">
+        <option value="cash">帳戶／現金</option>
+        <option value="credit_card">信用卡</option>
+      </select>
+    `;
+    const cardLabel = document.createElement("label");
+    cardLabel.id = "editCardLabel";
+    cardLabel.innerHTML = `
+      信用卡
+      <select id="editCardSelect"></select>
+    `;
+    const accountLabel = document.createElement("label");
+    accountLabel.id = "editAccountLabel";
+    accountLabel.innerHTML = `
+      扣款帳戶
+      <select id="editAccountSelect"></select>
+    `;
+
+    titleLabel.after(paymentLabel, cardLabel, accountLabel);
+    $("editPaymentMethod").addEventListener("change", toggleCardFields);
   }
 
   function ensureSubscriptionPanel() {
