@@ -123,7 +123,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.11")
+      navigator.serviceWorker.register("./sw.js?v=20260717.12")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -574,18 +574,20 @@
 
     list.innerHTML = rows.map((row) => {
       const card = state.creditCards.find((item) => item.id === row.card_id);
+      const cardName = card?.name || "信用卡";
       const dueText = row.daysLeft < 0
         ? `逾期 ${Math.abs(row.daysLeft)} 天`
         : row.daysLeft === 0
           ? "今天到期"
           : `${row.daysLeft} 天後到期`;
       const note = row.row_type === "estimate" ? "尚未輸入實際帳單" : "實際帳單待繳";
+      const title = row.row_type === "estimate" ? `${cardName} 預估帳單` : `${cardName} ${row.title || "實際帳單"}`;
 
       return `
         <article class="record-item reminder-item ${row.daysLeft < 0 ? "overdue" : ""}">
           <div>
-            <p class="record-title">${escapeHtml(row.title)}</p>
-            <p class="record-meta">${escapeHtml(card?.name || "信用卡")} · ${row.due_date} · ${dueText} · ${note}</p>
+            <p class="record-title">${escapeHtml(title)}</p>
+            <p class="record-meta">${row.due_date} · ${dueText} · ${note}</p>
           </div>
           <div class="record-amount">${money(row.amount)}</div>
           <div class="record-actions">
@@ -689,14 +691,15 @@
       const card = state.creditCards.find((item) => item.id === row.card_id);
 
       if (row.row_type === "estimate") {
+        const cardName = card?.name || "信用卡";
         const periodText = row.first_charge_date && row.last_charge_date
           ? `${row.first_charge_date} 到 ${row.last_charge_date}`
           : "依目前刷卡紀錄";
         return `
           <article class="record-item statement-estimate">
             <div>
-              <p class="record-title">預估帳單</p>
-              <p class="record-meta">${escapeHtml(card?.name || "信用卡")} · 繳款日 ${row.due_date} · ${row.count} 筆紀錄預估 · ${periodText} · 尚未輸入實際帳單</p>
+              <p class="record-title">${escapeHtml(cardName)} 預估帳單</p>
+              <p class="record-meta">繳款日 ${row.due_date} · ${row.count} 筆紀錄預估 · ${periodText} · 尚未輸入實際帳單</p>
             </div>
             <div class="record-amount">${money(row.amount)}</div>
             <div class="record-actions"></div>
@@ -709,6 +712,10 @@
         installment: "分期",
         fee: "費用／利息"
       }[row.source_type] || "信用卡";
+      const cardName = card?.name || "信用卡";
+      const displayTitle = isActualStatement(row)
+        ? `${cardName} ${sourceLabel}`
+        : `${cardName} ${row.title || sourceLabel}`;
       const estimate = isActualStatement(row) ? getEstimateFor(row.card_id, row.due_date) : 0;
       const diffText = isActualStatement(row) && row.due_date
         ? ` · 預估 ${money(estimate)} · 差額 ${formatDifference(toNumber(row.amount) - estimate)}`
@@ -718,8 +725,8 @@
       return `
         <article class="record-item">
           <div>
-            <p class="record-title">${escapeHtml(row.title || sourceLabel)}</p>
-            <p class="record-meta">${sourceLabel} · ${escapeHtml(card?.name || "信用卡")} · 帳單日 ${row.charge_date || "未填"} · 繳款日 ${row.due_date || "未填"}${diffText}${paidText}</p>
+            <p class="record-title">${escapeHtml(displayTitle)}</p>
+            <p class="record-meta">${sourceLabel} · 帳單日 ${row.charge_date || "未填"} · 繳款日 ${row.due_date || "未填"}${diffText}${paidText}</p>
           </div>
           <div class="record-amount">${money(row.amount)}</div>
           <div class="record-actions">
