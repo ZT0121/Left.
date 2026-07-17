@@ -26,7 +26,7 @@ function summarize(overrides = {}) {
       { kind: "expense", amount: 300, payment_method: "credit_card" }
     ],
     cardCharges: [
-      { source_type: "general", amount: 300, status: "pending" }
+      { source_type: "general", amount: 300, status: "pending", card_id: "card-1", due_date: "2026-08-15" }
     ]
   });
 
@@ -41,13 +41,47 @@ function summarize(overrides = {}) {
       { kind: "expense", amount: 300, payment_method: "credit_card" }
     ],
     cardCharges: [
-      { source_type: "general", amount: 300, status: "paid", paid_at: "2026-08-15" }
+      { source_type: "general", amount: 300, status: "paid", paid_at: "2026-08-15", card_id: "card-1", due_date: "2026-08-15" }
     ]
   });
 
   assert.equal(result.spent, 300);
   assert.equal(result.cardDue, 0);
   assert.equal(result.projected, 51700);
+}
+
+{
+  const result = summarize({
+    transactions: [
+      { kind: "expense", amount: 500, payment_method: "credit_card" },
+      { kind: "opening_card_bill", amount: 480 }
+    ],
+    cardCharges: [
+      { source_type: "general", amount: 300, status: "pending", card_id: "card-1", due_date: "2026-08-15" },
+      { source_type: "advance", amount: 200, status: "pending", card_id: "card-1", due_date: "2026-08-15" },
+      { source_type: "opening_bill", amount: 480, status: "pending", card_id: "card-1", due_date: "2026-08-15" }
+    ]
+  });
+
+  assert.equal(result.cardDue, 480);
+  assert.equal(result.projected, 51020);
+}
+
+{
+  const result = summarize({
+    transactions: [
+      { kind: "expense", amount: 500, payment_method: "credit_card" },
+      { kind: "opening_card_bill", amount: 480 }
+    ],
+    cardCharges: [
+      { source_type: "general", amount: 300, status: "pending", card_id: "card-1", due_date: "2026-08-15" },
+      { source_type: "advance", amount: 200, status: "pending", card_id: "card-1", due_date: "2026-08-15" },
+      { source_type: "opening_bill", amount: 480, status: "paid", paid_at: "2026-08-10", card_id: "card-1", due_date: "2026-08-15" }
+    ]
+  });
+
+  assert.equal(result.cardDue, 0);
+  assert.equal(result.projected, 51020);
 }
 
 {

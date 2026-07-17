@@ -80,8 +80,19 @@
     const receivedManualReimbursements = reimbursements
       .filter((row) => row.status === "received" && !row.transaction_id)
       .reduce((sum, row) => sum + toNumber(row.amount), 0);
+    const statementKey = (row) => row.card_id && row.due_date ? `${row.card_id}:${row.due_date}` : "";
+    const actualStatementKeys = new Set(
+      cardCharges
+        .filter((row) => row.source_type === "opening_bill")
+        .map(statementKey)
+        .filter(Boolean)
+    );
     const cardDue = cardCharges
       .filter((row) => row.status !== "paid")
+      .filter((row) => {
+        const isEstimate = row.source_type === "general" || row.source_type === "advance";
+        return !isEstimate || !actualStatementKeys.has(statementKey(row));
+      })
       .reduce((sum, row) => sum + toNumber(row.amount), 0);
 
     const futureInstallmentBalance = installmentPlans

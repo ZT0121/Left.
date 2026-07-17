@@ -46,11 +46,84 @@
   const toNumber = window.LeftBudget.toNumber;
   const supabaseUrl = String(config.url || "").replace(/\/+$/, "");
   const daysBetween = window.LeftBudget.daysBetween;
+  const estimatedCardSources = new Set(["general", "advance"]);
+
+  function isEstimatedCardCharge(row) {
+    return estimatedCardSources.has(row.source_type);
+  }
+
+  function isActualStatement(row) {
+    return row.source_type === "opening_bill";
+  }
+
+  function cardStatementKey(row) {
+    return row.card_id && row.due_date ? `${row.card_id}:${row.due_date}` : "";
+  }
+
+  function formatDifference(value) {
+    const amount = toNumber(value);
+    if (amount === 0) return "$0";
+    return `${amount > 0 ? "+" : "-"}${money(Math.abs(amount))}`;
+  }
+
+  function getEstimateFor(cardId, dueDate) {
+    if (!cardId || !dueDate) return 0;
+    return state.cardCharges
+      .filter((row) => isEstimatedCardCharge(row) && row.card_id === cardId && row.due_date === dueDate)
+      .reduce((sum, row) => sum + toNumber(row.amount), 0);
+  }
+
+  function getEstimatedStatementGroups() {
+    const actualKeys = new Set(
+      state.cardCharges
+        .filter(isActualStatement)
+        .map(cardStatementKey)
+        .filter(Boolean)
+    );
+    const groups = new Map();
+
+    state.cardCharges
+      .filter((row) => isEstimatedCardCharge(row) && row.due_date)
+      .forEach((row) => {
+        const key = cardStatementKey(row);
+        if (!key || actualKeys.has(key)) return;
+        const current = groups.get(key) || {
+          key,
+          card_id: row.card_id,
+          due_date: row.due_date,
+          amount: 0,
+          count: 0,
+          first_charge_date: row.charge_date || row.created_at || "",
+          last_charge_date: row.charge_date || row.created_at || ""
+        };
+        current.amount += toNumber(row.amount);
+        current.count += 1;
+        if (row.charge_date && (!current.first_charge_date || row.charge_date < current.first_charge_date)) {
+          current.first_charge_date = row.charge_date;
+        }
+        if (row.charge_date && (!current.last_charge_date || row.charge_date > current.last_charge_date)) {
+          current.last_charge_date = row.charge_date;
+        }
+        groups.set(key, current);
+      });
+
+    return [...groups.values()]
+      .sort((a, b) => `${b.due_date}${b.last_charge_date}`.localeCompare(`${a.due_date}${a.last_charge_date}`));
+  }
+
+  function getCardStatementRows() {
+    return [
+      ...getEstimatedStatementGroups().map((row) => ({ ...row, row_type: "estimate" })),
+      ...state.cardCharges
+        .filter((row) => !isEstimatedCardCharge(row))
+        .map((row) => ({ ...row, row_type: "actual" }))
+    ].sort((a, b) => `${b.due_date || ""}${b.created_at || b.last_charge_date || ""}`.localeCompare(`${a.due_date || ""}${a.created_at || a.last_charge_date || ""}`));
+  }
 
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.07")
+      navigator.serviceWorker.register("./sw.js?v=20260717.08")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -256,6 +329,12 @@
 
     if (!sections.length) return;
 
+    sections.forEach((item) => {
+      if (item.key === "billReminders") item.label = "帳單提醒";
+      if (item.key === "cardCharges") item.label = "帳單比對";
+      if (item.key === "installments") item.label = "分期計畫";
+    });
+
     const nav = document.createElement("nav");
     nav.id = "listTabs";
     nav.className = "list-tabs";
@@ -297,7 +376,7 @@
       records: state.transactions.length,
       reimbursements: state.reimbursements.filter((row) => row.status === "pending").length,
       billReminders: getBillReminderRows().length,
-      cardCharges: state.cardCharges.length,
+      cardCharges: getCardStatementRows().length,
       installments: state.installmentPlans.length
     };
     nav.querySelectorAll(".list-tab-button").forEach((button) => {
@@ -431,12 +510,23 @@
 
   function getBillReminderRows() {
     const current = today();
-    return state.cardCharges
-      .filter((row) => row.status !== "paid" && row.due_date)
+    const actualRows = state.cardCharges
+      .filter((row) => !isEstimatedCardCharge(row) && row.status !== "paid" && row.due_date)
       .map((row) => ({
         ...row,
+        row_type: "actual",
         daysLeft: Math.ceil((parseLocalDate(row.due_date) - parseLocalDate(current)) / 86400000)
-      }))
+      }));
+    const estimateRows = getEstimatedStatementGroups()
+      .map((row) => ({
+        ...row,
+        id: row.key,
+        title: "預估帳單",
+        row_type: "estimate",
+        daysLeft: Math.ceil((parseLocalDate(row.due_date) - parseLocalDate(current)) / 86400000)
+      }));
+
+    return [...actualRows, ...estimateRows]
       .filter((row) => row.daysLeft <= 7)
       .sort((a, b) => a.daysLeft - b.daysLeft);
   }
@@ -467,6 +557,39 @@
           <div class="record-amount">${money(row.amount)}</div>
           <div class="record-actions">
             <button type="button" data-pay-card-charge="${row.id}">標記已繳</button>
+          </div>
+        </article>
+      `;
+    }).join("");
+  }
+
+  function renderBillReminders() {
+    const list = $("billReminderList");
+    if (!list) return;
+    const rows = getBillReminderRows();
+    if (!rows.length) {
+      list.innerHTML = '<p class="empty-state">7 天內沒有信用卡帳單要處理。</p>';
+      return;
+    }
+
+    list.innerHTML = rows.map((row) => {
+      const card = state.creditCards.find((item) => item.id === row.card_id);
+      const dueText = row.daysLeft < 0
+        ? `逾期 ${Math.abs(row.daysLeft)} 天`
+        : row.daysLeft === 0
+          ? "今天到期"
+          : `${row.daysLeft} 天後到期`;
+      const note = row.row_type === "estimate" ? "尚未輸入實際帳單" : "實際帳單待繳";
+
+      return `
+        <article class="record-item reminder-item ${row.daysLeft < 0 ? "overdue" : ""}">
+          <div>
+            <p class="record-title">${escapeHtml(row.title)}</p>
+            <p class="record-meta">${escapeHtml(card?.name || "信用卡")} · ${row.due_date} · ${dueText} · ${note}</p>
+          </div>
+          <div class="record-amount">${money(row.amount)}</div>
+          <div class="record-actions">
+            ${row.row_type === "actual" ? `<button type="button" data-pay-card-charge="${row.id}">已繳款</button>` : ""}
           </div>
         </article>
       `;
@@ -545,6 +668,62 @@
           <div class="record-amount">${money(row.amount)}</div>
           <div class="record-actions">
             ${row.status === "pending" ? `<button type="button" data-pay-card-charge="${row.id}">標記已繳</button>` : ""}
+            <button type="button" data-edit-card-charge="${row.id}">編輯</button>
+            <button type="button" data-delete-card-charge="${row.id}">刪除</button>
+          </div>
+        </article>
+      `;
+    }).join("");
+  }
+
+  function renderCardCharges() {
+    const list = $("cardChargeList");
+    const rows = getCardStatementRows();
+
+    if (!rows.length) {
+      list.innerHTML = '<p class="empty-state">還沒有信用卡帳單資料。</p>';
+      return;
+    }
+
+    list.innerHTML = rows.map((row) => {
+      const card = state.creditCards.find((item) => item.id === row.card_id);
+
+      if (row.row_type === "estimate") {
+        const periodText = row.first_charge_date && row.last_charge_date
+          ? `${row.first_charge_date} 到 ${row.last_charge_date}`
+          : "依目前刷卡紀錄";
+        return `
+          <article class="record-item statement-estimate">
+            <div>
+              <p class="record-title">預估帳單</p>
+              <p class="record-meta">${escapeHtml(card?.name || "信用卡")} · 繳款日 ${row.due_date} · ${row.count} 筆刷卡預估 · ${periodText} · 尚未輸入實際帳單</p>
+            </div>
+            <div class="record-amount">${money(row.amount)}</div>
+            <div class="record-actions"></div>
+          </article>
+        `;
+      }
+
+      const sourceLabel = {
+        opening_bill: "實際帳單",
+        installment: "分期",
+        fee: "費用／利息"
+      }[row.source_type] || "信用卡";
+      const estimate = isActualStatement(row) ? getEstimateFor(row.card_id, row.due_date) : 0;
+      const diffText = isActualStatement(row) && row.due_date
+        ? ` · 預估 ${money(estimate)} · 差額 ${formatDifference(toNumber(row.amount) - estimate)}`
+        : "";
+      const paidText = row.status === "paid" ? ` · 已繳 ${row.paid_at || ""}` : "";
+
+      return `
+        <article class="record-item">
+          <div>
+            <p class="record-title">${escapeHtml(row.title || sourceLabel)}</p>
+            <p class="record-meta">${sourceLabel} · ${escapeHtml(card?.name || "信用卡")} · 帳單日 ${row.charge_date || "未填"} · 繳款日 ${row.due_date || "未填"}${diffText}${paidText}</p>
+          </div>
+          <div class="record-amount">${money(row.amount)}</div>
+          <div class="record-actions">
+            ${row.status === "pending" ? `<button type="button" data-pay-card-charge="${row.id}">已繳款</button>` : ""}
             <button type="button" data-edit-card-charge="${row.id}">編輯</button>
             <button type="button" data-delete-card-charge="${row.id}">刪除</button>
           </div>
@@ -1317,6 +1496,37 @@
     await refresh();
   }
 
+  async function addOpeningBill(event) {
+    event.preventDefault();
+    const amount = toNumber($("openingBillAmount").value);
+    const cardId = requireCard("openingBillCardSelect");
+    const title = "實際信用卡帳單";
+    const date = $("openingBillDate").value;
+    const tx = await insertTransaction({
+      kind: "opening_card_bill",
+      date,
+      title,
+      amount,
+      gross_amount: amount,
+      payment_method: "credit_card",
+      credit_card_id: cardId
+    }, false);
+    await insertCardCharge({
+      card_id: cardId,
+      transaction_id: tx.id,
+      source_type: "opening_bill",
+      title,
+      charge_date: date,
+      due_date: $("openingBillDueDate").value || null,
+      amount
+    });
+    event.target.reset();
+    setDefaultDates();
+    fillOpeningBillDatesFromCard();
+    showToast("實際帳單已新增");
+    await refresh();
+  }
+
   async function addInstallment(event) {
     event.preventDefault();
     const cardId = requireCard("installmentCardSelect");
@@ -1731,6 +1941,27 @@
     });
   }
 
+  function setLabelText(controlId, text) {
+    const label = $(controlId)?.closest("label");
+    if (!label || !label.firstChild) return;
+    label.firstChild.textContent = `\n            ${text}\n            `;
+  }
+
+  function applyCopyOverrides() {
+    setLabelText("openingBillAmount", "實際帳單金額");
+    setLabelText("openingBillDate", "帳單日");
+    setLabelText("openingBillCardSelect", "信用卡");
+    setLabelText("openingBillDueDate", "繳款日");
+    const billReminderTitle = $("billReminderList")?.closest(".list-section")?.querySelector("h2");
+    if (billReminderTitle) billReminderTitle.textContent = "帳單提醒";
+    const cardChargeTitle = $("cardChargeList")?.closest(".list-section")?.querySelector("h2");
+    if (cardChargeTitle) cardChargeTitle.textContent = "帳單比對";
+    const openingButton = $("openingBillForm")?.querySelector("button[type=\"submit\"]");
+    if (openingButton) openingButton.textContent = "新增實際帳單";
+    const helper = $("openingBillForm")?.querySelector(".helper-text");
+    if (helper) helper.textContent = "收到信用卡帳單後，把帳單上的總金額填在這裡；系統會拿已記錄的刷卡預估和實際帳單比對差額。";
+  }
+
   function wireEvents() {
     function getAuthCredentials() {
       const email = $("emailInput").value.trim();
@@ -1890,6 +2121,7 @@
   }
 
   setDefaultDates();
+  applyCopyOverrides();
   registerServiceWorker();
   wireEvents();
   initAuth().catch((error) => {
