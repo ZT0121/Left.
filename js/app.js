@@ -50,7 +50,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.06")
+      navigator.serviceWorker.register("./sw.js?v=20260717.07")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -162,13 +162,13 @@
     $("safetyBuffer").textContent = money(summary.commitmentBuffer);
     $("spentAmount").textContent = money(summary.spent);
     $("pendingAmount").textContent = money(summary.pending);
-    $("dailyAllowance").textContent = money(summary.daily);
+    $("dailyAllowance").textContent = money(summary.totalIncome);
     $("cardDueAmount").textContent = money(summary.cardDue);
     $("futureInstallmentAmount").textContent = money(summary.futureInstallmentBalance);
     $("safetyText").textContent = summary.commitmentBuffer >= 0
-      ? `扣掉最低保留 ${money(state.cycle.minimum_savings)} 與未來分期後，安全餘裕 ${money(summary.commitmentBuffer)}。距離下次發薪還有 ${summary.daysLeft} 天。`
+      ? `扣掉最低保留 ${money(state.cycle.minimum_savings)} 與未來分期後，安全餘裕 ${money(summary.commitmentBuffer)}。`
       : `扣掉未來分期後，還差 ${money(Math.abs(summary.commitmentBuffer))} 才能守住最低保留 ${money(state.cycle.minimum_savings)}。`;
-    $("cycleRange").textContent = `${state.cycle.start_date} 到 ${state.cycle.expected_pay_date}`;
+    $("cycleRange").textContent = `從 ${state.cycle.start_date} 開始`;
     applyStatus(summary.commitmentBuffer);
     renderCardOptions();
     renderCreditCards();
@@ -362,6 +362,9 @@
           <p class="record-meta">${typeLabel[account.type] || "其他"} · 期初 ${money(account.opening_balance)}</p>
         </div>
         <div class="record-amount">${money(account.balance)}</div>
+        <div class="record-actions">
+          <button type="button" data-edit-account="${account.id}">編輯</button>
+        </div>
       </article>
     `).join("");
   }
@@ -928,10 +931,7 @@
 
   function fillCycleDefaults() {
     const settings = state.settings || {};
-    $("salaryInput").value = settings.last_salary || "";
-    $("motherInput").value = settings.default_mother_support || 20000;
     $("minimumInput").value = settings.default_minimum_savings || 5000;
-    $("nextPayDateInput").value = getDefaultNextPayDate();
   }
 
   async function initAuth() {
@@ -976,9 +976,9 @@
     const payload = {
       user_id: state.user.id,
       start_date: today(),
-      expected_pay_date: $("nextPayDateInput").value,
-      salary_income: toNumber($("salaryInput").value),
-      mother_support: toNumber($("motherInput").value),
+      expected_pay_date: "2999-12-31",
+      salary_income: 0,
+      mother_support: 0,
       minimum_savings: toNumber($("minimumInput").value)
     };
 
@@ -994,12 +994,10 @@
       .from("user_settings")
       .upsert({
         user_id: state.user.id,
-        last_salary: payload.salary_income,
-        default_mother_support: payload.mother_support,
         default_minimum_savings: payload.minimum_savings
       }, { onConflict: "user_id" });
 
-    showToast("新週期已開始");
+    showToast("連續帳本已開始");
     await refresh();
   }
 
@@ -1394,6 +1392,38 @@
     await refresh();
   }
 
+  async function editAccount(id) {
+    const account = state.accounts.find((item) => item.id === id);
+    if (!account) return;
+
+    const name = window.prompt("帳戶名稱", account.name);
+    if (name === null) return;
+    const openingText = window.prompt("期初餘額", account.opening_balance);
+    if (openingText === null) return;
+    const type = window.prompt("類型：bank / wallet / cash / other", account.type || "bank");
+    if (type === null) return;
+
+    const openingBalance = toNumber(openingText);
+    const normalizedType = type.trim();
+    if (openingBalance < 0) throw new Error("期初餘額不能小於 0");
+    if (!["bank", "wallet", "cash", "other"].includes(normalizedType)) {
+      throw new Error("類型只能是 bank、wallet、cash、other");
+    }
+
+    const { error } = await client
+      .from("accounts")
+      .update({
+        name: name.trim() || account.name,
+        opening_balance: openingBalance,
+        type: normalizedType
+      })
+      .eq("id", id)
+      .eq("user_id", state.user.id);
+    if (error) throw error;
+    showToast("帳戶已更新");
+    await refresh();
+  }
+
   async function addTransfer(event) {
     event.preventDefault();
     const fromId = $("transferFromSelect").value;
@@ -1775,7 +1805,6 @@
     $("transferForm").addEventListener("submit", wrap(addTransfer));
     $("editForm").addEventListener("submit", wrap(saveEdit));
     $("cancelEditButton").addEventListener("click", () => $("editDialog").close());
-    $("newCycleButton").addEventListener("click", wrap(closeCycle));
     $("backupButton").addEventListener("click", wrap(downloadBackup));
     $("copyMotherRequestButton").addEventListener("click", wrap(copyMotherRequest));
     $("restoreInput").addEventListener("change", wrap(restoreBackup));
@@ -1826,6 +1855,11 @@
       const deleteId = event.target.dataset.deleteCard;
       if (toggleId) await toggleCreditCard(toggleId);
       if (deleteId) await deleteCreditCard(deleteId);
+    }));
+
+    $("accountList").addEventListener("click", wrap(async (event) => {
+      const editId = event.target.dataset.editAccount;
+      if (editId) await editAccount(editId);
     }));
 
     $("installmentList").addEventListener("click", wrap(async (event) => {

@@ -4,11 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Left. | 最低存款控制助手</title>
-  <link rel="icon" href="./icon.png?v=20260717.06" type="image/png">
-  <link rel="manifest" href="./manifest.json?v=20260717.06">
+  <link rel="icon" href="./icon.png?v=20260717.07" type="image/png">
+  <link rel="manifest" href="./manifest.json?v=20260717.07">
   <meta name="theme-color" content="#f3f1ee">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="./css/style.css?v=20260717.06">
+  <link rel="stylesheet" href="./css/style.css?v=20260717.07">
 </head>
 <body>
   <main class="app-shell">
@@ -48,28 +48,16 @@
 
     <section class="cycle-panel" id="cyclePanel" hidden>
       <div class="panel-heading">
-        <p class="eyebrow">發薪流程</p>
-        <h2>開始新的記帳週期</h2>
-        <p>月底發薪後填一次，本期就用這些數字計算最低保留。</p>
+        <p class="eyebrow">帳本設定</p>
+        <h2>開始連續帳本</h2>
+        <p>設定想保留的最低餘額，收入與支出之後都直接一筆一筆記。</p>
       </div>
       <form id="cycleForm" class="form-grid">
-        <label>
-          本期實領薪水
-          <input id="salaryInput" type="number" min="0" step="1" inputmode="numeric" placeholder="32000" required>
-        </label>
-        <label>
-          媽媽提供
-          <input id="motherInput" type="number" min="0" step="1" inputmode="numeric" value="20000" required>
-        </label>
-        <label>
-          最低希望存下
+        <label class="full-width">
+          最低保留餘額
           <input id="minimumInput" type="number" min="0" step="1" inputmode="numeric" value="5000" required>
         </label>
-        <label>
-          下次發薪日
-          <input id="nextPayDateInput" type="date" required>
-        </label>
-        <button class="primary-button full-width" type="submit">開始本期</button>
+        <button class="primary-button full-width" type="submit">開始記帳</button>
       </form>
     </section>
 
@@ -95,7 +83,7 @@
           <strong id="pendingAmount">$0</strong>
         </article>
         <article class="metric-card">
-          <span>每日可花</span>
+          <span>累積收入</span>
           <strong id="dailyAllowance">$0</strong>
         </article>
         <article class="metric-card">
@@ -434,7 +422,6 @@
             <input id="restoreInput" type="file" accept="application/json">
           </label>
         </div>
-        <button class="ghost-button danger" id="newCycleButton" type="button">結束並開始新週期</button>
       </section>
 
       <section class="list-section">
@@ -479,7 +466,7 @@
     </section>
 
     <div class="toast" id="toast" hidden></div>
-    <p class="app-version">v20260717.06</p>
+    <p class="app-version">v20260717.07</p>
   </main>
 
   <dialog id="editDialog">
@@ -505,9 +492,9 @@
     </form>
   </dialog>
 
-  <script src="./js/config.js?v=20260717.06"></script>
+  <script src="./js/config.js?v=20260717.07"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"></script>
-  <script src="./js/budget.js?v=20260717.06"></script>
-  <script src="./js/app.js?v=20260717.06"></script>
+  <script src="./js/budget.js?v=20260717.07"></script>
+  <script src="./js/app.js?v=20260717.07"></script>
 </body>
 </html>
