@@ -74,7 +74,8 @@
   }
 
   function cardStatementKey(row) {
-    return row.card_id && row.due_date ? `${row.card_id}:${String(row.due_date).slice(0, 7)}` : "";
+    const statementDate = row.charge_date || row.due_date;
+    return row.card_id && statementDate ? `${row.card_id}:${String(statementDate).slice(0, 7)}` : "";
   }
 
   function formatDifference(value) {
@@ -85,9 +86,10 @@
 
   function getEstimateFor(cardId, dueDate) {
     if (!cardId || !dueDate) return 0;
-    const dueMonth = String(dueDate).slice(0, 7);
+    const actualRow = state.cardCharges.find((row) => isActualStatement(row) && row.card_id === cardId && row.due_date === dueDate);
+    const statementMonth = String(actualRow?.charge_date || dueDate).slice(0, 7);
     return [...state.cardCharges, ...getSubscriptionCardEstimateRows(), ...getUpcomingInstallmentEstimateRows()]
-      .filter((row) => isEstimatedCardCharge(row) && row.card_id === cardId && String(row.due_date || "").slice(0, 7) === dueMonth)
+      .filter((row) => isEstimatedCardCharge(row) && row.card_id === cardId && String(row.charge_date || row.due_date || "").slice(0, 7) === statementMonth)
       .reduce((sum, row) => sum + toNumber(row.amount), 0);
   }
 
@@ -193,7 +195,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.20")
+      navigator.serviceWorker.register("./sw.js?v=20260717.21")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
