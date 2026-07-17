@@ -94,7 +94,7 @@
     const receivedManualReimbursements = reimbursements
       .filter((row) => row.status === "received" && !row.transaction_id)
       .reduce((sum, row) => sum + toNumber(row.amount), 0);
-    const statementKey = (row) => row.card_id && row.due_date ? `${row.card_id}:${row.due_date}` : "";
+    const statementKey = (row) => row.card_id && row.due_date ? `${row.card_id}:${String(row.due_date).slice(0, 7)}` : "";
     const actualStatementKeys = new Set(
       cardCharges
         .filter((row) => row.source_type === "opening_bill")

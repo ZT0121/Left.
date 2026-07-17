@@ -92,6 +92,23 @@ function summarize(overrides = {}) {
       { kind: "opening_card_bill", amount: 480 }
     ],
     cardCharges: [
+      { source_type: "general", amount: 500, status: "pending", card_id: "card-1", due_date: "2026-08-08" },
+      { source_type: "opening_bill", amount: 480, status: "pending", card_id: "card-1", due_date: "2026-08-23" }
+    ]
+  });
+
+  assert.equal(result.cardDue, 480);
+  assert.equal(result.cardDueActual, 480);
+  assert.equal(result.cardDueEstimate, 0);
+}
+
+{
+  const result = summarize({
+    transactions: [
+      { kind: "expense", amount: 500, payment_method: "credit_card" },
+      { kind: "opening_card_bill", amount: 480 }
+    ],
+    cardCharges: [
       { source_type: "general", amount: 300, status: "pending", card_id: "card-1", due_date: "2026-08-15" },
       { source_type: "advance", amount: 200, status: "pending", card_id: "card-1", due_date: "2026-08-15" },
       { source_type: "installment", amount: 100, status: "pending", card_id: "card-1", due_date: "2026-08-15" },

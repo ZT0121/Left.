@@ -74,7 +74,7 @@
   }
 
   function cardStatementKey(row) {
-    return row.card_id && row.due_date ? `${row.card_id}:${row.due_date}` : "";
+    return row.card_id && row.due_date ? `${row.card_id}:${String(row.due_date).slice(0, 7)}` : "";
   }
 
   function formatDifference(value) {
@@ -85,8 +85,9 @@
 
   function getEstimateFor(cardId, dueDate) {
     if (!cardId || !dueDate) return 0;
+    const dueMonth = String(dueDate).slice(0, 7);
     return [...state.cardCharges, ...getSubscriptionCardEstimateRows(), ...getUpcomingInstallmentEstimateRows()]
-      .filter((row) => isEstimatedCardCharge(row) && row.card_id === cardId && row.due_date === dueDate)
+      .filter((row) => isEstimatedCardCharge(row) && row.card_id === cardId && String(row.due_date || "").slice(0, 7) === dueMonth)
       .reduce((sum, row) => sum + toNumber(row.amount), 0);
   }
 
@@ -192,7 +193,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.19")
+      navigator.serviceWorker.register("./sw.js?v=20260717.20")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
