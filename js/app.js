@@ -50,7 +50,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.03")
+      navigator.serviceWorker.register("./sw.js?v=20260717.04")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -260,13 +260,13 @@
     nav.className = "list-tabs";
     nav.setAttribute("aria-label", "資料清單");
 
-    sections.forEach((item, index) => {
+    sections.forEach((item) => {
       item.section.id = item.id;
       item.section.classList.add("collapsible-list-section");
-      item.section.classList.toggle("active", index === 0);
+      item.section.classList.remove("active");
 
       const button = document.createElement("button");
-      button.className = `list-tab-button${index === 0 ? " active" : ""}`;
+      button.className = "list-tab-button";
       button.type = "button";
       button.dataset.listSection = item.id;
       button.textContent = item.label;
@@ -278,11 +278,12 @@
     nav.addEventListener("click", (event) => {
       const button = event.target.closest(".list-tab-button");
       if (!button) return;
+      const shouldOpen = !button.classList.contains("active");
       nav.querySelectorAll(".list-tab-button").forEach((item) => {
-        item.classList.toggle("active", item === button);
+        item.classList.toggle("active", shouldOpen && item === button);
       });
       sections.forEach((item) => {
-        item.section.classList.toggle("active", item.id === button.dataset.listSection);
+        item.section.classList.toggle("active", shouldOpen && item.id === button.dataset.listSection);
       });
     });
   }
