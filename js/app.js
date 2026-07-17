@@ -79,7 +79,7 @@
 
   function getEstimateFor(cardId, dueDate) {
     if (!cardId || !dueDate) return 0;
-    return [...state.cardCharges, ...getSubscriptionCardEstimateRows()]
+    return [...state.cardCharges, ...getSubscriptionCardEstimateRows(), ...getUpcomingInstallmentEstimateRows()]
       .filter((row) => isEstimatedCardCharge(row) && row.card_id === cardId && row.due_date === dueDate)
       .reduce((sum, row) => sum + toNumber(row.amount), 0);
   }
@@ -104,6 +104,36 @@
       });
   }
 
+  function getUpcomingInstallmentEstimateRows() {
+    const month = currentMonth();
+    const nextMonth = window.LeftBudget.addMonths(`${month}-01`, 1).slice(0, 7);
+    const visibleMonths = new Set([month, nextMonth]);
+    const existingKeys = new Set(
+      state.cardCharges
+        .filter((row) => row.installment_plan_id && row.installment_number)
+        .map((row) => `${row.installment_plan_id}:${row.installment_number}`)
+    );
+
+    return state.installmentPlans
+      .filter((plan) => plan.is_active !== false)
+      .flatMap((plan) => window.LeftBudget.createInstallmentSchedule(plan)
+        .filter((item) => visibleMonths.has(String(item.due_date).slice(0, 7)))
+        .filter((item) => !existingKeys.has(`${plan.id}:${item.installment_number}`))
+        .map((item) => ({
+          id: `installment-estimate:${plan.id}:${item.installment_number}`,
+          source_type: "installment",
+          title: `${plan.title} ${item.installment_number}/${plan.installment_count}`,
+          card_id: plan.card_id,
+          installment_plan_id: plan.id,
+          installment_number: item.installment_number,
+          charge_date: item.due_date,
+          due_date: item.due_date,
+          amount: item.amount,
+          status: "pending",
+          created_at: item.due_date
+        })));
+  }
+
   function getEstimatedStatementGroups() {
     const actualKeys = new Set(
       state.cardCharges
@@ -113,7 +143,7 @@
     );
     const groups = new Map();
 
-    [...state.cardCharges, ...getSubscriptionCardEstimateRows()]
+    [...state.cardCharges, ...getSubscriptionCardEstimateRows(), ...getUpcomingInstallmentEstimateRows()]
       .filter((row) => isEstimatedCardCharge(row) && row.due_date)
       .forEach((row) => {
         const key = cardStatementKey(row);
@@ -156,7 +186,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.15")
+      navigator.serviceWorker.register("./sw.js?v=20260717.16")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -231,7 +261,7 @@
   function calculateSummary(extraSpend = 0) {
     return window.LeftBudget.summarizeBudget({
       ...state,
-      cardCharges: [...state.cardCharges, ...getSubscriptionCardEstimateRows()]
+      cardCharges: [...state.cardCharges, ...getSubscriptionCardEstimateRows(), ...getUpcomingInstallmentEstimateRows()]
     }, {
       spend: extraSpend,
       today: today(),
@@ -821,11 +851,25 @@
           installment: "分期",
           subscription: "訂閱"
         };
+        const detailSourceLabel = {
+          general: "一般刷卡",
+          advance: "代墊",
+          installment: "分期",
+          subscription: "訂閱"
+        };
         const detailRows = [...(row.items || [])]
           .sort((a, b) => String(a.charge_date || "").localeCompare(String(b.charge_date || "")))
           .map((item) => `
             <div class="statement-detail-row">
               <span>${item.charge_date || "未填"} · ${sourceLabel[item.source_type] || "預估"} · ${escapeHtml(item.title || "未命名")}</span>
+              <strong>${money(item.amount)}</strong>
+            </div>
+          `).join("");
+        const visibleDetailRows = [...(row.items || [])]
+          .sort((a, b) => String(a.charge_date || "").localeCompare(String(b.charge_date || "")))
+          .map((item) => `
+            <div class="statement-detail-row">
+              <span>${item.charge_date || "未填"} · ${detailSourceLabel[item.source_type] || "預估"} · ${escapeHtml(item.title || "未命名")}</span>
               <strong>${money(item.amount)}</strong>
             </div>
           `).join("");
@@ -836,7 +880,7 @@
               <p class="record-meta">繳款日 ${row.due_date} · ${row.count} 筆紀錄預估 · ${periodText} · 尚未輸入實際帳單</p>
               <details class="statement-details">
                 <summary>查看未出帳明細</summary>
-                <div class="statement-detail-list">${detailRows}</div>
+                <div class="statement-detail-list">${visibleDetailRows}</div>
               </details>
             </div>
             <div class="record-amount">${money(row.amount)}</div>
