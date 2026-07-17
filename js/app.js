@@ -186,14 +186,14 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.17")
+      navigator.serviceWorker.register("./sw.js?v=20260717.18")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
             if (!worker) return;
             worker.addEventListener("statechange", () => {
               if (worker.state === "activated" && navigator.serviceWorker.controller) {
-                window.location.reload();
+                showToast("新版已準備好，重新整理後套用");
               }
             });
           });
