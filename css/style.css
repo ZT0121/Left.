@@ -299,6 +299,22 @@ select:focus {
   box-shadow: var(--shadow-soft);
 }
 
+.metric-card.clickable-metric {
+  cursor: pointer;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.metric-card.clickable-metric:hover,
+.metric-card.clickable-metric:focus-visible {
+  border-color: rgba(80, 72, 64, 0.28);
+  box-shadow: 0 10px 24px rgba(47, 45, 42, 0.12);
+  outline: none;
+}
+
+.metric-card.clickable-metric:active {
+  transform: translateY(1px);
+}
+
 .metric-card span {
   display: block;
   margin-bottom: 8px;

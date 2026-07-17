@@ -227,7 +227,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.23")
+      navigator.serviceWorker.register("./sw.js?v=20260717.24")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -505,6 +505,30 @@
       if (badge) badge.textContent = count;
       button.classList.toggle("has-items", count > 0);
     });
+  }
+
+  function openListSection(sectionId) {
+    const nav = $("listTabs");
+    if (!nav) return;
+    nav.querySelectorAll(".list-tab-button").forEach((button) => {
+      button.classList.toggle("active", button.dataset.listSection === sectionId);
+    });
+    document.querySelectorAll(".collapsible-list-section").forEach((section) => {
+      section.classList.toggle("active", section.id === sectionId);
+    });
+  }
+
+  function showPendingCardEstimateDetails() {
+    const list = $("cardChargeList");
+    if (!list) return;
+    list.dataset.cardStatementTab = "estimate";
+    renderCardCharges();
+    openListSection("cardChargeSection");
+    const target = list.closest(".list-section") || list;
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!getEstimatedStatementGroups().length) {
+      showToast("目前沒有未出帳預估明細");
+    }
   }
 
   function renderCardOptions() {
@@ -2704,6 +2728,20 @@
     $("subscriptionBillingCycle").addEventListener("change", toggleCardFields);
     $("openingBillCardSelect").addEventListener("change", fillOpeningBillDatesFromCard);
     setupListTabs();
+
+    const cardDueMetric = $("cardDueAmount")?.closest(".metric-card");
+    if (cardDueMetric) {
+      cardDueMetric.classList.add("clickable-metric");
+      cardDueMetric.setAttribute("role", "button");
+      cardDueMetric.setAttribute("tabindex", "0");
+      cardDueMetric.setAttribute("aria-label", "查看未出帳信用卡明細");
+      cardDueMetric.addEventListener("click", showPendingCardEstimateDetails);
+      cardDueMetric.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        showPendingCardEstimateDetails();
+      });
+    }
 
     document.querySelectorAll(".tab-button").forEach((button) => {
       button.addEventListener("click", () => {
