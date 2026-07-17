@@ -123,7 +123,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.10")
+      navigator.serviceWorker.register("./sw.js?v=20260717.11")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -1948,6 +1948,8 @@
   }
 
   function applyCopyOverrides() {
+    const heroEyebrow = $("heroCard")?.querySelector(".eyebrow");
+    if (heroEyebrow) heroEyebrow.textContent = "預估月底可多存";
     setLabelText("openingBillAmount", "實際帳單金額");
     setLabelText("openingBillDate", "帳單日");
     setLabelText("openingBillCardSelect", "信用卡");
