@@ -4,11 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Left. | 最低存款控制助手</title>
-  <link rel="icon" href="./icon.png?v=20260714.04" type="image/png">
-  <link rel="manifest" href="./manifest.json?v=20260714.04">
+  <link rel="icon" href="./icon.png?v=20260717.01" type="image/png">
+  <link rel="manifest" href="./manifest.json?v=20260717.01">
   <meta name="theme-color" content="#f7efe3">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="./css/style.css?v=20260714.04">
+  <link rel="stylesheet" href="./css/style.css?v=20260717.01">
 </head>
 <body>
   <main class="app-shell">
@@ -114,6 +114,7 @@
         <button class="tab-button" type="button" data-panel="wishPanel">我想買</button>
         <button class="tab-button" type="button" data-panel="cardPanel">信用卡</button>
         <button class="tab-button" type="button" data-panel="installmentPanel">分期</button>
+        <button class="tab-button" type="button" data-panel="accountPanel">帳戶</button>
         <button class="tab-button" type="button" data-panel="toolsPanel">工具</button>
       </nav>
 
@@ -141,6 +142,10 @@
           <label id="expenseCardLabel">
             信用卡
             <select id="expenseCardSelect"></select>
+          </label>
+          <label id="expenseAccountLabel">
+            扣款帳戶
+            <select id="expenseAccountSelect"></select>
           </label>
           <button class="primary-button full-width" type="submit">新增支出</button>
         </form>
@@ -190,6 +195,10 @@
           <label id="advanceCardLabel">
             信用卡
             <select id="advanceCardSelect"></select>
+          </label>
+          <label id="advanceAccountLabel">
+            扣款帳戶
+            <select id="advanceAccountSelect"></select>
           </label>
           <button class="primary-button full-width" type="submit">新增代墊／補貼待收</button>
           <p class="helper-text full-width">餐點不同時，上面填自己的餐點，這裡只填別人的餐點；平台費／運費會依分攤人數平均，並把每個人分攤後的金額列入待收。</p>
@@ -327,7 +336,65 @@
         </form>
       </section>
 
+      <section class="work-panel" id="accountPanel">
+        <form id="accountForm" class="form-grid">
+          <label>
+            帳戶名稱
+            <input id="accountName" type="text" maxlength="40" placeholder="銀行、現金、街口支付" required>
+          </label>
+          <label>
+            期初餘額
+            <input id="accountOpeningBalance" type="number" min="0" step="1" inputmode="numeric" value="0" required>
+          </label>
+          <label class="full-width">
+            類型
+            <select id="accountType">
+              <option value="bank">銀行</option>
+              <option value="wallet">電子錢包</option>
+              <option value="cash">現金</option>
+              <option value="other">其他</option>
+            </select>
+          </label>
+          <button class="primary-button full-width" type="submit">新增帳戶</button>
+        </form>
+
+        <form id="transferForm" class="form-grid sub-form">
+          <label>
+            金額
+            <input id="transferAmount" type="number" min="1" step="1" inputmode="numeric" required>
+          </label>
+          <label>
+            日期
+            <input id="transferDate" type="date" required>
+          </label>
+          <label>
+            從
+            <select id="transferFromSelect" required></select>
+          </label>
+          <label>
+            到
+            <select id="transferToSelect" required></select>
+          </label>
+          <label class="full-width">
+            備註
+            <input id="transferTitle" type="text" maxlength="80" placeholder="街口支付儲值、轉回銀行">
+          </label>
+          <button class="secondary-button full-width" type="submit">新增轉帳／儲值</button>
+        </form>
+
+        <div class="inline-list" id="accountList"></div>
+        <div class="inline-list" id="transferList"></div>
+      </section>
+
       <section class="work-panel" id="toolsPanel">
+        <section class="mom-request-box">
+          <div class="section-title">
+            <h2>給媽媽金額</h2>
+            <span id="motherRequestTotal">$0</span>
+          </div>
+          <textarea id="motherRequestMessage" readonly></textarea>
+          <button class="secondary-button full-width" id="copyMotherRequestButton" type="button">複製訊息</button>
+        </section>
         <div class="button-row">
           <button class="secondary-button" id="backupButton" type="button">下載備份</button>
           <label class="file-button">
@@ -359,6 +426,14 @@
           <h2>信用卡明細</h2>
           <span>繳卡費只會標記已繳，不會再算支出</span>
         </div>
+        <div class="record-list" id="billReminderList"></div>
+      </section>
+
+      <section class="list-section">
+        <div class="section-title">
+          <h2>信用卡帳單明細</h2>
+          <span>所有未繳與已繳帳單</span>
+        </div>
         <div class="record-list" id="cardChargeList"></div>
       </section>
 
@@ -372,7 +447,7 @@
     </section>
 
     <div class="toast" id="toast" hidden></div>
-    <p class="app-version">v20260714.04</p>
+    <p class="app-version">v20260717.01</p>
   </main>
 
   <dialog id="editDialog">
@@ -398,9 +473,9 @@
     </form>
   </dialog>
 
-  <script src="./js/config.js?v=20260714.04"></script>
+  <script src="./js/config.js?v=20260717.01"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"></script>
-  <script src="./js/budget.js?v=20260714.04"></script>
-  <script src="./js/app.js?v=20260714.04"></script>
+  <script src="./js/budget.js?v=20260717.01"></script>
+  <script src="./js/app.js?v=20260717.01"></script>
 </body>
 </html>

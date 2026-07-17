@@ -138,4 +138,36 @@ function summarize(overrides = {}) {
   assert.equal(result.projected, 51700);
 }
 
+{
+  const balances = budget.calculateAccountBalances({
+    accounts: [
+      { id: "bank", name: "銀行", opening_balance: 1000 },
+      { id: "jkopay", name: "街口支付", opening_balance: 0 }
+    ],
+    accountTransfers: [
+      { from_account_id: "bank", to_account_id: "jkopay", amount: 500 }
+    ],
+    transactions: [
+      { account_id: "jkopay", payment_method: "cash", amount: 80, gross_amount: 80 }
+    ]
+  });
+
+  assert.equal(balances.find((row) => row.id === "bank").balance, 500);
+  assert.equal(balances.find((row) => row.id === "jkopay").balance, 420);
+}
+
+{
+  const result = budget.calculateMotherRequest({
+    cycle,
+    reimbursements: [
+      { amount: 600, status: "pending" },
+      { amount: 300, status: "received" }
+    ]
+  });
+
+  assert.equal(result.support, 20000);
+  assert.equal(result.pending, 600);
+  assert.equal(result.total, 20600);
+}
+
 console.log("budget tests passed");

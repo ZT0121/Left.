@@ -350,6 +350,20 @@ select:focus {
   border: 1px solid var(--line);
 }
 
+.mom-request-box {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: #fffdf8;
+}
+
+.mom-request-box textarea {
+  min-height: 156px;
+}
+
 .wish-result strong {
   display: block;
   margin: 4px 0;
@@ -433,6 +447,15 @@ select:focus {
   color: var(--primary-dark);
   background: #fbf0e3;
   font-weight: 800;
+}
+
+.reminder-item {
+  border-color: rgba(183, 121, 31, 0.42);
+}
+
+.reminder-item.overdue {
+  border-color: rgba(197, 48, 48, 0.48);
+  background: #fff7f5;
 }
 
 .file-button {

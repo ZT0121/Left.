@@ -69,6 +69,31 @@ create table if not exists public.credit_cards (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.accounts (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  type text not null default 'bank' check (type in ('bank', 'wallet', 'cash', 'other')),
+  opening_balance numeric(12, 0) not null default 0 check (opening_balance >= 0),
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.account_transfers (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  cycle_id uuid not null references public.budget_cycles(id) on delete cascade,
+  from_account_id uuid not null references public.accounts(id) on delete cascade,
+  to_account_id uuid not null references public.accounts(id) on delete cascade,
+  date date not null,
+  title text not null default '轉帳／儲值',
+  amount numeric(12, 0) not null check (amount > 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check (from_account_id <> to_account_id)
+);
+
 create table if not exists public.installment_plans (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -108,6 +133,7 @@ alter table public.transactions
   add column if not exists payment_method text not null default 'cash'
     check (payment_method in ('cash', 'credit_card')),
   add column if not exists credit_card_id uuid references public.credit_cards(id) on delete set null,
+  add column if not exists account_id uuid references public.accounts(id) on delete set null,
   add column if not exists installment_plan_id uuid references public.installment_plans(id) on delete set null;
 
 do $$
@@ -136,6 +162,8 @@ where is_closed = false;
 create index if not exists transactions_user_cycle_idx on public.transactions(user_id, cycle_id, date desc);
 create index if not exists reimbursements_user_cycle_idx on public.reimbursements(user_id, cycle_id, status);
 create index if not exists credit_cards_user_idx on public.credit_cards(user_id, is_active, name);
+create index if not exists accounts_user_idx on public.accounts(user_id, is_active, name);
+create index if not exists account_transfers_user_cycle_idx on public.account_transfers(user_id, cycle_id, date desc);
 create index if not exists installment_plans_user_card_idx on public.installment_plans(user_id, card_id, is_active);
 create index if not exists credit_card_charges_user_cycle_idx on public.credit_card_charges(user_id, cycle_id, status, due_date);
 create index if not exists credit_card_charges_card_idx on public.credit_card_charges(user_id, card_id, due_date);
@@ -180,6 +208,16 @@ create trigger set_credit_cards_updated_at
 before update on public.credit_cards
 for each row execute function public.set_updated_at();
 
+drop trigger if exists set_accounts_updated_at on public.accounts;
+create trigger set_accounts_updated_at
+before update on public.accounts
+for each row execute function public.set_updated_at();
+
+drop trigger if exists set_account_transfers_updated_at on public.account_transfers;
+create trigger set_account_transfers_updated_at
+before update on public.account_transfers
+for each row execute function public.set_updated_at();
+
 drop trigger if exists set_installment_plans_updated_at on public.installment_plans;
 create trigger set_installment_plans_updated_at
 before update on public.installment_plans
@@ -196,6 +234,8 @@ alter table public.budget_cycles enable row level security;
 alter table public.transactions enable row level security;
 alter table public.reimbursements enable row level security;
 alter table public.credit_cards enable row level security;
+alter table public.accounts enable row level security;
+alter table public.account_transfers enable row level security;
 alter table public.installment_plans enable row level security;
 alter table public.credit_card_charges enable row level security;
 
@@ -302,6 +342,15 @@ with check (
     )
   )
   and (
+    account_id is null
+    or exists (
+      select 1
+      from public.accounts
+      where accounts.id = account_id
+        and accounts.user_id = (select auth.uid())
+    )
+  )
+  and (
     installment_plan_id is null
     or exists (
       select 1
@@ -332,6 +381,15 @@ with check (
       from public.credit_cards
       where credit_cards.id = credit_card_id
         and credit_cards.user_id = (select auth.uid())
+    )
+  )
+  and (
+    account_id is null
+    or exists (
+      select 1
+      from public.accounts
+      where accounts.id = account_id
+        and accounts.user_id = (select auth.uid())
     )
   )
   and (
@@ -432,6 +490,96 @@ with check ((select auth.uid()) = user_id);
 drop policy if exists "Users can delete their credit cards" on public.credit_cards;
 create policy "Users can delete their credit cards"
 on public.credit_cards for delete
+to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can read their accounts" on public.accounts;
+create policy "Users can read their accounts"
+on public.accounts for select
+to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can insert their accounts" on public.accounts;
+create policy "Users can insert their accounts"
+on public.accounts for insert
+to authenticated
+with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can update their accounts" on public.accounts;
+create policy "Users can update their accounts"
+on public.accounts for update
+to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can delete their accounts" on public.accounts;
+create policy "Users can delete their accounts"
+on public.accounts for delete
+to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can read their account transfers" on public.account_transfers;
+create policy "Users can read their account transfers"
+on public.account_transfers for select
+to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can insert their account transfers" on public.account_transfers;
+create policy "Users can insert their account transfers"
+on public.account_transfers for insert
+to authenticated
+with check (
+  (select auth.uid()) = user_id
+  and exists (
+    select 1
+    from public.budget_cycles
+    where budget_cycles.id = cycle_id
+      and budget_cycles.user_id = (select auth.uid())
+  )
+  and exists (
+    select 1
+    from public.accounts
+    where accounts.id = from_account_id
+      and accounts.user_id = (select auth.uid())
+  )
+  and exists (
+    select 1
+    from public.accounts
+    where accounts.id = to_account_id
+      and accounts.user_id = (select auth.uid())
+  )
+);
+
+drop policy if exists "Users can update their account transfers" on public.account_transfers;
+create policy "Users can update their account transfers"
+on public.account_transfers for update
+to authenticated
+using ((select auth.uid()) = user_id)
+with check (
+  (select auth.uid()) = user_id
+  and exists (
+    select 1
+    from public.budget_cycles
+    where budget_cycles.id = cycle_id
+      and budget_cycles.user_id = (select auth.uid())
+  )
+  and exists (
+    select 1
+    from public.accounts
+    where accounts.id = from_account_id
+      and accounts.user_id = (select auth.uid())
+  )
+  and exists (
+    select 1
+    from public.accounts
+    where accounts.id = to_account_id
+      and accounts.user_id = (select auth.uid())
+  )
+);
+
+drop policy if exists "Users can delete their account transfers" on public.account_transfers;
+create policy "Users can delete their account transfers"
+on public.account_transfers for delete
 to authenticated
 using ((select auth.uid()) = user_id);
 
@@ -573,6 +721,8 @@ grant select, insert, update, delete on
   public.transactions,
   public.reimbursements,
   public.credit_cards,
+  public.accounts,
+  public.account_transfers,
   public.installment_plans,
   public.credit_card_charges
 to authenticated;

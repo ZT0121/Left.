@@ -20,7 +20,9 @@
     reimbursements: [],
     creditCards: [],
     cardCharges: [],
-    installmentPlans: []
+    installmentPlans: [],
+    accounts: [],
+    accountTransfers: []
   };
 
   const $ = (id) => document.getElementById(id);
@@ -47,7 +49,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260714.04")
+      navigator.serviceWorker.register("./sw.js?v=20260717.01")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -173,6 +175,11 @@
     renderReimbursements();
     renderCardCharges();
     renderInstallments();
+    renderAccountOptions();
+    renderAccounts();
+    renderTransfers();
+    renderBillReminders();
+    renderMotherRequest();
   }
 
   function renderTransactions() {
@@ -242,6 +249,136 @@
 
     toggleCardFields();
     fillOpeningBillDatesFromCard();
+  }
+
+  function renderAccountOptions() {
+    const activeAccounts = state.accounts.filter((account) => account.is_active !== false);
+    const options = activeAccounts.length
+      ? activeAccounts.map((account) => `<option value="${account.id}">${escapeHtml(account.name)}</option>`).join("")
+      : '<option value="">請先新增帳戶</option>';
+
+    ["expenseAccountSelect", "advanceAccountSelect", "transferFromSelect", "transferToSelect"].forEach((id) => {
+      const select = $(id);
+      if (select) select.innerHTML = options;
+    });
+  }
+
+  function getAccountBalances() {
+    return window.LeftBudget.calculateAccountBalances(state);
+  }
+
+  function renderAccounts() {
+    const list = $("accountList");
+    if (!list) return;
+    const rows = getAccountBalances();
+    if (!rows.length) {
+      list.innerHTML = '<p class="empty-state">先新增銀行、現金或街口支付帳戶，之後儲值就可以用轉帳記錄。</p>';
+      return;
+    }
+
+    const typeLabel = {
+      bank: "銀行",
+      wallet: "電子錢包",
+      cash: "現金",
+      other: "其他"
+    };
+
+    list.innerHTML = rows.map((account) => `
+      <article class="record-item">
+        <div>
+          <p class="record-title">${escapeHtml(account.name)}</p>
+          <p class="record-meta">${typeLabel[account.type] || "其他"} · 期初 ${money(account.opening_balance)}</p>
+        </div>
+        <div class="record-amount">${money(account.balance)}</div>
+      </article>
+    `).join("");
+  }
+
+  function renderTransfers() {
+    const list = $("transferList");
+    if (!list) return;
+    const accountsById = new Map(state.accounts.map((account) => [account.id, account]));
+    const rows = [...state.accountTransfers]
+      .sort((a, b) => `${b.date}${b.created_at}`.localeCompare(`${a.date}${a.created_at}`))
+      .slice(0, 8);
+
+    if (!rows.length) {
+      list.innerHTML = '<p class="empty-state">還沒有轉帳／儲值紀錄。</p>';
+      return;
+    }
+
+    list.innerHTML = rows.map((row) => `
+      <article class="record-item">
+        <div>
+          <p class="record-title">${escapeHtml(row.title || "轉帳／儲值")}</p>
+          <p class="record-meta">${row.date} · ${escapeHtml(accountsById.get(row.from_account_id)?.name || "來源")} → ${escapeHtml(accountsById.get(row.to_account_id)?.name || "目的")}</p>
+        </div>
+        <div class="record-amount">${money(row.amount)}</div>
+        <div class="record-actions">
+          <button type="button" data-delete-transfer="${row.id}">刪除</button>
+        </div>
+      </article>
+    `).join("");
+  }
+
+  function getBillReminderRows() {
+    const current = today();
+    return state.cardCharges
+      .filter((row) => row.status !== "paid" && row.due_date)
+      .map((row) => ({
+        ...row,
+        daysLeft: Math.ceil((parseLocalDate(row.due_date) - parseLocalDate(current)) / 86400000)
+      }))
+      .filter((row) => row.daysLeft <= 7)
+      .sort((a, b) => a.daysLeft - b.daysLeft);
+  }
+
+  function renderBillReminders() {
+    const list = $("billReminderList");
+    if (!list) return;
+    const rows = getBillReminderRows();
+    if (!rows.length) {
+      list.innerHTML = '<p class="empty-state">7 天內沒有需要提醒的信用卡帳單。</p>';
+      return;
+    }
+
+    list.innerHTML = rows.map((row) => {
+      const card = state.creditCards.find((item) => item.id === row.card_id);
+      const dueText = row.daysLeft < 0
+        ? `逾期 ${Math.abs(row.daysLeft)} 天`
+        : row.daysLeft === 0
+          ? "今天到期"
+          : `${row.daysLeft} 天後到期`;
+
+      return `
+        <article class="record-item reminder-item ${row.daysLeft < 0 ? "overdue" : ""}">
+          <div>
+            <p class="record-title">${escapeHtml(row.title)}</p>
+            <p class="record-meta">${escapeHtml(card?.name || "信用卡")} · ${row.due_date} · ${dueText}</p>
+          </div>
+          <div class="record-amount">${money(row.amount)}</div>
+        </article>
+      `;
+    }).join("");
+  }
+
+  function renderMotherRequest() {
+    const total = $("motherRequestTotal");
+    const message = $("motherRequestMessage");
+    if (!total || !message) return;
+
+    const request = window.LeftBudget.calculateMotherRequest(state);
+    const pendingRows = state.reimbursements.filter((row) => row.status === "pending");
+    total.textContent = money(request.total);
+    const details = pendingRows.length
+      ? pendingRows.map((row) => `- ${row.title || "待收"}：${money(row.amount)}`).join("\n")
+      : "- 目前沒有額外待收";
+    message.value = [
+      `媽媽，這個月生活費 ${money(request.support)}。`,
+      `另外待收／代墊是 ${money(request.pending)}：`,
+      details,
+      `所以這次一共是 ${money(request.total)}，謝謝。`
+    ].join("\n");
   }
 
   function renderCreditCards() {
@@ -354,12 +491,18 @@
     const advanceUsesCard = $("advancePaymentMethod")?.value === "credit_card";
     if ($("expenseCardLabel")) $("expenseCardLabel").hidden = !expenseUsesCard;
     if ($("advanceCardLabel")) $("advanceCardLabel").hidden = !advanceUsesCard;
+    if ($("expenseAccountLabel")) $("expenseAccountLabel").hidden = expenseUsesCard;
+    if ($("advanceAccountLabel")) $("advanceAccountLabel").hidden = advanceUsesCard;
   }
 
   function requireCard(selectId) {
     const cardId = $(selectId).value;
     if (!cardId) throw new Error("請先新增並選擇一張信用卡");
     return cardId;
+  }
+
+  function optionalAccount(selectId) {
+    return $(selectId)?.value || null;
   }
 
   function getLatestCardClosingDate(cardId, baseDate = today()) {
@@ -521,6 +664,8 @@
     if (!state.cycle) return;
 
     await loadCreditCards();
+    await loadAccounts();
+    await loadAccountTransfers();
     await loadInstallmentPlans();
     await generateDueInstallments();
 
@@ -569,6 +714,27 @@
       .order("purchase_date", { ascending: false });
     if (error) throw error;
     state.installmentPlans = data || [];
+  }
+
+  async function loadAccounts() {
+    const { data, error } = await client
+      .from("accounts")
+      .select("*")
+      .eq("user_id", state.user.id)
+      .order("name", { ascending: true });
+    if (error) throw error;
+    state.accounts = data || [];
+  }
+
+  async function loadAccountTransfers() {
+    const { data, error } = await client
+      .from("account_transfers")
+      .select("*")
+      .eq("user_id", state.user.id)
+      .eq("cycle_id", state.cycle.id)
+      .order("date", { ascending: false });
+    if (error) throw error;
+    state.accountTransfers = data || [];
   }
 
   async function generateDueInstallments() {
@@ -722,6 +888,7 @@
     const amount = toNumber($("expenseAmount").value);
     const paymentMethod = $("expensePaymentMethod").value;
     const cardId = paymentMethod === "credit_card" ? requireCard("expenseCardSelect") : null;
+    const accountId = paymentMethod === "credit_card" ? null : optionalAccount("expenseAccountSelect");
     const tx = await insertTransaction({
       kind: "expense",
       date: $("expenseDate").value,
@@ -729,7 +896,8 @@
       amount,
       gross_amount: amount,
       payment_method: paymentMethod,
-      credit_card_id: cardId
+      credit_card_id: cardId,
+      account_id: accountId
     }, false);
     if (cardId) {
       await insertCardCharge({
@@ -802,6 +970,7 @@
     const title = $("advanceTitle").value.trim() || "代墊";
     const paymentMethod = $("advancePaymentMethod").value;
     const cardId = paymentMethod === "credit_card" ? requireCard("advanceCardSelect") : null;
+    const accountId = paymentMethod === "credit_card" ? null : optionalAccount("advanceAccountSelect");
     const tx = await insertTransaction({
       kind: "advance",
       date: $("advanceDate").value,
@@ -810,7 +979,8 @@
       gross_amount: gross,
       participant_count: splitPeople || peopleInput || null,
       payment_method: paymentMethod,
-      credit_card_id: cardId
+      credit_card_id: cardId,
+      account_id: accountId
     }, false);
 
     if (cardId) {
@@ -1063,6 +1233,64 @@
     await refresh();
   }
 
+  async function addAccount(event) {
+    event.preventDefault();
+    const { error } = await client.from("accounts").insert({
+      user_id: state.user.id,
+      name: $("accountName").value.trim(),
+      type: $("accountType").value,
+      opening_balance: toNumber($("accountOpeningBalance").value),
+      is_active: true
+    });
+    if (error) throw error;
+    event.target.reset();
+    $("accountOpeningBalance").value = 0;
+    showToast("帳戶已新增");
+    await refresh();
+  }
+
+  async function addTransfer(event) {
+    event.preventDefault();
+    const fromId = $("transferFromSelect").value;
+    const toId = $("transferToSelect").value;
+    if (!fromId || !toId) throw new Error("請先新增來源與目的帳戶");
+    if (fromId === toId) throw new Error("來源與目的帳戶不能相同");
+
+    const { error } = await client.from("account_transfers").insert({
+      user_id: state.user.id,
+      cycle_id: state.cycle.id,
+      from_account_id: fromId,
+      to_account_id: toId,
+      date: $("transferDate").value,
+      title: $("transferTitle").value.trim() || "轉帳／儲值",
+      amount: toNumber($("transferAmount").value)
+    });
+    if (error) throw error;
+    event.target.reset();
+    setDefaultDates();
+    showToast("轉帳／儲值已新增");
+    await refresh();
+  }
+
+  async function deleteTransfer(id) {
+    if (!window.confirm("確定要刪除這筆轉帳／儲值嗎？")) return;
+    const { error } = await client
+      .from("account_transfers")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", state.user.id);
+    if (error) throw error;
+    showToast("轉帳／儲值已刪除");
+    await refresh();
+  }
+
+  async function copyMotherRequest() {
+    const text = $("motherRequestMessage").value;
+    if (!text) return;
+    await navigator.clipboard.writeText(text);
+    showToast("已複製給媽媽的訊息");
+  }
+
   async function editTransaction(id) {
     const row = state.transactions.find((item) => item.id === id);
     if (!row) return;
@@ -1250,16 +1478,18 @@
   }
 
   async function downloadBackup() {
-    const [cycles, transactions, reimbursements, settings, creditCards, cardCharges, installmentPlans] = await Promise.all([
+    const [cycles, transactions, reimbursements, settings, creditCards, cardCharges, installmentPlans, accounts, accountTransfers] = await Promise.all([
       client.from("budget_cycles").select("*").eq("user_id", state.user.id),
       client.from("transactions").select("*").eq("user_id", state.user.id),
       client.from("reimbursements").select("*").eq("user_id", state.user.id),
       client.from("user_settings").select("*").eq("user_id", state.user.id),
       client.from("credit_cards").select("*").eq("user_id", state.user.id),
       client.from("credit_card_charges").select("*").eq("user_id", state.user.id),
-      client.from("installment_plans").select("*").eq("user_id", state.user.id)
+      client.from("installment_plans").select("*").eq("user_id", state.user.id),
+      client.from("accounts").select("*").eq("user_id", state.user.id),
+      client.from("account_transfers").select("*").eq("user_id", state.user.id)
     ]);
-    [cycles, transactions, reimbursements, settings, creditCards, cardCharges, installmentPlans].forEach((result) => {
+    [cycles, transactions, reimbursements, settings, creditCards, cardCharges, installmentPlans, accounts, accountTransfers].forEach((result) => {
       if (result.error) throw result.error;
     });
     const blob = new Blob([JSON.stringify({
@@ -1270,7 +1500,9 @@
       user_settings: settings.data,
       credit_cards: creditCards.data,
       credit_card_charges: cardCharges.data,
-      installment_plans: installmentPlans.data
+      installment_plans: installmentPlans.data,
+      accounts: accounts.data,
+      account_transfers: accountTransfers.data
     }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1293,7 +1525,7 @@
       return copy;
     });
 
-    for (const table of ["budget_cycles", "credit_cards", "installment_plans", "transactions", "reimbursements", "credit_card_charges", "user_settings"]) {
+    for (const table of ["budget_cycles", "credit_cards", "accounts", "installment_plans", "transactions", "reimbursements", "credit_card_charges", "account_transfers", "user_settings"]) {
       const rows = rewrite(backup[table]);
       if (!rows.length) continue;
       const { error } = await client.from(table).upsert(rows);
@@ -1304,7 +1536,7 @@
   }
 
   function setDefaultDates() {
-    ["expenseDate", "advanceDate", "openingBillDate", "installmentFirstDate", "cardFeeDate", "cardFeeDueDate"].forEach((id) => {
+    ["expenseDate", "advanceDate", "openingBillDate", "installmentFirstDate", "cardFeeDate", "cardFeeDueDate", "transferDate"].forEach((id) => {
       const input = $(id);
       if (input) input.value = today();
     });
@@ -1379,10 +1611,13 @@
     $("openingBillForm").addEventListener("submit", wrap(addOpeningBill));
     $("installmentForm").addEventListener("submit", wrap(addInstallment));
     $("cardFeeForm").addEventListener("submit", wrap(addCardFee));
+    $("accountForm").addEventListener("submit", wrap(addAccount));
+    $("transferForm").addEventListener("submit", wrap(addTransfer));
     $("editForm").addEventListener("submit", wrap(saveEdit));
     $("cancelEditButton").addEventListener("click", () => $("editDialog").close());
     $("newCycleButton").addEventListener("click", wrap(closeCycle));
     $("backupButton").addEventListener("click", wrap(downloadBackup));
+    $("copyMotherRequestButton").addEventListener("click", wrap(copyMotherRequest));
     $("restoreInput").addEventListener("change", wrap(restoreBackup));
     $("expensePaymentMethod").addEventListener("change", toggleCardFields);
     $("advancePaymentMethod").addEventListener("change", toggleCardFields);
@@ -1430,6 +1665,11 @@
     $("installmentList").addEventListener("click", wrap(async (event) => {
       const deleteId = event.target.dataset.deleteInstallment;
       if (deleteId) await deleteInstallment(deleteId);
+    }));
+
+    $("transferList").addEventListener("click", wrap(async (event) => {
+      const deleteId = event.target.dataset.deleteTransfer;
+      if (deleteId) await deleteTransfer(deleteId);
     }));
   }
 

@@ -120,8 +120,49 @@
     };
   }
 
+  function calculateAccountBalances(input) {
+    const accounts = input.accounts || [];
+    const transfers = input.accountTransfers || [];
+    const transactions = input.transactions || [];
+
+    return accounts.map((account) => {
+      const opening = toNumber(account.opening_balance);
+      const transferIn = transfers
+        .filter((row) => row.to_account_id === account.id)
+        .reduce((sum, row) => sum + toNumber(row.amount), 0);
+      const transferOut = transfers
+        .filter((row) => row.from_account_id === account.id)
+        .reduce((sum, row) => sum + toNumber(row.amount), 0);
+      const spent = transactions
+        .filter((row) => row.account_id === account.id && row.payment_method !== "credit_card")
+        .reduce((sum, row) => sum + toNumber(row.gross_amount || row.amount), 0);
+
+      return {
+        ...account,
+        balance: opening + transferIn - transferOut - spent
+      };
+    });
+  }
+
+  function calculateMotherRequest(input) {
+    const cycle = input.cycle || {};
+    const reimbursements = input.reimbursements || [];
+    const support = toNumber(cycle.mother_support);
+    const pending = reimbursements
+      .filter((row) => row.status === "pending")
+      .reduce((sum, row) => sum + toNumber(row.amount), 0);
+
+    return {
+      support,
+      pending,
+      total: support + pending
+    };
+  }
+
   root.LeftBudget = {
     addMonths,
+    calculateAccountBalances,
+    calculateMotherRequest,
     createInstallmentSchedule,
     daysBetween,
     isDateInCycle,
