@@ -50,7 +50,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.05")
+      navigator.serviceWorker.register("./sw.js?v=20260717.06")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;

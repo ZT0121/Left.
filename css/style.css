@@ -1,20 +1,20 @@
 :root {
-  --bg: #eef4f3;
-  --surface: #fbfdfc;
+  --bg: #f3f1ee;
+  --surface: #fbfaf8;
   --surface-strong: #ffffff;
-  --surface-soft: #f2f7f6;
-  --text: #24323a;
-  --muted: #68777c;
-  --line: #d5e1df;
-  --primary: #4a8a7d;
-  --primary-dark: #2f625c;
-  --accent: #c66b63;
-  --accent-soft: #fff1ed;
-  --good: #25795b;
-  --warn: #b98924;
-  --bad: #bf3f45;
-  --shadow: 0 16px 34px rgba(32, 58, 63, 0.12);
-  --shadow-soft: 0 8px 22px rgba(32, 58, 63, 0.08);
+  --surface-soft: #f0eeea;
+  --text: #2f2d2a;
+  --muted: #77716a;
+  --line: #ded8d0;
+  --primary: #6f6860;
+  --primary-dark: #3f3b36;
+  --accent: #8d7469;
+  --accent-soft: #f4eee9;
+  --good: #575f55;
+  --warn: #8b7660;
+  --bad: #8f4f48;
+  --shadow: 0 16px 34px rgba(47, 45, 42, 0.11);
+  --shadow-soft: 0 8px 22px rgba(47, 45, 42, 0.07);
 }
 
 @font-face {
@@ -41,7 +41,7 @@ body {
   margin: 0;
   min-height: 100vh;
   color: var(--text);
-  background: linear-gradient(180deg, #f6fbfa 0%, #eaf2f1 42%, #edf1f4 100%);
+  background: linear-gradient(180deg, #fbfaf8 0%, #f0eeea 48%, #ece9e4 100%);
   font-family: "Sarasa Mono TC", ui-monospace, SFMono-Regular, Menlo, Consolas, "Noto Sans TC", monospace;
 }
 
@@ -73,7 +73,7 @@ button {
 
 .topbar {
   margin-bottom: 18px;
-  border-bottom: 1px solid rgba(74, 138, 125, 0.12);
+  border-bottom: 1px solid rgba(111, 104, 96, 0.14);
   padding-bottom: 12px;
 }
 
@@ -109,9 +109,9 @@ h2 {
 .hero-card,
 .work-panel,
 .list-section {
-  border: 1px solid rgba(74, 138, 125, 0.16);
+  border: 1px solid rgba(111, 104, 96, 0.16);
   border-radius: 8px;
-  background: rgba(251, 253, 252, 0.94);
+  background: rgba(251, 250, 248, 0.94);
   box-shadow: var(--shadow);
 }
 
@@ -178,7 +178,7 @@ input:focus,
 textarea:focus,
 select:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(74, 138, 125, 0.16);
+  box-shadow: 0 0 0 3px rgba(111, 104, 96, 0.16);
 }
 
 .primary-button,
@@ -196,13 +196,13 @@ select:focus {
 .primary-button {
   color: #fff;
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-  box-shadow: 0 8px 18px rgba(47, 98, 92, 0.22);
+  box-shadow: 0 8px 18px rgba(63, 59, 54, 0.2);
 }
 
 .secondary-button,
 .file-button {
   color: var(--primary-dark);
-  background: #dff0ec;
+  background: #ebe6df;
 }
 
 .ghost-button,
@@ -232,7 +232,7 @@ select:focus {
   position: relative;
   overflow: hidden;
   padding: 22px;
-  background: linear-gradient(145deg, #ffffff 0%, #eef8f5 100%);
+  background: linear-gradient(145deg, #ffffff 0%, #f3f0eb 100%);
 }
 
 .hero-card strong {
@@ -248,11 +248,11 @@ select:focus {
 }
 
 .hero-card.safe {
-  border-color: rgba(37, 121, 91, 0.34);
+  border-color: rgba(87, 95, 85, 0.32);
 }
 
 .hero-card.warning {
-  border-color: rgba(183, 121, 31, 0.34);
+  border-color: rgba(139, 118, 96, 0.34);
 }
 
 .hero-card.danger {
@@ -292,7 +292,7 @@ select:focus {
 
 .metric-card {
   min-height: 92px;
-  border: 1px solid rgba(74, 138, 125, 0.14);
+  border: 1px solid rgba(111, 104, 96, 0.14);
   border-radius: 8px;
   padding: 14px;
   background: rgba(255, 255, 255, 0.82);
@@ -334,7 +334,7 @@ select:focus {
 .tab-button.active {
   color: var(--primary-dark);
   background: var(--surface-strong);
-  box-shadow: 0 6px 16px rgba(32, 58, 63, 0.1);
+  box-shadow: 0 6px 16px rgba(47, 45, 42, 0.1);
 }
 
 .work-panel {
@@ -412,7 +412,7 @@ select:focus {
 .list-tab-button.active {
   color: var(--primary-dark);
   background: var(--surface-strong);
-  box-shadow: 0 6px 16px rgba(32, 58, 63, 0.1);
+  box-shadow: 0 6px 16px rgba(47, 45, 42, 0.1);
 }
 
 .list-tab-count {
@@ -479,7 +479,7 @@ select:focus {
   border-radius: 8px;
   padding: 12px;
   background: #ffffff;
-  box-shadow: 0 4px 14px rgba(32, 58, 63, 0.06);
+  box-shadow: 0 4px 14px rgba(47, 45, 42, 0.06);
 }
 
 .record-title {
@@ -510,18 +510,18 @@ select:focus {
   border-radius: 7px;
   padding: 6px 10px;
   color: var(--primary-dark);
-  background: #e8f5f2;
+  background: #eee9e2;
   font-weight: 800;
 }
 
 .reminder-item {
-  border-color: rgba(198, 107, 99, 0.42);
+  border-color: rgba(141, 116, 105, 0.36);
   background: var(--accent-soft);
 }
 
 .reminder-item.overdue {
-  border-color: rgba(197, 48, 48, 0.48);
-  background: #fff7f5;
+  border-color: rgba(143, 79, 72, 0.44);
+  background: #f8f1ee;
 }
 
 .file-button {
