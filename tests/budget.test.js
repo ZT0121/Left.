@@ -144,6 +144,9 @@ function summarize(overrides = {}) {
       { id: "bank", name: "銀行", opening_balance: 1000 },
       { id: "jkopay", name: "街口支付", opening_balance: 0 }
     ],
+    incomeRecords: [
+      { account_id: "bank", amount: 32000 }
+    ],
     accountTransfers: [
       { from_account_id: "bank", to_account_id: "jkopay", amount: 500 }
     ],
@@ -152,8 +155,20 @@ function summarize(overrides = {}) {
     ]
   });
 
-  assert.equal(balances.find((row) => row.id === "bank").balance, 500);
+  assert.equal(balances.find((row) => row.id === "bank").balance, 32500);
   assert.equal(balances.find((row) => row.id === "jkopay").balance, 420);
+}
+
+{
+  const result = summarize({
+    incomeRecords: [
+      { amount: 32000 },
+      { amount: 20000 }
+    ]
+  });
+
+  assert.equal(result.totalIncome, 104000);
+  assert.equal(result.projected, 104000);
 }
 
 {

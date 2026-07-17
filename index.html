@@ -4,11 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Left. | 最低存款控制助手</title>
-  <link rel="icon" href="./icon.png?v=20260717.02" type="image/png">
-  <link rel="manifest" href="./manifest.json?v=20260717.02">
+  <link rel="icon" href="./icon.png?v=20260717.03" type="image/png">
+  <link rel="manifest" href="./manifest.json?v=20260717.03">
   <meta name="theme-color" content="#f7efe3">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="./css/style.css?v=20260717.02">
+  <link rel="stylesheet" href="./css/style.css?v=20260717.03">
 </head>
 <body>
   <main class="app-shell">
@@ -110,6 +110,7 @@
 
       <nav class="action-tabs" aria-label="主要操作">
         <button class="tab-button active" type="button" data-panel="expensePanel">記一筆</button>
+        <button class="tab-button" type="button" data-panel="incomePanel">收入</button>
         <button class="tab-button" type="button" data-panel="advancePanel">代墊</button>
         <button class="tab-button" type="button" data-panel="wishPanel">我想買</button>
         <button class="tab-button" type="button" data-panel="cardPanel">信用卡</button>
@@ -149,6 +150,37 @@
           </label>
           <button class="primary-button full-width" type="submit">新增支出</button>
         </form>
+      </section>
+
+      <section class="work-panel" id="incomePanel">
+        <form id="incomeForm" class="form-grid">
+          <label>
+            金額
+            <input id="incomeAmount" type="number" min="1" step="1" inputmode="numeric" required>
+          </label>
+          <label>
+            日期
+            <input id="incomeDate" type="date" required>
+          </label>
+          <label>
+            類型
+            <select id="incomeType">
+              <option value="salary">薪水</option>
+              <option value="mother">媽媽支援</option>
+              <option value="other">其他收入</option>
+            </select>
+          </label>
+          <label>
+            入帳帳戶
+            <select id="incomeAccountSelect"></select>
+          </label>
+          <label class="full-width">
+            備註
+            <input id="incomeTitle" type="text" maxlength="80" placeholder="薪水、媽媽生活費、獎金">
+          </label>
+          <button class="primary-button full-width" type="submit">新增收入</button>
+        </form>
+        <div class="inline-list" id="incomeList"></div>
       </section>
 
       <section class="work-panel" id="advancePanel">
@@ -447,7 +479,7 @@
     </section>
 
     <div class="toast" id="toast" hidden></div>
-    <p class="app-version">v20260717.02</p>
+    <p class="app-version">v20260717.03</p>
   </main>
 
   <dialog id="editDialog">
@@ -473,9 +505,9 @@
     </form>
   </dialog>
 
-  <script src="./js/config.js?v=20260717.02"></script>
+  <script src="./js/config.js?v=20260717.03"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"></script>
-  <script src="./js/budget.js?v=20260717.02"></script>
-  <script src="./js/app.js?v=20260717.02"></script>
+  <script src="./js/budget.js?v=20260717.03"></script>
+  <script src="./js/app.js?v=20260717.03"></script>
 </body>
 </html>

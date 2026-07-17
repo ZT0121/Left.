@@ -22,7 +22,8 @@
     cardCharges: [],
     installmentPlans: [],
     accounts: [],
-    accountTransfers: []
+    accountTransfers: [],
+    incomeRecords: []
   };
 
   const $ = (id) => document.getElementById(id);
@@ -49,7 +50,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.02")
+      navigator.serviceWorker.register("./sw.js?v=20260717.03")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -178,6 +179,7 @@
     renderAccountOptions();
     renderAccounts();
     renderTransfers();
+    renderIncomeRecords();
     renderBillReminders();
     renderMotherRequest();
   }
@@ -306,7 +308,7 @@
       ? activeAccounts.map((account) => `<option value="${account.id}">${escapeHtml(account.name)}</option>`).join("")
       : '<option value="">請先新增帳戶</option>';
 
-    ["expenseAccountSelect", "advanceAccountSelect", "transferFromSelect", "transferToSelect"].forEach((id) => {
+    ["expenseAccountSelect", "advanceAccountSelect", "incomeAccountSelect", "transferFromSelect", "transferToSelect"].forEach((id) => {
       const select = $(id);
       if (select) select.innerHTML = options;
     });
@@ -365,6 +367,39 @@
         <div class="record-amount">${money(row.amount)}</div>
         <div class="record-actions">
           <button type="button" data-delete-transfer="${row.id}">刪除</button>
+        </div>
+      </article>
+    `).join("");
+  }
+
+  function renderIncomeRecords() {
+    const list = $("incomeList");
+    if (!list) return;
+    const accountsById = new Map(state.accounts.map((account) => [account.id, account]));
+    const rows = [...state.incomeRecords]
+      .sort((a, b) => `${b.date}${b.created_at}`.localeCompare(`${a.date}${a.created_at}`))
+      .slice(0, 8);
+
+    if (!rows.length) {
+      list.innerHTML = '<p class="empty-state">還沒有收入紀錄。</p>';
+      return;
+    }
+
+    const typeLabel = {
+      salary: "薪水",
+      mother: "媽媽支援",
+      other: "其他收入"
+    };
+
+    list.innerHTML = rows.map((row) => `
+      <article class="record-item">
+        <div>
+          <p class="record-title">${escapeHtml(row.title || typeLabel[row.income_type] || "收入")}</p>
+          <p class="record-meta">${row.date} · ${typeLabel[row.income_type] || "收入"} · ${escapeHtml(accountsById.get(row.account_id)?.name || "未指定帳戶")}</p>
+        </div>
+        <div class="record-amount">${money(row.amount)}</div>
+        <div class="record-actions">
+          <button type="button" data-delete-income="${row.id}">刪除</button>
         </div>
       </article>
     `).join("");
@@ -715,6 +750,7 @@
     await loadCreditCards();
     await loadAccounts();
     await loadAccountTransfers();
+    await loadIncomeRecords();
     await loadInstallmentPlans();
     await generateDueInstallments();
 
@@ -784,6 +820,17 @@
       .order("date", { ascending: false });
     if (error) throw error;
     state.accountTransfers = data || [];
+  }
+
+  async function loadIncomeRecords() {
+    const { data, error } = await client
+      .from("income_records")
+      .select("*")
+      .eq("user_id", state.user.id)
+      .eq("cycle_id", state.cycle.id)
+      .order("date", { ascending: false });
+    if (error) throw error;
+    state.incomeRecords = data || [];
   }
 
   async function generateDueInstallments() {
@@ -1094,6 +1141,31 @@
     await refresh();
   }
 
+  async function addIncome(event) {
+    event.preventDefault();
+    const incomeType = $("incomeType").value;
+    const defaultTitle = {
+      salary: "薪水",
+      mother: "媽媽生活費",
+      other: "其他收入"
+    }[incomeType] || "收入";
+
+    const { error } = await client.from("income_records").insert({
+      user_id: state.user.id,
+      cycle_id: state.cycle.id,
+      account_id: optionalAccount("incomeAccountSelect"),
+      date: $("incomeDate").value,
+      income_type: incomeType,
+      title: $("incomeTitle").value.trim() || defaultTitle,
+      amount: toNumber($("incomeAmount").value)
+    });
+    if (error) throw error;
+    event.target.reset();
+    setDefaultDates();
+    showToast("收入已新增");
+    await refresh();
+  }
+
   async function insertTransaction(payload, reload = true) {
     const { data, error } = await client
       .from("transactions")
@@ -1333,6 +1405,18 @@
     await refresh();
   }
 
+  async function deleteIncome(id) {
+    if (!window.confirm("確定要刪除這筆收入嗎？")) return;
+    const { error } = await client
+      .from("income_records")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", state.user.id);
+    if (error) throw error;
+    showToast("收入已刪除");
+    await refresh();
+  }
+
   async function copyMotherRequest() {
     const text = $("motherRequestMessage").value;
     if (!text) return;
@@ -1527,7 +1611,7 @@
   }
 
   async function downloadBackup() {
-    const [cycles, transactions, reimbursements, settings, creditCards, cardCharges, installmentPlans, accounts, accountTransfers] = await Promise.all([
+    const [cycles, transactions, reimbursements, settings, creditCards, cardCharges, installmentPlans, accounts, accountTransfers, incomeRecords] = await Promise.all([
       client.from("budget_cycles").select("*").eq("user_id", state.user.id),
       client.from("transactions").select("*").eq("user_id", state.user.id),
       client.from("reimbursements").select("*").eq("user_id", state.user.id),
@@ -1536,9 +1620,10 @@
       client.from("credit_card_charges").select("*").eq("user_id", state.user.id),
       client.from("installment_plans").select("*").eq("user_id", state.user.id),
       client.from("accounts").select("*").eq("user_id", state.user.id),
-      client.from("account_transfers").select("*").eq("user_id", state.user.id)
+      client.from("account_transfers").select("*").eq("user_id", state.user.id),
+      client.from("income_records").select("*").eq("user_id", state.user.id)
     ]);
-    [cycles, transactions, reimbursements, settings, creditCards, cardCharges, installmentPlans, accounts, accountTransfers].forEach((result) => {
+    [cycles, transactions, reimbursements, settings, creditCards, cardCharges, installmentPlans, accounts, accountTransfers, incomeRecords].forEach((result) => {
       if (result.error) throw result.error;
     });
     const blob = new Blob([JSON.stringify({
@@ -1551,7 +1636,8 @@
       credit_card_charges: cardCharges.data,
       installment_plans: installmentPlans.data,
       accounts: accounts.data,
-      account_transfers: accountTransfers.data
+      account_transfers: accountTransfers.data,
+      income_records: incomeRecords.data
     }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1574,7 +1660,7 @@
       return copy;
     });
 
-    for (const table of ["budget_cycles", "credit_cards", "accounts", "installment_plans", "transactions", "reimbursements", "credit_card_charges", "account_transfers", "user_settings"]) {
+    for (const table of ["budget_cycles", "credit_cards", "accounts", "installment_plans", "transactions", "reimbursements", "credit_card_charges", "account_transfers", "income_records", "user_settings"]) {
       const rows = rewrite(backup[table]);
       if (!rows.length) continue;
       const { error } = await client.from(table).upsert(rows);
@@ -1585,7 +1671,7 @@
   }
 
   function setDefaultDates() {
-    ["expenseDate", "advanceDate", "openingBillDate", "installmentFirstDate", "cardFeeDate", "cardFeeDueDate", "transferDate"].forEach((id) => {
+    ["expenseDate", "incomeDate", "advanceDate", "openingBillDate", "installmentFirstDate", "cardFeeDate", "cardFeeDueDate", "transferDate"].forEach((id) => {
       const input = $(id);
       if (input) input.value = today();
     });
@@ -1653,6 +1739,7 @@
 
     $("cycleForm").addEventListener("submit", wrap(createCycle));
     $("expenseForm").addEventListener("submit", wrap(addExpense));
+    $("incomeForm").addEventListener("submit", wrap(addIncome));
     $("advanceForm").addEventListener("submit", wrap(addAdvance));
     $("reimbursementForm").addEventListener("submit", wrap(addManualReimbursement));
     $("wishForm").addEventListener("submit", runWish);
@@ -1720,6 +1807,11 @@
     $("transferList").addEventListener("click", wrap(async (event) => {
       const deleteId = event.target.dataset.deleteTransfer;
       if (deleteId) await deleteTransfer(deleteId);
+    }));
+
+    $("incomeList").addEventListener("click", wrap(async (event) => {
+      const deleteId = event.target.dataset.deleteIncome;
+      if (deleteId) await deleteIncome(deleteId);
     }));
   }
 

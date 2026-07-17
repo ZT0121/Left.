@@ -94,6 +94,19 @@ create table if not exists public.account_transfers (
   check (from_account_id <> to_account_id)
 );
 
+create table if not exists public.income_records (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  cycle_id uuid not null references public.budget_cycles(id) on delete cascade,
+  account_id uuid references public.accounts(id) on delete set null,
+  date date not null,
+  title text not null,
+  income_type text not null default 'other' check (income_type in ('salary', 'mother', 'other')),
+  amount numeric(12, 0) not null check (amount > 0),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.installment_plans (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -164,6 +177,7 @@ create index if not exists reimbursements_user_cycle_idx on public.reimbursement
 create index if not exists credit_cards_user_idx on public.credit_cards(user_id, is_active, name);
 create index if not exists accounts_user_idx on public.accounts(user_id, is_active, name);
 create index if not exists account_transfers_user_cycle_idx on public.account_transfers(user_id, cycle_id, date desc);
+create index if not exists income_records_user_cycle_idx on public.income_records(user_id, cycle_id, date desc);
 create index if not exists installment_plans_user_card_idx on public.installment_plans(user_id, card_id, is_active);
 create index if not exists credit_card_charges_user_cycle_idx on public.credit_card_charges(user_id, cycle_id, status, due_date);
 create index if not exists credit_card_charges_card_idx on public.credit_card_charges(user_id, card_id, due_date);
@@ -218,6 +232,11 @@ create trigger set_account_transfers_updated_at
 before update on public.account_transfers
 for each row execute function public.set_updated_at();
 
+drop trigger if exists set_income_records_updated_at on public.income_records;
+create trigger set_income_records_updated_at
+before update on public.income_records
+for each row execute function public.set_updated_at();
+
 drop trigger if exists set_installment_plans_updated_at on public.installment_plans;
 create trigger set_installment_plans_updated_at
 before update on public.installment_plans
@@ -236,6 +255,7 @@ alter table public.reimbursements enable row level security;
 alter table public.credit_cards enable row level security;
 alter table public.accounts enable row level security;
 alter table public.account_transfers enable row level security;
+alter table public.income_records enable row level security;
 alter table public.installment_plans enable row level security;
 alter table public.credit_card_charges enable row level security;
 
@@ -583,6 +603,65 @@ on public.account_transfers for delete
 to authenticated
 using ((select auth.uid()) = user_id);
 
+drop policy if exists "Users can read their income records" on public.income_records;
+create policy "Users can read their income records"
+on public.income_records for select
+to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can insert their income records" on public.income_records;
+create policy "Users can insert their income records"
+on public.income_records for insert
+to authenticated
+with check (
+  (select auth.uid()) = user_id
+  and exists (
+    select 1
+    from public.budget_cycles
+    where budget_cycles.id = cycle_id
+      and budget_cycles.user_id = (select auth.uid())
+  )
+  and (
+    account_id is null
+    or exists (
+      select 1
+      from public.accounts
+      where accounts.id = account_id
+        and accounts.user_id = (select auth.uid())
+    )
+  )
+);
+
+drop policy if exists "Users can update their income records" on public.income_records;
+create policy "Users can update their income records"
+on public.income_records for update
+to authenticated
+using ((select auth.uid()) = user_id)
+with check (
+  (select auth.uid()) = user_id
+  and exists (
+    select 1
+    from public.budget_cycles
+    where budget_cycles.id = cycle_id
+      and budget_cycles.user_id = (select auth.uid())
+  )
+  and (
+    account_id is null
+    or exists (
+      select 1
+      from public.accounts
+      where accounts.id = account_id
+        and accounts.user_id = (select auth.uid())
+    )
+  )
+);
+
+drop policy if exists "Users can delete their income records" on public.income_records;
+create policy "Users can delete their income records"
+on public.income_records for delete
+to authenticated
+using ((select auth.uid()) = user_id);
+
 drop policy if exists "Users can read their installment plans" on public.installment_plans;
 create policy "Users can read their installment plans"
 on public.installment_plans for select
@@ -723,6 +802,7 @@ grant select, insert, update, delete on
   public.credit_cards,
   public.accounts,
   public.account_transfers,
+  public.income_records,
   public.installment_plans,
   public.credit_card_charges
 to authenticated;

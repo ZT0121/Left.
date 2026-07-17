@@ -68,9 +68,11 @@
     const reimbursements = input.reimbursements || [];
     const cardCharges = input.cardCharges || [];
     const installmentPlans = input.installmentPlans || [];
+    const incomeRecords = input.incomeRecords || [];
     const today = extra.today || new Date().toISOString().slice(0, 10);
 
-    const totalIncome = toNumber(cycle.salary_income) + toNumber(cycle.mother_support);
+    const recordedIncome = incomeRecords.reduce((sum, row) => sum + toNumber(row.amount), 0);
+    const totalIncome = toNumber(cycle.salary_income) + toNumber(cycle.mother_support) + recordedIncome;
     const spent = transactions.reduce((sum, row) => sum + toNumber(row.amount), 0) + toNumber(extra.spend);
     const pending = reimbursements
       .filter((row) => row.status === "pending")
@@ -124,9 +126,13 @@
     const accounts = input.accounts || [];
     const transfers = input.accountTransfers || [];
     const transactions = input.transactions || [];
+    const incomeRecords = input.incomeRecords || [];
 
     return accounts.map((account) => {
       const opening = toNumber(account.opening_balance);
+      const income = incomeRecords
+        .filter((row) => row.account_id === account.id)
+        .reduce((sum, row) => sum + toNumber(row.amount), 0);
       const transferIn = transfers
         .filter((row) => row.to_account_id === account.id)
         .reduce((sum, row) => sum + toNumber(row.amount), 0);
@@ -139,7 +145,7 @@
 
       return {
         ...account,
-        balance: opening + transferIn - transferOut - spent
+        balance: opening + income + transferIn - transferOut - spent
       };
     });
   }
