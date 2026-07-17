@@ -227,7 +227,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.24")
+      navigator.serviceWorker.register("./sw.js?v=20260717.25")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -529,6 +529,53 @@
     if (!getEstimatedStatementGroups().length) {
       showToast("目前沒有未出帳預估明細");
     }
+  }
+
+  function showReimbursementDetails() {
+    const list = $("reimbursementList");
+    if (!list) return;
+    openListSection("reimbursementSection");
+    const target = list.closest(".list-section") || list;
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!state.reimbursements.some((row) => row.status === "pending")) {
+      showToast("目前沒有待收款明細");
+    }
+  }
+
+  function showIncomeDetails() {
+    const panelButton = document.querySelector('[data-panel="incomePanel"]');
+    if (panelButton) panelButton.click();
+    const target = $("incomeList") || $("incomePanel");
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!state.incomeRecords.length) {
+      showToast("目前沒有收入明細");
+    }
+  }
+
+  function showInstallmentDetails() {
+    const list = $("installmentList");
+    if (!list) return;
+    openListSection("installmentSection");
+    const target = list.closest(".list-section") || list;
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!state.installmentPlans.length) {
+      showToast("目前沒有分期細項");
+    }
+  }
+
+  function makeMetricClickable(amountId, label, handler) {
+    const metric = $(amountId)?.closest(".metric-card");
+    if (!metric) return;
+    metric.classList.add("clickable-metric");
+    metric.setAttribute("role", "button");
+    metric.setAttribute("tabindex", "0");
+    metric.setAttribute("aria-label", label);
+    metric.addEventListener("click", handler);
+    metric.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      handler();
+    });
   }
 
   function renderCardOptions() {
@@ -2729,19 +2776,10 @@
     $("openingBillCardSelect").addEventListener("change", fillOpeningBillDatesFromCard);
     setupListTabs();
 
-    const cardDueMetric = $("cardDueAmount")?.closest(".metric-card");
-    if (cardDueMetric) {
-      cardDueMetric.classList.add("clickable-metric");
-      cardDueMetric.setAttribute("role", "button");
-      cardDueMetric.setAttribute("tabindex", "0");
-      cardDueMetric.setAttribute("aria-label", "查看未出帳信用卡明細");
-      cardDueMetric.addEventListener("click", showPendingCardEstimateDetails);
-      cardDueMetric.addEventListener("keydown", (event) => {
-        if (event.key !== "Enter" && event.key !== " ") return;
-        event.preventDefault();
-        showPendingCardEstimateDetails();
-      });
-    }
+    makeMetricClickable("pendingAmount", "查看待收款明細", showReimbursementDetails);
+    makeMetricClickable("dailyAllowance", "查看收入明細", showIncomeDetails);
+    makeMetricClickable("cardDueAmount", "查看未出帳信用卡明細", showPendingCardEstimateDetails);
+    makeMetricClickable("futureInstallmentAmount", "查看分期細項", showInstallmentDetails);
 
     document.querySelectorAll(".tab-button").forEach((button) => {
       button.addEventListener("click", () => {
