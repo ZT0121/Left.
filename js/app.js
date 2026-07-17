@@ -186,7 +186,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.16")
+      navigator.serviceWorker.register("./sw.js?v=20260717.17")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -919,6 +919,94 @@
         </article>
       `;
     }).join("");
+  }
+
+  function renderCardCharges() {
+    const list = $("cardChargeList");
+    const rows = getCardStatementRows();
+    const activeTab = list.dataset.cardStatementTab || "actual";
+    const actualRows = rows.filter((row) => row.row_type !== "estimate");
+    const estimateRows = rows.filter((row) => row.row_type === "estimate");
+    const visibleRows = activeTab === "estimate" ? estimateRows : actualRows;
+
+    const renderEstimateRow = (row) => {
+      const card = state.creditCards.find((item) => item.id === row.card_id);
+      const cardName = card?.name || "信用卡";
+      const sourceLabel = {
+        general: "一般刷卡",
+        advance: "代墊",
+        installment: "分期",
+        subscription: "訂閱"
+      };
+      const detailRows = [...(row.items || [])]
+        .sort((a, b) => String(a.charge_date || "").localeCompare(String(b.charge_date || "")))
+        .map((item) => `
+          <div class="statement-detail-row">
+            <span>${item.charge_date || "未填"} · ${sourceLabel[item.source_type] || "預估"} · ${escapeHtml(item.title || "未命名")}</span>
+            <strong>${money(item.amount)}</strong>
+          </div>
+        `).join("");
+
+      return `
+        <article class="record-item statement-estimate">
+          <div>
+            <p class="record-title">${escapeHtml(cardName)} 下期預估帳單</p>
+            <p class="record-meta">繳款日 ${row.due_date || "未填"} · ${row.count} 筆未出帳預估</p>
+            <details class="statement-details" open>
+              <summary>查看未出帳明細</summary>
+              <div class="statement-detail-list">${detailRows}</div>
+            </details>
+          </div>
+          <div class="record-amount">${money(row.amount)}</div>
+          <div class="record-actions"></div>
+        </article>
+      `;
+    };
+
+    const renderActualRow = (row) => {
+      const card = state.creditCards.find((item) => item.id === row.card_id);
+      const cardName = card?.name || "信用卡";
+      const sourceLabel = {
+        opening_bill: "實際帳單",
+        installment: "分期",
+        fee: "費用／利息"
+      }[row.source_type] || "信用卡";
+      const displayTitle = isActualStatement(row)
+        ? `${cardName} ${sourceLabel}`
+        : `${cardName} ${row.title || sourceLabel}`;
+      const estimate = isActualStatement(row) ? getEstimateFor(row.card_id, row.due_date) : 0;
+      const diffText = isActualStatement(row) && row.due_date
+        ? ` · 預估 ${money(estimate)} · 差額 ${formatDifference(toNumber(row.amount) - estimate)}`
+        : "";
+      const paidText = row.status === "paid" ? ` · 已繳 ${row.paid_at || ""}` : "";
+
+      return `
+        <article class="record-item">
+          <div>
+            <p class="record-title">${escapeHtml(displayTitle)}</p>
+            <p class="record-meta">${sourceLabel} · 帳單日 ${row.charge_date || "未填"} · 繳款日 ${row.due_date || "未填"}${diffText}${paidText}</p>
+          </div>
+          <div class="record-amount">${money(row.amount)}</div>
+          <div class="record-actions">
+            ${row.status === "pending" ? `<button type="button" data-pay-card-charge="${row.id}">已繳款</button>` : ""}
+            <button type="button" data-edit-card-charge="${row.id}">編輯</button>
+            <button type="button" data-delete-card-charge="${row.id}">刪除</button>
+          </div>
+        </article>
+      `;
+    };
+
+    const body = visibleRows.length
+      ? visibleRows.map((row) => activeTab === "estimate" ? renderEstimateRow(row) : renderActualRow(row)).join("")
+      : `<p class="empty-state">${activeTab === "estimate" ? "目前沒有下期預估帳單。" : "目前沒有實際信用卡帳單。"}</p>`;
+
+    list.innerHTML = `
+      <div class="statement-tabbar" role="tablist" aria-label="信用卡帳單分類">
+        <button type="button" class="${activeTab === "actual" ? "active" : ""}" data-card-statement-tab="actual">實際帳單 <strong>${actualRows.length}</strong></button>
+        <button type="button" class="${activeTab === "estimate" ? "active" : ""}" data-card-statement-tab="estimate">下期預估帳單 <strong>${estimateRows.length}</strong></button>
+      </div>
+      <div class="statement-tab-panel">${body}</div>
+    `;
   }
 
   function renderInstallments() {
@@ -2511,9 +2599,15 @@
     }));
 
     $("cardChargeList").addEventListener("click", wrap(async (event) => {
+      const tab = event.target.closest("[data-card-statement-tab]")?.dataset.cardStatementTab;
       const paidId = event.target.dataset.payCardCharge;
       const editId = event.target.dataset.editCardCharge;
       const deleteId = event.target.dataset.deleteCardCharge;
+      if (tab) {
+        $("cardChargeList").dataset.cardStatementTab = tab;
+        renderCardCharges();
+        return;
+      }
       if (paidId) await markCardChargePaid(paidId);
       if (editId) await editCardCharge(editId);
       if (deleteId) await deleteCardCharge(deleteId);

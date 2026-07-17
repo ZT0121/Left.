@@ -538,6 +538,42 @@ select:focus {
   font-size: 0.86rem;
 }
 
+.statement-tabbar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.statement-tabbar button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.statement-tabbar button.active {
+  background: #ffffff;
+  color: var(--ink);
+  box-shadow: var(--shadow-soft);
+}
+
+.statement-tabbar strong {
+  margin-left: 4px;
+  font-size: 0.78rem;
+}
+
+.statement-tab-panel {
+  display: grid;
+  gap: 10px;
+}
+
 .record-amount {
   font-weight: 900;
   text-align: right;
