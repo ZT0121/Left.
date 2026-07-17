@@ -46,7 +46,7 @@
   const toNumber = window.LeftBudget.toNumber;
   const supabaseUrl = String(config.url || "").replace(/\/+$/, "");
   const daysBetween = window.LeftBudget.daysBetween;
-  const estimatedCardSources = new Set(["general", "advance"]);
+  const estimatedCardSources = new Set(["general", "advance", "installment"]);
 
   function isEstimatedCardCharge(row) {
     return estimatedCardSources.has(row.source_type);
@@ -123,7 +123,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.09")
+      navigator.serviceWorker.register("./sw.js?v=20260717.10")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -696,7 +696,7 @@
           <article class="record-item statement-estimate">
             <div>
               <p class="record-title">預估帳單</p>
-              <p class="record-meta">${escapeHtml(card?.name || "信用卡")} · 繳款日 ${row.due_date} · ${row.count} 筆刷卡預估 · ${periodText} · 尚未輸入實際帳單</p>
+              <p class="record-meta">${escapeHtml(card?.name || "信用卡")} · 繳款日 ${row.due_date} · ${row.count} 筆紀錄預估 · ${periodText} · 尚未輸入實際帳單</p>
             </div>
             <div class="record-amount">${money(row.amount)}</div>
             <div class="record-actions"></div>

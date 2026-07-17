@@ -59,6 +59,7 @@ function summarize(overrides = {}) {
     cardCharges: [
       { source_type: "general", amount: 300, status: "pending", card_id: "card-1", due_date: "2026-08-15" },
       { source_type: "advance", amount: 200, status: "pending", card_id: "card-1", due_date: "2026-08-15" },
+      { source_type: "installment", amount: 100, status: "pending", card_id: "card-1", due_date: "2026-08-15" },
       { source_type: "opening_bill", amount: 480, status: "pending", card_id: "card-1", due_date: "2026-08-15" }
     ]
   });
@@ -76,6 +77,7 @@ function summarize(overrides = {}) {
     cardCharges: [
       { source_type: "general", amount: 300, status: "pending", card_id: "card-1", due_date: "2026-08-15" },
       { source_type: "advance", amount: 200, status: "pending", card_id: "card-1", due_date: "2026-08-15" },
+      { source_type: "installment", amount: 100, status: "pending", card_id: "card-1", due_date: "2026-08-15" },
       { source_type: "opening_bill", amount: 480, status: "paid", paid_at: "2026-08-10", card_id: "card-1", due_date: "2026-08-15" }
     ]
   });

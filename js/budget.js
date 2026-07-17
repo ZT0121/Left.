@@ -90,7 +90,7 @@
     const cardDue = cardCharges
       .filter((row) => row.status !== "paid")
       .filter((row) => {
-        const isEstimate = row.source_type === "general" || row.source_type === "advance";
+        const isEstimate = row.source_type === "general" || row.source_type === "advance" || row.source_type === "installment";
         return !isEstimate || !actualStatementKeys.has(statementKey(row));
       })
       .reduce((sum, row) => sum + toNumber(row.amount), 0);
