@@ -113,6 +113,14 @@
       .reduce((sum, row) => sum + toNumber(row.amount), 0);
   }
 
+  function getEstimateItemsForActual(row) {
+    if (!isActualStatement(row) || !row.card_id || !row.due_date) return [];
+    const key = cardStatementKey(row);
+    return [...state.cardCharges, ...getSubscriptionCardEstimateRows(), ...getUpcomingInstallmentEstimateRows()]
+      .filter((item) => isEstimatedCardCharge(item) && item.card_id === row.card_id && cardStatementKey(item) === key)
+      .sort((a, b) => String(a.charge_date || a.due_date || "").localeCompare(String(b.charge_date || b.due_date || "")));
+  }
+
   function getSubscriptionCardEstimateRows() {
     const month = currentMonth();
     return state.subscriptions
@@ -219,7 +227,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.22")
+      navigator.serviceWorker.register("./sw.js?v=20260717.23")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -336,7 +344,7 @@
     $("spentAmount").textContent = money(summary.spent);
     $("pendingAmount").textContent = money(summary.pending);
     $("dailyAllowance").textContent = money(summary.totalIncome);
-    $("cardDueAmount").textContent = money(summary.cardDue);
+    $("cardDueAmount").textContent = money(summary.cardDueActual || summary.cardDueEstimate);
     const cardDueDetail = $("cardDueDetail");
     if (cardDueDetail) {
       cardDueDetail.textContent = `實際帳單 ${money(summary.cardDueActual)} · 未出帳預估 ${money(summary.cardDueEstimate)}`;
@@ -976,12 +984,41 @@
         ? ` · 預估 ${money(estimate)} · 差額 ${formatDifference(toNumber(row.amount) - estimate)}`
         : "";
       const paidText = row.status === "paid" ? ` · 已繳 ${row.paid_at || ""}` : "";
+      const estimateItems = isActualStatement(row) ? getEstimateItemsForActual(row) : [];
+      const estimateSourceLabel = {
+        general: "單筆消費",
+        advance: "代墊",
+        installment: "分期",
+        subscription: "訂閱"
+      };
+      const differenceAmount = toNumber(row.amount) - estimate;
+      const estimateDetailRows = estimateItems.map((item) => `
+        <div class="statement-detail-row">
+          <span>${item.charge_date || item.due_date || "未填日期"} · ${estimateSourceLabel[item.source_type] || "預估"} · ${escapeHtml(item.title || "未命名")}</span>
+          <strong>${money(item.amount)}</strong>
+        </div>
+      `).join("");
+      const differenceDetails = isActualStatement(row)
+        ? `
+          <details class="statement-details">
+            <summary>查看預估明細與差額</summary>
+            <div class="statement-detail-list">
+              ${estimateDetailRows || '<p class="record-meta">這期目前沒有 App 預估明細。</p>'}
+              <div class="statement-detail-row statement-difference-row">
+                <span>實際帳單 - App 預估</span>
+                <strong>${formatDifference(differenceAmount)}</strong>
+              </div>
+            </div>
+          </details>
+        `
+        : "";
 
       return `
         <article class="record-item">
           <div>
             <p class="record-title">${escapeHtml(displayTitle)}</p>
             <p class="record-meta">${sourceLabel} · 帳單日 ${row.charge_date || "未填"} · 繳款日 ${row.due_date || "未填"}${diffText}${paidText}</p>
+            ${differenceDetails}
           </div>
           <div class="record-amount">${money(row.amount)}</div>
           <div class="record-actions">

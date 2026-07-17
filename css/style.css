@@ -538,6 +538,16 @@ select:focus {
   font-size: 0.86rem;
 }
 
+.statement-difference-row {
+  margin-top: 4px;
+  border-top-color: rgba(80, 72, 64, 0.24);
+  font-weight: 800;
+}
+
+.statement-difference-row span {
+  color: var(--ink);
+}
+
 .statement-tabbar {
   display: grid;
   grid-template-columns: 1fr 1fr;
