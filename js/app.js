@@ -59,6 +59,12 @@
     return `${month}-${String(Math.min(Number(day) || 1, lastDay)).padStart(2, "0")}`;
   }
 
+  function isSubscriptionDueInMonth(row, month = currentMonth()) {
+    if (row.is_active === false) return false;
+    if ((row.billing_cycle || "monthly") !== "yearly") return true;
+    return Number(row.charge_month) === Number(month.slice(5, 7));
+  }
+
   function isEstimatedCardCharge(row) {
     return estimatedCardSources.has(row.source_type);
   }
@@ -87,7 +93,7 @@
   function getSubscriptionCardEstimateRows() {
     const month = currentMonth();
     return state.subscriptions
-      .filter((row) => row.is_active !== false && row.payment_method === "credit_card" && row.credit_card_id)
+      .filter((row) => isSubscriptionDueInMonth(row, month) && row.payment_method === "credit_card" && row.credit_card_id)
       .map((row) => {
         const chargeDate = dateForMonthDay(month, row.charge_day);
         return {
@@ -186,7 +192,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.18")
+      navigator.serviceWorker.register("./sw.js?v=20260717.19")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -658,6 +664,46 @@
     }).join("");
   }
 
+  function renderSubscriptions() {
+    const list = $("subscriptionList");
+    if (!list) return;
+    const cardsById = new Map(state.creditCards.map((card) => [card.id, card]));
+    const accountsById = new Map(state.accounts.map((account) => [account.id, account]));
+    const rows = [...state.subscriptions]
+      .sort((a, b) => Number(a.charge_month || 0) - Number(b.charge_month || 0)
+        || Number(a.charge_day) - Number(b.charge_day)
+        || String(a.title).localeCompare(String(b.title)));
+
+    if (!rows.length) {
+      list.innerHTML = '<p class="empty-state">還沒有每月或每年訂閱項目。</p>';
+      return;
+    }
+
+    list.innerHTML = rows.map((row) => {
+      const payTarget = row.payment_method === "credit_card"
+        ? cardsById.get(row.credit_card_id)?.name || "信用卡"
+        : accountsById.get(row.account_id)?.name || "帳戶／現金";
+      const scheduleText = (row.billing_cycle || "monthly") === "yearly"
+        ? `每年 ${row.charge_month || "?"} 月 ${row.charge_day} 日`
+        : `每月 ${row.charge_day} 日`;
+      const statusText = row.is_active === false ? "已停用" : "自動納入預估";
+
+      return `
+        <article class="record-item">
+          <div>
+            <p class="record-title">${escapeHtml(row.title)}</p>
+            <p class="record-meta">${scheduleText} · ${escapeHtml(payTarget)} · ${statusText}</p>
+          </div>
+          <div class="record-amount">${money(row.amount)}</div>
+          <div class="record-actions">
+            <button type="button" data-toggle-subscription="${row.id}">${row.is_active === false ? "啟用" : "停用"}</button>
+            <button type="button" data-delete-subscription="${row.id}">刪除</button>
+          </div>
+        </article>
+      `;
+    }).join("");
+  }
+
   function getBillReminderRows() {
     const current = today();
     const actualRows = state.cardCharges
@@ -1057,10 +1103,12 @@
     const expenseUsesCard = $("expensePaymentMethod")?.value === "credit_card";
     const advanceUsesCard = $("advancePaymentMethod")?.value === "credit_card";
     const subscriptionUsesCard = $("subscriptionPaymentMethod")?.value === "credit_card";
+    const subscriptionIsYearly = $("subscriptionBillingCycle")?.value === "yearly";
     const editUsesCard = $("editPaymentMethod")?.value === "credit_card";
     if ($("expenseCardLabel")) $("expenseCardLabel").hidden = !expenseUsesCard;
     if ($("advanceCardLabel")) $("advanceCardLabel").hidden = !advanceUsesCard;
     if ($("subscriptionCardLabel")) $("subscriptionCardLabel").hidden = !subscriptionUsesCard;
+    if ($("subscriptionMonthLabel")) $("subscriptionMonthLabel").hidden = !subscriptionIsYearly;
     if ($("editCardLabel")) $("editCardLabel").hidden = !editUsesCard;
     if ($("expenseAccountLabel")) $("expenseAccountLabel").hidden = expenseUsesCard;
     if ($("advanceAccountLabel")) $("advanceAccountLabel").hidden = advanceUsesCard;
@@ -1672,10 +1720,13 @@
     event.preventDefault();
     const paymentMethod = $("subscriptionPaymentMethod").value;
     const usesCard = paymentMethod === "credit_card";
+    const billingCycle = $("subscriptionBillingCycle")?.value || "monthly";
     const { error } = await client.from("monthly_subscriptions").insert({
       user_id: state.user.id,
       title: $("subscriptionTitle").value.trim(),
       amount: toNumber($("subscriptionAmount").value),
+      billing_cycle: billingCycle,
+      charge_month: billingCycle === "yearly" ? toNumber($("subscriptionMonth").value) : null,
       charge_day: toNumber($("subscriptionDay").value),
       payment_method: paymentMethod,
       credit_card_id: usesCard ? requireCard("subscriptionCardSelect") : null,
@@ -2404,6 +2455,9 @@
     if ($("subscriptionDay") && !$("subscriptionDay").value) {
       $("subscriptionDay").value = new Date().getDate();
     }
+    if ($("subscriptionMonth") && !$("subscriptionMonth").value) {
+      $("subscriptionMonth").value = new Date().getMonth() + 1;
+    }
     ensureEditPaymentFields();
   }
 
@@ -2458,6 +2512,17 @@
         <label>
           金額
           <input id="subscriptionAmount" type="number" min="1" step="1" inputmode="numeric" required>
+        </label>
+        <label>
+          繳費頻率
+          <select id="subscriptionBillingCycle">
+            <option value="monthly">月繳</option>
+            <option value="yearly">年繳</option>
+          </select>
+        </label>
+        <label id="subscriptionMonthLabel" hidden>
+          扣款月份
+          <input id="subscriptionMonth" type="number" min="1" max="12" step="1" inputmode="numeric">
         </label>
         <label>
           每月扣款日
@@ -2572,6 +2637,7 @@
     $("expensePaymentMethod").addEventListener("change", toggleCardFields);
     $("advancePaymentMethod").addEventListener("change", toggleCardFields);
     $("subscriptionPaymentMethod").addEventListener("change", toggleCardFields);
+    $("subscriptionBillingCycle").addEventListener("change", toggleCardFields);
     $("openingBillCardSelect").addEventListener("change", fillOpeningBillDatesFromCard);
     setupListTabs();
 

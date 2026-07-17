@@ -136,12 +136,14 @@ function summarize(overrides = {}) {
     subscriptions: [
       { title: "iCloud", amount: 90, is_active: true },
       { title: "Spotify", amount: 149, is_active: true },
+      { title: "Disney+", amount: 2790, is_active: true, billing_cycle: "yearly", charge_month: 8 },
+      { title: "Domain", amount: 1200, is_active: true, billing_cycle: "yearly", charge_month: 9 },
       { title: "Paused", amount: 500, is_active: false }
     ]
   });
 
-  assert.equal(result.subscriptionEstimate, 239);
-  assert.equal(result.projected, 51761);
+  assert.equal(result.subscriptionEstimate, 3029);
+  assert.equal(result.projected, 48971);
 }
 
 {

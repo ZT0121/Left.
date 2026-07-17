@@ -34,6 +34,12 @@
     );
   }
 
+  function isSubscriptionDueInMonth(row, month) {
+    if (row.is_active === false) return false;
+    if ((row.billing_cycle || "monthly") !== "yearly") return true;
+    return Number(row.charge_month) === Number(String(month).slice(5, 7));
+  }
+
   function createInstallmentSchedule(plan) {
     const count = Math.max(1, Math.trunc(toNumber(plan.installment_count)));
     const totalWithFees = toNumber(plan.total_amount) + toNumber(plan.fee_total);
@@ -74,12 +80,13 @@
     const incomeRecords = input.incomeRecords || [];
     const subscriptions = input.subscriptions || [];
     const today = extra.today || new Date().toISOString().slice(0, 10);
+    const currentMonth = extra.currentMonth || today.slice(0, 7);
 
     const recordedIncome = incomeRecords.reduce((sum, row) => sum + toNumber(row.amount), 0);
     const totalIncome = toNumber(cycle.salary_income) + toNumber(cycle.mother_support) + recordedIncome;
     const spent = transactions.reduce((sum, row) => sum + toNumber(row.amount), 0) + toNumber(extra.spend);
     const subscriptionEstimate = subscriptions
-      .filter((row) => row.is_active !== false)
+      .filter((row) => isSubscriptionDueInMonth(row, currentMonth))
       .reduce((sum, row) => sum + toNumber(row.amount), 0);
     const pending = reimbursements
       .filter((row) => row.status === "pending")

@@ -112,6 +112,8 @@ create table if not exists public.monthly_subscriptions (
   user_id uuid not null references auth.users(id) on delete cascade,
   title text not null,
   amount numeric(12, 0) not null check (amount > 0),
+  billing_cycle text not null default 'monthly' check (billing_cycle in ('monthly', 'yearly')),
+  charge_month integer check (charge_month is null or charge_month between 1 and 12),
   charge_day integer not null check (charge_day between 1 and 31),
   payment_method text not null default 'cash' check (payment_method in ('cash', 'credit_card')),
   credit_card_id uuid references public.credit_cards(id) on delete set null,
@@ -122,8 +124,18 @@ create table if not exists public.monthly_subscriptions (
   check (
     (payment_method = 'credit_card' and credit_card_id is not null and account_id is null)
     or (payment_method = 'cash' and credit_card_id is null)
+  ),
+  check (
+    (billing_cycle = 'monthly' and charge_month is null)
+    or (billing_cycle = 'yearly' and charge_month is not null)
   )
 );
+
+alter table public.monthly_subscriptions
+  add column if not exists billing_cycle text not null default 'monthly'
+    check (billing_cycle in ('monthly', 'yearly')),
+  add column if not exists charge_month integer
+    check (charge_month is null or charge_month between 1 and 12);
 
 create table if not exists public.installment_plans (
   id uuid primary key default gen_random_uuid(),
