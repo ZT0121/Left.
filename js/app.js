@@ -232,7 +232,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260719.10")
+      navigator.serviceWorker.register("./sw.js?v=20260719.11")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;

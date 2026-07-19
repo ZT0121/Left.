@@ -1,19 +1,19 @@
 {
-  "name": "Left. 最低存款控制助手",
+  "name": "Left.",
   "short_name": "Left.",
-  "start_url": "./index.html?v=20260714.04",
+  "start_url": "./index.html?v=20260719.11",
   "display": "standalone",
   "background_color": "#f7efe3",
   "theme_color": "#d3b48c",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "./icon.png?v=20260714.04",
+      "src": "./icon.png?v=20260719.11",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "./icon.png?v=20260714.04",
+      "src": "./icon.png?v=20260719.11",
       "sizes": "512x512",
       "type": "image/png"
     }

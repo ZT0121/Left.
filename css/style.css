@@ -77,13 +77,14 @@ button {
   gap: 8px;
 }
 
-.menu-icon-button {
+.icon-button.menu-icon-button {
   display: inline-grid;
   width: 44px;
   min-height: 44px;
   border: 0;
   padding: 10px;
   background: transparent;
+  box-shadow: none;
   place-items: center;
 }
 
