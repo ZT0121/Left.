@@ -2386,12 +2386,22 @@
   }
 
   async function markCardChargePaid(id) {
-    const { error } = await client
+    const row = state.cardCharges.find((item) => item.id === id);
+    if (!row) throw new Error("找不到這筆帳單，請重新整理後再試");
+
+    const { data, error } = await client
       .from("credit_card_charges")
       .update({ status: "paid", paid_at: today() })
       .eq("id", id)
-      .eq("user_id", state.user.id);
+      .eq("user_id", state.user.id)
+      .select("id, status, paid_at")
+      .maybeSingle();
     if (error) throw error;
+    if (!data) throw new Error("帳單狀態沒有更新，請重新登入後再試");
+
+    row.status = data.status;
+    row.paid_at = data.paid_at;
+    renderDashboard();
     showToast("卡費已標記為已繳");
     await refresh();
   }
@@ -2806,22 +2816,48 @@
 
     $("cardChargeList").addEventListener("click", wrap(async (event) => {
       const tab = event.target.closest("[data-card-statement-tab]")?.dataset.cardStatementTab;
-      const paidId = event.target.dataset.payCardCharge;
-      const editId = event.target.dataset.editCardCharge;
-      const deleteId = event.target.dataset.deleteCardCharge;
+      const paidButton = event.target.closest("[data-pay-card-charge]");
+      const paidId = paidButton?.dataset.payCardCharge;
+      const editId = event.target.closest("[data-edit-card-charge]")?.dataset.editCardCharge;
+      const deleteId = event.target.closest("[data-delete-card-charge]")?.dataset.deleteCardCharge;
       if (tab) {
         $("cardChargeList").dataset.cardStatementTab = tab;
         renderCardCharges();
         return;
       }
-      if (paidId) await markCardChargePaid(paidId);
+      if (paidId) {
+        const originalText = paidButton.textContent;
+        paidButton.disabled = true;
+        paidButton.textContent = "處理中…";
+        try {
+          await markCardChargePaid(paidId);
+        } finally {
+          if (paidButton.isConnected) {
+            paidButton.disabled = false;
+            paidButton.textContent = originalText;
+          }
+        }
+      }
       if (editId) await editCardCharge(editId);
       if (deleteId) await deleteCardCharge(deleteId);
     }));
 
     $("billReminderList").addEventListener("click", wrap(async (event) => {
-      const paidId = event.target.dataset.payCardCharge;
-      if (paidId) await markCardChargePaid(paidId);
+      const paidButton = event.target.closest("[data-pay-card-charge]");
+      const paidId = paidButton?.dataset.payCardCharge;
+      if (paidId) {
+        const originalText = paidButton.textContent;
+        paidButton.disabled = true;
+        paidButton.textContent = "處理中…";
+        try {
+          await markCardChargePaid(paidId);
+        } finally {
+          if (paidButton.isConnected) {
+            paidButton.disabled = false;
+            paidButton.textContent = originalText;
+          }
+        }
+      }
     }));
 
     $("cardList").addEventListener("click", wrap(async (event) => {
