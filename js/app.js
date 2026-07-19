@@ -240,7 +240,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260719.13")
+      navigator.serviceWorker.register("./sw.js?v=20260719.14")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -1773,16 +1773,20 @@
 
   async function initAuth() {
     if (!hasConfig || !client) {
+      setVisible("bootPanel", false);
       showConfigWarning(
-        "尚未設定 Supabase。",
-        '請先依 README 建立 Supabase 專案，並填入 <code>js/config.js</code>。'
+        hasConfig ? "無法載入 Supabase。" : "尚未設定 Supabase。",
+        hasConfig
+          ? "連線元件載入失敗，請重新整理頁面後再試。"
+          : '請先依 README 建立 Supabase 專案，並填入 <code>js/config.js</code>。'
       );
-      setVisible("authPanel", false);
+      setVisible("authPanel", hasConfig);
       return;
     }
 
     const connectionError = await checkSupabaseConnection();
     if (connectionError) {
+      setVisible("bootPanel", false);
       showConfigWarning(
         "Supabase 設定無法使用。",
         '目前 <code>js/config.js</code> 有設定值，但專案網址或 key 無法連線。'
@@ -1795,6 +1799,7 @@
     }
 
     const { data } = await client.auth.getSession();
+    setVisible("bootPanel", false);
     state.user = data.session?.user || null;
     $("signOutButton").hidden = !state.user;
 
@@ -3263,6 +3268,10 @@
   wireEvents();
   initAuth().catch((error) => {
     console.error(error);
+    $("bootTitle").textContent = "Left. 暫時無法載入";
+    $("bootText").textContent = error.message || "請按下方按鈕重新載入。";
+    $("bootReloadButton").hidden = false;
+    setVisible("bootPanel", true);
     showToast("初始化失敗，請檢查 Supabase 設定");
   });
 })();

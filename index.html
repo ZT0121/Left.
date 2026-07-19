@@ -4,17 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Left.</title>
-  <link rel="icon" href="./assets/branding/left-favicon-64.png?v=20260719.13" type="image/png">
-  <link rel="manifest" href="./manifest.json?v=20260719.13">
+  <link rel="icon" href="./assets/branding/left-favicon-64.png?v=20260719.14" type="image/png">
+  <link rel="manifest" href="./manifest.json?v=20260719.14">
   <meta name="theme-color" content="#f3f1ee">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="./css/style.css?v=20260719.13">
+  <link rel="stylesheet" href="./css/style.css?v=20260719.14">
 </head>
 <body>
   <main class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <img class="brand-logo" src="./assets/branding/left-icon-192.png?v=20260719.13" alt="">
+        <img class="brand-logo" src="./assets/branding/left-icon-192.png?v=20260719.14" alt="">
         <p class="eyebrow">Left.</p>
       </div>
       <div class="topbar-actions">
@@ -25,6 +25,38 @@
         </button>
       </div>
     </header>
+
+    <section class="setup-warning" id="bootPanel">
+      <strong id="bootTitle">正在開啟 Left.</strong>
+      <span id="bootText">正在連線，請稍候…</span>
+      <button class="secondary-button" id="bootReloadButton" type="button" hidden>重新載入</button>
+    </section>
+
+    <script>
+      (() => {
+        const showBootError = () => {
+          const title = document.getElementById("bootTitle");
+          const text = document.getElementById("bootText");
+          const button = document.getElementById("bootReloadButton");
+          if (title) title.textContent = "Left. 暫時無法載入";
+          if (text) text.textContent = "可能是手機仍在使用舊版快取，請按下方按鈕重新載入。";
+          if (button) button.hidden = false;
+        };
+        window.addEventListener("error", showBootError);
+        window.addEventListener("unhandledrejection", showBootError);
+        document.getElementById("bootReloadButton").addEventListener("click", async () => {
+          if ("serviceWorker" in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map((registration) => registration.unregister()));
+          }
+          if ("caches" in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map((key) => caches.delete(key)));
+          }
+          window.location.replace(`${window.location.pathname}?refresh=20260719.14`);
+        });
+      })();
+    </script>
 
     <section class="setup-warning" id="configWarning" hidden>
       <strong id="configWarningTitle">尚未設定 Supabase。</strong>
@@ -522,7 +554,7 @@
     </section>
 
     <div class="toast" id="toast" hidden></div>
-    <p class="app-version">v20260719.13</p>
+    <p class="app-version">v20260719.14</p>
   </main>
 
   <dialog id="editDialog">
@@ -548,9 +580,14 @@
     </form>
   </dialog>
 
-  <script src="./js/config.js?v=20260719.13"></script>
+  <script src="./js/config.js?v=20260719.14"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"></script>
-  <script src="./js/budget.js?v=20260719.13"></script>
-  <script src="./js/app.js?v=20260719.13"></script>
+  <script>
+    if (!window.supabase) {
+      document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"><\/script>');
+    }
+  </script>
+  <script src="./js/budget.js?v=20260719.14"></script>
+  <script src="./js/app.js?v=20260719.14"></script>
 </body>
 </html>
