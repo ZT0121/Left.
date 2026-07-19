@@ -2,19 +2,19 @@
   "name": "Left.",
   "short_name": "Left.",
   "id": "./",
-  "start_url": "./index.html?v=20260719.16",
+  "start_url": "./index.html?v=20260719.17",
   "display": "standalone",
   "background_color": "#f7efe3",
   "theme_color": "#d3b48c",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "./assets/branding/left-icon-192.png?v=20260719.16",
+      "src": "./assets/branding/left-icon-192.png?v=20260719.17",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "./assets/branding/left-icon-512.png?v=20260719.16",
+      "src": "./assets/branding/left-icon-512.png?v=20260719.17",
       "sizes": "512x512",
       "type": "image/png"
     }

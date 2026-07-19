@@ -1,7 +1,12 @@
 (function () {
   const config = window.LEFT_SUPABASE || window.MYLEDGER_SUPABASE || {};
   const hasConfig = Boolean(config.url && config.anonKey);
-  const openedFromRecoveryLink = new URLSearchParams(window.location.hash.slice(1)).get("type") === "recovery";
+  const recoveryLinkParams = new URLSearchParams(window.location.hash.slice(1));
+  const openedFromRecoveryLink = recoveryLinkParams.get("type") === "recovery";
+  const recoveryLinkTokens = {
+    access_token: recoveryLinkParams.get("access_token") || "",
+    refresh_token: recoveryLinkParams.get("refresh_token") || ""
+  };
   const client = hasConfig && window.supabase
     ? window.supabase.createClient(config.url, config.anonKey, {
       auth: {
@@ -242,7 +247,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260719.16")
+      navigator.serviceWorker.register("./sw.js?v=20260719.17")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -1796,6 +1801,19 @@
     $("authMessage").textContent = "請輸入新的密碼（至少 6 個字元）。";
   }
 
+  async function ensureRecoverySession() {
+    const { data } = await client.auth.getSession();
+    if (data.session) return data.session;
+
+    if (recoveryLinkTokens.access_token && recoveryLinkTokens.refresh_token) {
+      const { data: sessionData, error } = await client.auth.setSession(recoveryLinkTokens);
+      if (error) throw error;
+      if (sessionData.session) return sessionData.session;
+    }
+
+    throw new Error("重設連結已失效，請回登入頁重新寄送忘記密碼信。");
+  }
+
   async function initAuth() {
     if (!hasConfig || !client) {
       setVisible("bootPanel", false);
@@ -3084,6 +3102,18 @@
     async function signInWithPassword() {
       const { email, password } = getAuthCredentials();
       if (state.passwordRecovery) {
+        try {
+          await ensureRecoverySession();
+        } catch (error) {
+          state.passwordRecovery = false;
+          $("authEmailLabel").hidden = false;
+          $("emailInput").required = true;
+          $("passwordInput").autocomplete = "current-password";
+          $("signInButton").textContent = "登入";
+          $("resetPasswordButton").hidden = false;
+          $("authMessage").textContent = error.message;
+          return;
+        }
         const { error } = await client.auth.updateUser({ password });
         if (error) {
           $("authMessage").textContent = `無法更新密碼：${error.message}`;
@@ -3091,6 +3121,7 @@
         }
         state.passwordRecovery = false;
         $("authMessage").textContent = "密碼已更新，正在登入…";
+        window.history.replaceState({}, "", `${window.location.pathname}${window.location.search}`);
         await refresh();
         return;
       }
