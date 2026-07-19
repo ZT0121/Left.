@@ -227,7 +227,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.25")
+      navigator.serviceWorker.register("./sw.js?v=20260717.26")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -350,16 +350,13 @@
       cardDueDetail.textContent = `實際帳單 ${money(summary.cardDueActual)} · 未出帳預估 ${money(summary.cardDueEstimate)}`;
     }
     $("futureInstallmentAmount").textContent = money(summary.futureInstallmentBalance);
-    $("safetyText").textContent = summary.commitmentBuffer >= 0
-      ? `扣掉最低保留 ${money(state.cycle.minimum_savings)} 與未來分期後，安全餘裕 ${money(summary.commitmentBuffer)}。`
-      : `扣掉未來分期後，還差 ${money(Math.abs(summary.commitmentBuffer))} 才能守住最低保留 ${money(state.cycle.minimum_savings)}。`;
     $("cycleRange").textContent = `從 ${state.cycle.start_date} 開始`;
     const subscriptionText = summary.subscriptionEstimate
       ? `含本月訂閱預估 ${money(summary.subscriptionEstimate)}。`
       : "";
     $("safetyText").textContent = summary.commitmentBuffer >= 0
-      ? `扣掉最低保留 ${money(state.cycle.minimum_savings)} 與未來分期後，安全餘裕 ${money(summary.commitmentBuffer)}。${subscriptionText}`
-      : `扣掉未來分期後，還差 ${money(Math.abs(summary.commitmentBuffer))} 才能守住最低保留 ${money(state.cycle.minimum_savings)}。${subscriptionText}`;
+      ? `保留 ${money(state.cycle.minimum_savings)} 並扣掉未來分期後，接下來可安排 ${money(summary.commitmentBuffer)}；尚未記錄的生活費仍會從這裡支出。${subscriptionText}`
+      : `扣掉未來分期後，還差 ${money(Math.abs(summary.commitmentBuffer))} 才能保留 ${money(state.cycle.minimum_savings)}。${subscriptionText}`;
     applyStatus(summary.commitmentBuffer);
     renderCardOptions();
     renderCreditCards();
@@ -1942,7 +1939,7 @@
       <p class="eyebrow">${escapeHtml(title)}</p>
       <span>${canBuy ? "買完仍達標" : "買完會低於最低存款"}</span>
       <strong>${money(summary.projected)}</strong>
-      <p>${canBuy ? `安全餘裕剩 ${money(summary.commitmentBuffer)}` : `還差 ${money(Math.abs(summary.commitmentBuffer))} 才達標`}</p>
+      <p>${canBuy ? `接下來可運用剩 ${money(summary.commitmentBuffer)}` : `還差 ${money(Math.abs(summary.commitmentBuffer))} 才達標`}</p>
       <button class="primary-button full-width" type="button" id="buyNowButton">直接記為支出</button>
     `;
     $("buyNowButton").addEventListener("click", async () => {
@@ -2577,7 +2574,7 @@
   function applyCopyOverrides() {
     ensureSubscriptionPanel();
     const heroEyebrow = $("heroCard")?.querySelector(".eyebrow");
-    if (heroEyebrow) heroEyebrow.textContent = "預估月底可多存";
+    if (heroEyebrow) heroEyebrow.textContent = "預估月底總結餘";
     setLabelText("openingBillAmount", "實際帳單金額");
     setLabelText("openingBillDate", "帳單日");
     setLabelText("openingBillCardSelect", "信用卡");

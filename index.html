@@ -4,11 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Left. | 最低存款控制助手</title>
-  <link rel="icon" href="./icon.png?v=20260717.25" type="image/png">
-  <link rel="manifest" href="./manifest.json?v=20260717.25">
+  <link rel="icon" href="./icon.png?v=20260717.26" type="image/png">
+  <link rel="manifest" href="./manifest.json?v=20260717.26">
   <meta name="theme-color" content="#f3f1ee">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="./css/style.css?v=20260717.25">
+  <link rel="stylesheet" href="./css/style.css?v=20260717.26">
 </head>
 <body>
   <main class="app-shell">
@@ -63,7 +63,7 @@
 
     <section class="dashboard" id="dashboard" hidden>
       <section class="hero-card" id="heroCard">
-        <p class="eyebrow">預估月底可留下</p>
+        <p class="eyebrow">預估月底總結餘</p>
         <strong id="projectedSavings">$0</strong>
         <span id="statusPill" class="status-pill">讀取中</span>
         <p id="safetyText">正在整理本期資料...</p>
@@ -71,7 +71,7 @@
 
       <section class="metrics-grid">
         <article class="metric-card">
-          <span>安全餘裕</span>
+          <span>接下來可運用</span>
           <strong id="safetyBuffer">$0</strong>
         </article>
         <article class="metric-card">
@@ -352,7 +352,7 @@
             <select id="installmentCardSelect" required></select>
           </label>
           <button class="primary-button full-width" type="submit">新增分期</button>
-          <p class="helper-text full-width">首頁會用完整承諾金額檢查安全餘裕，但本期現金流只計入本期應繳。</p>
+          <p class="helper-text full-width">首頁會用完整承諾金額計算「接下來可運用」，但本期現金流只計入本期應繳。</p>
         </form>
       </section>
 
@@ -466,7 +466,7 @@
     </section>
 
     <div class="toast" id="toast" hidden></div>
-    <p class="app-version">v20260717.25</p>
+    <p class="app-version">v20260717.26</p>
   </main>
 
   <dialog id="editDialog">
@@ -492,9 +492,9 @@
     </form>
   </dialog>
 
-  <script src="./js/config.js?v=20260717.25"></script>
+  <script src="./js/config.js?v=20260717.26"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"></script>
-  <script src="./js/budget.js?v=20260717.25"></script>
-  <script src="./js/app.js?v=20260717.25"></script>
+  <script src="./js/budget.js?v=20260717.26"></script>
+  <script src="./js/app.js?v=20260717.26"></script>
 </body>
 </html>
