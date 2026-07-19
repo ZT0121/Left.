@@ -71,6 +71,28 @@ button {
   gap: 12px;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.menu-icon-button {
+  display: inline-grid;
+  width: 44px;
+  padding: 10px;
+  place-items: center;
+}
+
+.menu-icon-button svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 2;
+}
+
 .topbar {
   margin-bottom: 18px;
   border-bottom: 1px solid rgba(111, 104, 96, 0.14);
@@ -337,7 +359,7 @@ select:focus {
 
 .action-tabs {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 6px;
   border-radius: 8px;
   padding: 5px;
@@ -768,10 +790,6 @@ dialog::backdrop {
 @media (max-width: 390px) {
   .app-shell {
     padding-inline: 10px;
-  }
-
-  .action-tabs {
-    grid-template-columns: 1fr 1fr;
   }
 
   .form-grid,

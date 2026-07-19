@@ -3,21 +3,27 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Left. | 最低存款控制助手</title>
-  <link rel="icon" href="./icon.png?v=20260719.7" type="image/png">
-  <link rel="manifest" href="./manifest.json?v=20260719.7">
+  <title>Left.</title>
+  <link rel="icon" href="./icon.png?v=20260719.9" type="image/png">
+  <link rel="manifest" href="./manifest.json?v=20260719.9">
   <meta name="theme-color" content="#f3f1ee">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="./css/style.css?v=20260719.7">
+  <link rel="stylesheet" href="./css/style.css?v=20260719.9">
 </head>
 <body>
   <main class="app-shell">
     <header class="topbar">
       <div>
         <p class="eyebrow">Left.</p>
-        <h1>最低存款控制助手</h1>
       </div>
-      <button class="icon-button" id="signOutButton" type="button" hidden title="登出">登出</button>
+      <div class="topbar-actions">
+        <button class="icon-button menu-icon-button" id="openAppMenuButton" type="button" title="開啟選單" aria-label="開啟選單">
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M4 7h16M4 12h16M4 17h16"></path>
+          </svg>
+        </button>
+        <button class="icon-button" id="signOutButton" type="button" hidden title="登出">登出</button>
+      </div>
     </header>
 
     <section class="setup-warning" id="configWarning" hidden>
@@ -101,7 +107,6 @@
         <button class="tab-button active" type="button" data-panel="expensePanel">記一筆</button>
         <button class="tab-button" type="button" data-panel="incomePanel">收入</button>
         <button class="tab-button" type="button" data-panel="advancePanel">代墊</button>
-        <button class="tab-button" id="openAppMenuButton" type="button">更多</button>
       </nav>
 
       <div class="app-menu-backdrop" id="appMenuBackdrop" hidden>
@@ -500,7 +505,7 @@
     </section>
 
     <div class="toast" id="toast" hidden></div>
-    <p class="app-version">v20260719.7</p>
+    <p class="app-version">v20260719.9</p>
   </main>
 
   <dialog id="editDialog">
@@ -526,9 +531,9 @@
     </form>
   </dialog>
 
-  <script src="./js/config.js?v=20260719.7"></script>
+  <script src="./js/config.js?v=20260719.9"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"></script>
-  <script src="./js/budget.js?v=20260719.7"></script>
-  <script src="./js/app.js?v=20260719.7"></script>
+  <script src="./js/budget.js?v=20260719.9"></script>
+  <script src="./js/app.js?v=20260719.9"></script>
 </body>
 </html>
