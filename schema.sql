@@ -172,6 +172,33 @@ create table if not exists public.credit_card_charges (
   unique (installment_plan_id, installment_number)
 );
 
+create table if not exists public.push_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  endpoint text not null unique,
+  p256dh text not null,
+  auth text not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.notification_deliveries (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  subscription_id uuid not null references public.push_subscriptions(id) on delete cascade,
+  reminder_key text not null,
+  sent_at timestamptz not null default now(),
+  unique (subscription_id, reminder_key)
+);
+
+create table if not exists public.push_config (
+  singleton boolean primary key default true check (singleton),
+  vapid_public_key text not null,
+  vapid_private_key text not null,
+  cron_secret text not null,
+  updated_at timestamptz not null default now()
+);
+
 alter table public.transactions
   add column if not exists payment_method text not null default 'cash'
     check (payment_method in ('cash', 'credit_card')),
@@ -212,10 +239,13 @@ create index if not exists monthly_subscriptions_user_idx on public.monthly_subs
 create index if not exists installment_plans_user_card_idx on public.installment_plans(user_id, card_id, is_active);
 create index if not exists credit_card_charges_user_cycle_idx on public.credit_card_charges(user_id, cycle_id, status, due_date);
 create index if not exists credit_card_charges_card_idx on public.credit_card_charges(user_id, card_id, due_date);
+create index if not exists push_subscriptions_user_idx on public.push_subscriptions(user_id);
+create index if not exists notification_deliveries_user_idx on public.notification_deliveries(user_id, sent_at desc);
 
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
+set search_path = ''
 as $$
 begin
   new.updated_at = now();
@@ -226,6 +256,16 @@ $$;
 drop trigger if exists set_profiles_updated_at on public.profiles;
 create trigger set_profiles_updated_at
 before update on public.profiles
+for each row execute function public.set_updated_at();
+
+drop trigger if exists set_push_subscriptions_updated_at on public.push_subscriptions;
+create trigger set_push_subscriptions_updated_at
+before update on public.push_subscriptions
+for each row execute function public.set_updated_at();
+
+drop trigger if exists set_push_config_updated_at on public.push_config;
+create trigger set_push_config_updated_at
+before update on public.push_config
 for each row execute function public.set_updated_at();
 
 drop trigger if exists set_user_settings_updated_at on public.user_settings;
@@ -295,6 +335,16 @@ alter table public.income_records enable row level security;
 alter table public.monthly_subscriptions enable row level security;
 alter table public.installment_plans enable row level security;
 alter table public.credit_card_charges enable row level security;
+alter table public.push_subscriptions enable row level security;
+alter table public.notification_deliveries enable row level security;
+alter table public.push_config enable row level security;
+
+drop policy if exists "No client access to push config" on public.push_config;
+create policy "No client access to push config"
+on public.push_config for all
+to anon, authenticated
+using (false)
+with check (false);
 
 drop policy if exists "Users can read their profile" on public.profiles;
 create policy "Users can read their profile"
@@ -894,6 +944,37 @@ on public.credit_card_charges for delete
 to authenticated
 using ((select auth.uid()) = user_id);
 
+drop policy if exists "Users can read their push subscriptions" on public.push_subscriptions;
+create policy "Users can read their push subscriptions"
+on public.push_subscriptions for select
+to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can insert their push subscriptions" on public.push_subscriptions;
+create policy "Users can insert their push subscriptions"
+on public.push_subscriptions for insert
+to authenticated
+with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can update their push subscriptions" on public.push_subscriptions;
+create policy "Users can update their push subscriptions"
+on public.push_subscriptions for update
+to authenticated
+using ((select auth.uid()) = user_id)
+with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can delete their push subscriptions" on public.push_subscriptions;
+create policy "Users can delete their push subscriptions"
+on public.push_subscriptions for delete
+to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can read their notification deliveries" on public.notification_deliveries;
+create policy "Users can read their notification deliveries"
+on public.notification_deliveries for select
+to authenticated
+using ((select auth.uid()) = user_id);
+
 grant usage on schema public to anon, authenticated;
 grant select, insert, update, delete on
   public.profiles,
@@ -907,5 +988,10 @@ grant select, insert, update, delete on
   public.income_records,
   public.monthly_subscriptions,
   public.installment_plans,
-  public.credit_card_charges
+  public.credit_card_charges,
+  public.push_subscriptions
 to authenticated;
+
+grant select on public.notification_deliveries to authenticated;
+revoke all on public.push_config from anon, authenticated;
+grant all on public.push_subscriptions, public.notification_deliveries, public.push_config to service_role;

@@ -326,6 +326,64 @@ select:focus {
   background: var(--bad);
 }
 
+.notification-setup,
+.attention-banner {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(141, 116, 105, 0.34);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--accent-soft);
+  box-shadow: var(--shadow-soft);
+}
+
+.notification-setup {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.notification-setup p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.attention-banner {
+  border-color: rgba(143, 79, 72, 0.36);
+  background: #f8f1ee;
+}
+
+.attention-list {
+  display: grid;
+  gap: 8px;
+}
+
+.attention-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+  border: 1px solid rgba(143, 79, 72, 0.2);
+  border-radius: 7px;
+  padding: 10px;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.7);
+  text-align: left;
+}
+
+.attention-item span {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.attention-item strong:last-child {
+  white-space: nowrap;
+}
+
 .metrics-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -821,6 +879,10 @@ dialog::backdrop {
 
   .form-grid,
   .metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .notification-setup {
     grid-template-columns: 1fr;
   }
 

@@ -53,6 +53,7 @@
   const supabaseUrl = String(config.url || "").replace(/\/+$/, "");
   const daysBetween = window.LeftBudget.daysBetween;
   const estimatedCardSources = new Set(["general", "advance", "installment", "subscription"]);
+  const pushPublicKey = "BN6FJFRU6jNrwzJ_bhi9K-2TADOYFwIwEvahgezvjl8hs87n2DcWw_f8ts9ol0rtN7_YYDneDHubzB9ZCq3-mH8";
 
   function currentMonth() {
     return today().slice(0, 7);
@@ -107,6 +108,13 @@
     const amount = toNumber(value);
     if (amount === 0) return "$0";
     return `${amount > 0 ? "+" : "-"}${money(Math.abs(amount))}`;
+  }
+
+  function urlBase64ToUint8Array(value) {
+    const padding = "=".repeat((4 - value.length % 4) % 4);
+    const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
+    const raw = window.atob(base64);
+    return Uint8Array.from([...raw].map((character) => character.charCodeAt(0)));
   }
 
   function getEstimateFor(cardId, dueDate) {
@@ -232,7 +240,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260719.12")
+      navigator.serviceWorker.register("./sw.js?v=20260719.13")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -340,6 +348,122 @@
     pill.textContent = "最低保留已守住";
   }
 
+  function renderAttentionBanner() {
+    const banner = $("attentionBanner");
+    const list = $("attentionList");
+    if (!banner || !list) return;
+    const current = today();
+    const reminders = [];
+
+    state.cardCharges
+      .filter((row) => isActualStatement(row) && row.status === "pending" && row.due_date)
+      .forEach((row) => {
+        const days = Math.ceil((parseLocalDate(row.due_date) - parseLocalDate(current)) / 86400000);
+        if (days > 3) return;
+        const timing = days < 0
+          ? `已逾期 ${Math.abs(days)} 天`
+          : days === 0
+            ? "今天到期"
+            : `${days} 天後到期`;
+        reminders.push({
+          type: "card",
+          title: row.title || "信用卡帳單尚未繳款",
+          detail: timing,
+          amount: toNumber(row.amount)
+        });
+      });
+
+    state.reimbursements
+      .filter((row) => row.status === "pending" && Date.now() - Date.parse(row.created_at) > 86400000)
+      .forEach((row) => {
+        const elapsedDays = Math.floor((Date.now() - Date.parse(row.created_at)) / 86400000);
+        reminders.push({
+          type: "reimbursement",
+          title: row.title || "待收款尚未收回",
+          detail: `已等待 ${elapsedDays} 天`,
+          amount: toNumber(row.amount)
+        });
+      });
+
+    banner.hidden = reminders.length === 0;
+    $("attentionCount").textContent = reminders.length ? `${reminders.length} 件` : "";
+    list.innerHTML = reminders.map((reminder) => `
+      <button class="attention-item" type="button" data-attention-type="${reminder.type}">
+        <span>
+          <strong>${escapeHtml(reminder.title)}</strong>
+          <span>${reminder.detail}</span>
+        </span>
+        <strong>${money(reminder.amount)}</strong>
+      </button>
+    `).join("");
+  }
+
+  async function updateNotificationSetup() {
+    const setup = $("notificationSetup");
+    const button = $("enableNotificationsButton");
+    if (!setup || !button || !state.user) return;
+    const supported = "Notification" in window
+      && "serviceWorker" in navigator
+      && "PushManager" in window;
+    if (!supported) {
+      setup.hidden = false;
+      button.hidden = true;
+      $("notificationSetupTitle").textContent = "此瀏覽器不支援推播";
+      $("notificationSetupText").textContent = "請使用最新版 Android Chrome，並將 Left. 安裝到主畫面。";
+      return;
+    }
+
+    if (Notification.permission === "granted") {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      setup.hidden = Boolean(subscription);
+      button.hidden = false;
+      button.textContent = subscription ? "已開啟" : "完成通知設定";
+      return;
+    }
+
+    setup.hidden = false;
+    button.hidden = Notification.permission === "denied";
+    $("notificationSetupTitle").textContent = Notification.permission === "denied"
+      ? "手機通知已被封鎖"
+      : "開啟手機通知";
+    $("notificationSetupText").textContent = Notification.permission === "denied"
+      ? "請到 Android 的網站或 App 通知設定中允許 Left. 通知。"
+      : "卡費到期前 3 天、到期當天，以及待收款超過 1 天時提醒你。";
+  }
+
+  async function enablePushNotifications() {
+    if (!state.user) throw new Error("請先登入");
+    if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) {
+      throw new Error("此瀏覽器不支援推播通知");
+    }
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      await updateNotificationSetup();
+      throw new Error("需要允許通知，才能在手機收到提醒");
+    }
+
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(pushPublicKey)
+      });
+    }
+    const serialized = subscription.toJSON();
+    const { error } = await client.from("push_subscriptions").upsert({
+      user_id: state.user.id,
+      endpoint: subscription.endpoint,
+      p256dh: serialized.keys?.p256dh,
+      auth: serialized.keys?.auth
+    }, { onConflict: "endpoint" });
+    if (error) throw error;
+
+    showToast("手機通知已開啟");
+    await updateNotificationSetup();
+  }
+
   function renderDashboard() {
     if (!state.cycle) return;
 
@@ -383,6 +507,8 @@
     renderSubscriptions();
     renderBillReminders();
     renderMotherRequest();
+    renderAttentionBanner();
+    updateNotificationSetup().catch((error) => console.warn("Notification setup check failed", error));
   }
 
   function renderTransactions() {
@@ -1630,6 +1756,14 @@
     setVisible("cyclePanel", false);
     setVisible("dashboard", true);
     renderDashboard();
+    const reminder = new URL(window.location.href).searchParams.get("reminder");
+    if (reminder === "card") document.querySelector('[data-panel="cardPanel"]')?.click();
+    if (reminder === "reimbursement") showReimbursementDetails();
+    if (reminder) {
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete("reminder");
+      window.history.replaceState({}, "", cleanUrl.toString());
+    }
   }
 
   function fillCycleDefaults() {
@@ -2976,6 +3110,12 @@
     $("cancelEditButton").addEventListener("click", () => $("editDialog").close());
     $("backupButton").addEventListener("click", wrap(downloadBackup));
     $("historyButton").addEventListener("click", wrap(toggleHistory));
+    $("enableNotificationsButton").addEventListener("click", wrap(enablePushNotifications));
+    $("attentionList").addEventListener("click", (event) => {
+      const type = event.target.closest("[data-attention-type]")?.dataset.attentionType;
+      if (type === "card") document.querySelector('[data-panel="cardPanel"]')?.click();
+      if (type === "reimbursement") showReimbursementDetails();
+    });
     $("copyMotherRequestButton").addEventListener("click", wrap(copyMotherRequest));
     $("restoreInput").addEventListener("change", wrap(restoreBackup));
     $("expensePaymentMethod").addEventListener("change", toggleCardFields);

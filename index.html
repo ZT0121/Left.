@@ -4,17 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Left.</title>
-  <link rel="icon" href="./assets/branding/left-favicon-64.png?v=20260719.12" type="image/png">
-  <link rel="manifest" href="./manifest.json?v=20260719.12">
+  <link rel="icon" href="./assets/branding/left-favicon-64.png?v=20260719.13" type="image/png">
+  <link rel="manifest" href="./manifest.json?v=20260719.13">
   <meta name="theme-color" content="#f3f1ee">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="./css/style.css?v=20260719.12">
+  <link rel="stylesheet" href="./css/style.css?v=20260719.13">
 </head>
 <body>
   <main class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <img class="brand-logo" src="./assets/branding/left-icon-192.png?v=20260719.12" alt="">
+        <img class="brand-logo" src="./assets/branding/left-icon-192.png?v=20260719.13" alt="">
         <p class="eyebrow">Left.</p>
       </div>
       <div class="topbar-actions">
@@ -73,6 +73,22 @@
         <strong id="projectedSavings">$0</strong>
         <span id="statusPill" class="status-pill">讀取中</span>
         <p id="safetyText">正在整理本期資料...</p>
+      </section>
+
+      <section class="notification-setup" id="notificationSetup" hidden>
+        <div>
+          <strong id="notificationSetupTitle">開啟手機通知</strong>
+          <p id="notificationSetupText">允許 Left. 在卡費到期或待收款逾時時提醒你。</p>
+        </div>
+        <button class="primary-button" id="enableNotificationsButton" type="button">開啟通知</button>
+      </section>
+
+      <section class="attention-banner" id="attentionBanner" hidden>
+        <div class="section-title">
+          <h2>待處理</h2>
+          <span id="attentionCount"></span>
+        </div>
+        <div class="attention-list" id="attentionList"></div>
       </section>
 
       <section class="metrics-grid">
@@ -506,7 +522,7 @@
     </section>
 
     <div class="toast" id="toast" hidden></div>
-    <p class="app-version">v20260719.12</p>
+    <p class="app-version">v20260719.13</p>
   </main>
 
   <dialog id="editDialog">
@@ -532,9 +548,9 @@
     </form>
   </dialog>
 
-  <script src="./js/config.js?v=20260719.12"></script>
+  <script src="./js/config.js?v=20260719.13"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"></script>
-  <script src="./js/budget.js?v=20260719.12"></script>
-  <script src="./js/app.js?v=20260719.12"></script>
+  <script src="./js/budget.js?v=20260719.13"></script>
+  <script src="./js/app.js?v=20260719.13"></script>
 </body>
 </html>
