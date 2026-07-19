@@ -4,11 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Left. | 最低存款控制助手</title>
-  <link rel="icon" href="./icon.png?v=20260719.2" type="image/png">
-  <link rel="manifest" href="./manifest.json?v=20260719.2">
+  <link rel="icon" href="./icon.png?v=20260719.7" type="image/png">
+  <link rel="manifest" href="./manifest.json?v=20260719.7">
   <meta name="theme-color" content="#f3f1ee">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="./css/style.css?v=20260719.2">
+  <link rel="stylesheet" href="./css/style.css?v=20260719.7">
 </head>
 <body>
   <main class="app-shell">
@@ -101,12 +101,37 @@
         <button class="tab-button active" type="button" data-panel="expensePanel">記一筆</button>
         <button class="tab-button" type="button" data-panel="incomePanel">收入</button>
         <button class="tab-button" type="button" data-panel="advancePanel">代墊</button>
-        <button class="tab-button" type="button" data-panel="wishPanel">我想買</button>
-        <button class="tab-button" type="button" data-panel="cardPanel">信用卡</button>
-        <button class="tab-button" type="button" data-panel="installmentPanel">分期</button>
-        <button class="tab-button" type="button" data-panel="accountPanel">帳戶</button>
-        <button class="tab-button" type="button" data-panel="toolsPanel">工具</button>
+        <button class="tab-button" id="openAppMenuButton" type="button">更多</button>
       </nav>
+
+      <div class="app-menu-backdrop" id="appMenuBackdrop" hidden>
+        <aside class="app-menu" id="appMenu" aria-label="更多功能">
+          <div class="section-title">
+            <div>
+              <p class="eyebrow">更多功能</p>
+              <h2>管理與設定</h2>
+            </div>
+            <button class="icon-button" id="closeAppMenuButton" type="button">關閉</button>
+          </div>
+          <nav class="app-menu-list">
+            <button class="tab-button" type="button" data-panel="wishPanel">
+              <strong>我想買</strong><span>購買前試算</span>
+            </button>
+            <button class="tab-button" type="button" data-panel="cardPanel">
+              <strong>信用卡</strong><span>帳單與卡片設定</span>
+            </button>
+            <button class="tab-button" type="button" data-panel="installmentPanel">
+              <strong>分期</strong><span>分期計畫管理</span>
+            </button>
+            <button class="tab-button" type="button" data-panel="accountPanel">
+              <strong>帳戶</strong><span>帳戶與轉帳</span>
+            </button>
+            <button class="tab-button" type="button" data-panel="toolsPanel">
+              <strong>工具與歷史</strong><span>歷史、備份與其他設定</span>
+            </button>
+          </nav>
+        </aside>
+      </div>
 
       <section class="work-panel active" id="expensePanel">
         <form id="expenseForm" class="form-grid">
@@ -408,6 +433,14 @@
       </section>
 
       <section class="work-panel" id="toolsPanel">
+        <section class="history-box">
+          <div class="section-title">
+            <h2>歷史週期</h2>
+            <span>系統按月份自動整理，不用分類</span>
+          </div>
+          <button class="secondary-button full-width" id="historyButton" type="button">查看歷史</button>
+          <div class="record-list history-list" id="historyList" hidden></div>
+        </section>
         <section class="mom-request-box">
           <div class="section-title">
             <h2>給媽媽金額</h2>
@@ -467,7 +500,7 @@
     </section>
 
     <div class="toast" id="toast" hidden></div>
-    <p class="app-version">v20260719.2</p>
+    <p class="app-version">v20260719.7</p>
   </main>
 
   <dialog id="editDialog">
@@ -493,9 +526,9 @@
     </form>
   </dialog>
 
-  <script src="./js/config.js?v=20260719.2"></script>
+  <script src="./js/config.js?v=20260719.7"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"></script>
-  <script src="./js/budget.js?v=20260719.2"></script>
-  <script src="./js/app.js?v=20260719.2"></script>
+  <script src="./js/budget.js?v=20260719.7"></script>
+  <script src="./js/app.js?v=20260719.7"></script>
 </body>
 </html>

@@ -24,7 +24,12 @@
     accounts: [],
     accountTransfers: [],
     incomeRecords: [],
-    subscriptions: []
+    subscriptions: [],
+    historyCycles: [],
+    historyTransactions: [],
+    historyIncomeRecords: [],
+    historyReimbursements: [],
+    historyLoaded: false
   };
 
   const $ = (id) => document.getElementById(id);
@@ -227,7 +232,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260719.2")
+      navigator.serviceWorker.register("./sw.js?v=20260719.7")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -378,32 +383,58 @@
     renderSubscriptions();
     renderBillReminders();
     renderMotherRequest();
-    updateListTabCounts();
   }
 
   function renderTransactions() {
     const list = $("recordList");
-    const rows = [...state.transactions]
+    const transactionRows = [...state.transactions]
       .filter((row) => row.kind === "expense" || row.kind === "advance")
-      .sort((a, b) => `${b.date}${b.created_at}`.localeCompare(`${a.date}${a.created_at}`))
-      .slice(0, 12);
+      .map((row) => ({
+        ...row,
+        activityType: row.kind === "advance" ? "代墊" : "支出",
+        activityDate: row.date,
+        activityTitle: row.title || (row.kind === "advance" ? "代墊" : "一般支出"),
+        activityAmount: row.amount,
+        amountPrefix: "−"
+      }));
+    const incomeRows = state.incomeRecords.map((row) => ({
+      ...row,
+      activityType: "收入",
+      activityDate: row.date,
+      activityTitle: row.title || "收入",
+      activityAmount: row.amount,
+      amountPrefix: "+"
+    }));
+    const reimbursementRows = state.reimbursements.map((row) => ({
+      ...row,
+      activityType: row.status === "received" ? "已收回補" : "待收",
+      activityDate: row.received_at || String(row.created_at || "").slice(0, 10),
+      activityTitle: row.title || "待收款",
+      activityAmount: row.amount,
+      amountPrefix: ""
+    }));
+    const rows = [...transactionRows, ...incomeRows, ...reimbursementRows]
+      .sort((a, b) => `${b.activityDate || ""}${b.created_at || ""}`.localeCompare(`${a.activityDate || ""}${a.created_at || ""}`))
+      .slice(0, 5);
 
     if (!rows.length) {
-      list.innerHTML = '<p class="empty-state">本期還沒有紀錄。第一筆就從最常見的支出開始。</p>';
+      list.innerHTML = '<p class="empty-state">目前還沒有動態。第一筆就從最常見的支出開始。</p>';
       return;
     }
 
     list.innerHTML = rows.map((row) => `
       <article class="record-item">
         <div>
-          <p class="record-title">${escapeHtml(row.title || (row.kind === "advance" ? "代墊" : "一般支出"))}</p>
-          <p class="record-meta">${row.date}${row.kind === "advance" ? ` · 總金額 ${money(row.gross_amount)}` : ""}</p>
+          <p class="record-title">${escapeHtml(row.activityTitle)}</p>
+          <p class="record-meta">${row.activityDate || "未填日期"} · ${row.activityType}${row.kind === "advance" ? ` · 總金額 ${money(row.gross_amount)}` : ""}</p>
         </div>
-        <div class="record-amount">${money(row.amount)}</div>
-        <div class="record-actions">
-          <button type="button" data-edit="${row.id}">編輯</button>
-          <button type="button" data-delete="${row.id}">刪除</button>
-        </div>
+        <div class="record-amount">${row.amountPrefix}${money(row.activityAmount)}</div>
+        ${row.activityType === "支出" || row.activityType === "代墊" ? `
+          <div class="record-actions">
+            <button type="button" data-edit="${row.id}">編輯</button>
+            <button type="button" data-delete="${row.id}">刪除</button>
+          </div>
+        ` : ""}
       </article>
     `).join("");
   }
@@ -527,7 +558,7 @@
     if (!list) return;
     list.dataset.cardStatementTab = "estimate";
     renderCardCharges();
-    openListSection("cardChargeSection");
+    document.querySelector('[data-panel="cardPanel"]')?.click();
     const target = list.closest(".list-section") || list;
     target.scrollIntoView({ behavior: "smooth", block: "start" });
     if (!getEstimatedStatementGroups().length) {
@@ -538,9 +569,11 @@
   function showReimbursementDetails() {
     const list = $("reimbursementList");
     if (!list) return;
-    openListSection("reimbursementSection");
-    const target = list.closest(".list-section") || list;
-    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.querySelectorAll(".tab-button[data-panel]").forEach((item) => item.classList.remove("active"));
+    document.querySelectorAll(".work-panel").forEach((item) => item.classList.remove("active"));
+    $("openAppMenuButton")?.classList.remove("active");
+    $("reimbursementPanel")?.classList.add("active");
+    $("reimbursementPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
     if (!state.reimbursements.some((row) => row.status === "pending")) {
       showToast("目前沒有待收款明細");
     }
@@ -559,7 +592,7 @@
   function showInstallmentDetails() {
     const list = $("installmentList");
     if (!list) return;
-    openListSection("installmentSection");
+    document.querySelector('[data-panel="installmentPanel"]')?.click();
     const target = list.closest(".list-section") || list;
     target.scrollIntoView({ behavior: "smooth", block: "start" });
     if (!state.installmentPlans.length) {
@@ -1579,6 +1612,9 @@
   }
 
   async function refresh() {
+    state.historyLoaded = false;
+    if ($("historyList")) $("historyList").hidden = true;
+    if ($("historyButton")) $("historyButton").textContent = "查看歷史";
     await ensureSettings();
     await loadActiveCycle();
     setVisible("authPanel", false);
@@ -2494,13 +2530,135 @@
     if (!window.confirm("要結束目前週期並開始新的發薪週期嗎？")) return;
     const { error } = await client
       .from("budget_cycles")
-      .update({ is_closed: true, closed_at: new Date().toISOString() })
+      .update({
+        is_closed: true,
+        expected_pay_date: today(),
+        closed_at: new Date().toISOString()
+      })
       .eq("id", state.cycle.id)
       .eq("user_id", state.user.id);
     if (error) throw error;
     state.cycle = null;
     showToast("已結束本期");
     await refresh();
+  }
+
+  function renderHistory() {
+    const list = $("historyList");
+    if (!list) return;
+
+    const kindLabels = {
+      expense: "一般消費",
+      advance: "代墊",
+      installment: "分期",
+      opening_card_bill: "信用卡帳單",
+      card_fee: "費用／利息"
+    };
+    const months = new Set([
+      ...state.historyTransactions.map((row) => String(row.date || "").slice(0, 7)),
+      ...state.historyIncomeRecords.map((row) => String(row.date || "").slice(0, 7)),
+      ...state.historyCycles.map((row) => String(row.start_date || "").slice(0, 7))
+    ].filter((month) => /^\d{4}-\d{2}$/.test(month)));
+    const sortedMonths = [...months].sort((a, b) => b.localeCompare(a));
+    if (!sortedMonths.length) {
+      list.innerHTML = '<p class="empty-state">目前還沒有可整理的歷史資料。</p>';
+      return;
+    }
+
+    list.innerHTML = sortedMonths.map((month) => {
+      const transactions = state.historyTransactions
+        .filter((row) => String(row.date || "").startsWith(month))
+        .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+      const incomeRecords = state.historyIncomeRecords.filter((row) => String(row.date || "").startsWith(month));
+      const cycleIncome = state.historyCycles
+        .filter((cycle) => String(cycle.start_date || "").startsWith(month))
+        .reduce((sum, cycle) => sum + toNumber(cycle.salary_income) + toNumber(cycle.mother_support), 0);
+      const income = cycleIncome
+        + incomeRecords.reduce((sum, row) => sum + toNumber(row.amount), 0);
+      const spent = transactions.reduce((sum, row) => sum + toNumber(row.amount), 0);
+      const receivedManual = state.historyReimbursements
+        .filter((row) => row.status === "received" && !row.transaction_id && String(row.received_at || "").startsWith(month))
+        .reduce((sum, row) => sum + toNumber(row.amount), 0);
+      const balance = income + receivedManual - spent;
+      const typeTotals = transactions.reduce((totals, row) => {
+        totals[row.kind] = (totals[row.kind] || 0) + toNumber(row.amount);
+        return totals;
+      }, {});
+      const typeRows = Object.entries(typeTotals)
+        .filter(([, amount]) => amount > 0)
+        .map(([kind, amount]) => `
+          <div class="statement-detail-row">
+            <span>${kindLabels[kind] || "其他"}</span>
+            <strong>${money(amount)}</strong>
+          </div>
+        `).join("");
+      const transactionRows = transactions.map((row) => `
+        <div class="statement-detail-row">
+          <span>${row.date || "未填日期"} · ${kindLabels[row.kind] || "其他"} · ${escapeHtml(row.title || "未命名")}</span>
+          <strong>${money(row.amount)}</strong>
+        </div>
+      `).join("");
+
+      return `
+        <article class="record-item">
+          <div>
+            <p class="record-title">${month.replace("-", " 年 ")} 月</p>
+            <p class="record-meta">${transactions.length} 筆消費 · 系統依日期自動整理</p>
+            <div class="history-summary">
+              <span>當月收入<strong>${money(income)}</strong></span>
+              <span>當月支出<strong>${money(spent)}</strong></span>
+              <span>當月結餘<strong>${money(balance)}</strong></span>
+            </div>
+            <details class="statement-details">
+              <summary>查看類型與明細</summary>
+              <div class="statement-detail-list">
+                ${typeRows || '<p class="record-meta">本期沒有支出。</p>'}
+                ${transactionRows ? `<div class="statement-detail-row statement-difference-row"><span>全部消費明細</span><strong>${transactions.length} 筆</strong></div>${transactionRows}` : ""}
+              </div>
+            </details>
+          </div>
+        </article>
+      `;
+    }).join("");
+  }
+
+  async function toggleHistory() {
+    const list = $("historyList");
+    const button = $("historyButton");
+    if (!list || !button) return;
+
+    if (!list.hidden) {
+      list.hidden = true;
+      button.textContent = "查看歷史";
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = "讀取中…";
+    try {
+      if (!state.historyLoaded) {
+        const [cycles, transactions, incomeRecords, reimbursements] = await Promise.all([
+          client.from("budget_cycles").select("*").eq("user_id", state.user.id).order("start_date", { ascending: false }),
+          client.from("transactions").select("*").eq("user_id", state.user.id),
+          client.from("income_records").select("*").eq("user_id", state.user.id),
+          client.from("reimbursements").select("*").eq("user_id", state.user.id)
+        ]);
+        [cycles, transactions, incomeRecords, reimbursements].forEach((result) => {
+          if (result.error) throw result.error;
+        });
+        state.historyCycles = cycles.data || [];
+        state.historyTransactions = transactions.data || [];
+        state.historyIncomeRecords = incomeRecords.data || [];
+        state.historyReimbursements = reimbursements.data || [];
+        state.historyLoaded = true;
+      }
+      renderHistory();
+      list.hidden = false;
+      button.textContent = "收起歷史";
+    } finally {
+      button.disabled = false;
+      if (list.hidden) button.textContent = "查看歷史";
+    }
   }
 
   async function downloadBackup() {
@@ -2580,6 +2738,7 @@
 
   function applyCopyOverrides() {
     ensureSubscriptionPanel();
+    organizeDashboardSections();
     const heroEyebrow = $("heroCard")?.querySelector(".eyebrow");
     if (heroEyebrow) heroEyebrow.textContent = "預估月底總結餘";
     setLabelText("openingBillAmount", "實際帳單金額");
@@ -2608,6 +2767,41 @@
       $("subscriptionMonth").value = new Date().getMonth() + 1;
     }
     ensureEditPaymentFields();
+  }
+
+  function organizeDashboardSections() {
+    const recordSection = $("recordList")?.closest(".list-section");
+    if (recordSection) {
+      recordSection.id = "recentActivitySection";
+      const title = recordSection.querySelector("h2");
+      if (title) title.textContent = "最近動態";
+      const detail = recordSection.querySelector(".section-title span");
+      if (detail) detail.textContent = "最近 5 筆收入、支出與待收狀態";
+    }
+
+    const reimbursementSection = $("reimbursementList")?.closest(".list-section");
+    const reminderSection = $("billReminderList")?.closest(".list-section");
+    if (reimbursementSection) {
+      reimbursementSection.id = "reimbursementPanel";
+      reimbursementSection.classList.add("work-panel");
+      const title = reimbursementSection.querySelector("h2");
+      if (title) title.textContent = "待收款明細";
+      const detail = reimbursementSection.querySelector(".section-title span");
+      if (detail) detail.textContent = "收回後只會結清待收，不算收入";
+    }
+    if (reminderSection && $("cardPanel") && !reminderSection.closest("#cardPanel")) {
+      $("cardPanel").appendChild(reminderSection);
+    }
+
+    const cardChargeSection = $("cardChargeList")?.closest(".list-section");
+    if (cardChargeSection && $("cardPanel") && !cardChargeSection.closest("#cardPanel")) {
+      $("cardPanel").appendChild(cardChargeSection);
+    }
+
+    const installmentSection = $("installmentList")?.closest(".list-section");
+    if (installmentSection && $("installmentPanel") && !installmentSection.closest("#installmentPanel")) {
+      $("installmentPanel").appendChild(installmentSection);
+    }
   }
 
   function ensureEditPaymentFields() {
@@ -2643,15 +2837,15 @@
 
   function ensureSubscriptionPanel() {
     if ($("subscriptionPanel")) return;
-    const tabs = document.querySelector(".action-tabs");
-    const installmentButton = tabs?.querySelector('[data-panel="installmentPanel"]');
-    const accountButton = tabs?.querySelector('[data-panel="accountPanel"]');
+    const menu = document.querySelector(".app-menu-list");
+    const installmentButton = menu?.querySelector('[data-panel="installmentPanel"]');
+    const accountButton = menu?.querySelector('[data-panel="accountPanel"]');
     const button = document.createElement("button");
     button.className = "tab-button";
     button.type = "button";
     button.dataset.panel = "subscriptionPanel";
-    button.textContent = "訂閱";
-    tabs?.insertBefore(button, accountButton || installmentButton?.nextSibling || null);
+    button.innerHTML = "<strong>訂閱</strong><span>固定扣款與續訂管理</span>";
+    menu?.insertBefore(button, accountButton || installmentButton?.nextSibling || null);
 
     const panel = document.createElement("section");
     panel.className = "work-panel";
@@ -2781,6 +2975,7 @@
     $("editForm").addEventListener("submit", wrap(saveEdit));
     $("cancelEditButton").addEventListener("click", () => $("editDialog").close());
     $("backupButton").addEventListener("click", wrap(downloadBackup));
+    $("historyButton").addEventListener("click", wrap(toggleHistory));
     $("copyMotherRequestButton").addEventListener("click", wrap(copyMotherRequest));
     $("restoreInput").addEventListener("change", wrap(restoreBackup));
     $("expensePaymentMethod").addEventListener("change", toggleCardFields);
@@ -2788,19 +2983,31 @@
     $("subscriptionPaymentMethod").addEventListener("change", toggleCardFields);
     $("subscriptionBillingCycle").addEventListener("change", toggleCardFields);
     $("openingBillCardSelect").addEventListener("change", fillOpeningBillDatesFromCard);
-    setupListTabs();
-
     makeMetricClickable("pendingAmount", "查看待收款明細", showReimbursementDetails);
     makeMetricClickable("dailyAllowance", "查看收入明細", showIncomeDetails);
     makeMetricClickable("cardDueAmount", "查看未出帳信用卡明細", showPendingCardEstimateDetails);
     makeMetricClickable("futureInstallmentAmount", "查看分期細項", showInstallmentDetails);
 
-    document.querySelectorAll(".tab-button").forEach((button) => {
+    const closeAppMenu = () => {
+      $("appMenuBackdrop").hidden = true;
+    };
+
+    $("openAppMenuButton").addEventListener("click", () => {
+      $("appMenuBackdrop").hidden = false;
+    });
+    $("closeAppMenuButton").addEventListener("click", closeAppMenu);
+    $("appMenuBackdrop").addEventListener("click", (event) => {
+      if (event.target === $("appMenuBackdrop")) closeAppMenu();
+    });
+
+    document.querySelectorAll(".tab-button[data-panel]").forEach((button) => {
       button.addEventListener("click", () => {
-        document.querySelectorAll(".tab-button").forEach((item) => item.classList.remove("active"));
+        document.querySelectorAll(".tab-button[data-panel]").forEach((item) => item.classList.remove("active"));
         document.querySelectorAll(".work-panel").forEach((item) => item.classList.remove("active"));
         button.classList.add("active");
+        $("openAppMenuButton").classList.toggle("active", Boolean(button.closest(".app-menu")));
         $(button.dataset.panel).classList.add("active");
+        closeAppMenu();
       });
     });
 

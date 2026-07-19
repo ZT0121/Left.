@@ -361,6 +361,54 @@ select:focus {
   box-shadow: 0 6px 16px rgba(47, 45, 42, 0.1);
 }
 
+.app-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(47, 45, 42, 0.34);
+}
+
+.app-menu {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: min(88vw, 360px);
+  height: 100%;
+  overflow-y: auto;
+  padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  box-shadow: -18px 0 42px rgba(47, 45, 42, 0.18);
+}
+
+.app-menu-list {
+  display: grid;
+  gap: 8px;
+}
+
+.app-menu-list .tab-button {
+  display: grid;
+  gap: 3px;
+  min-height: 64px;
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  background: #ffffff;
+  text-align: left;
+}
+
+.app-menu-list .tab-button strong {
+  color: var(--text);
+}
+
+.app-menu-list .tab-button span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.app-menu-list .tab-button.active {
+  border-color: var(--primary);
+  background: var(--accent-soft);
+}
+
 .work-panel {
   display: none;
   padding: 16px;
@@ -384,7 +432,8 @@ select:focus {
   border: 1px solid var(--line);
 }
 
-.mom-request-box {
+.mom-request-box,
+.history-box {
   display: grid;
   gap: 10px;
   margin-bottom: 14px;
@@ -392,6 +441,32 @@ select:focus {
   border-radius: 8px;
   padding: 14px;
   background: #ffffff;
+}
+
+.history-list {
+  margin-top: 4px;
+}
+
+.history-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.history-summary span {
+  border-radius: 7px;
+  padding: 8px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.history-summary strong {
+  display: block;
+  margin-top: 3px;
+  color: var(--ink);
+  font-size: 0.88rem;
 }
 
 .mom-request-box textarea {
