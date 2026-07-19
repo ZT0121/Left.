@@ -4,11 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Left. | 最低存款控制助手</title>
-  <link rel="icon" href="./icon.png?v=20260717.26" type="image/png">
-  <link rel="manifest" href="./manifest.json?v=20260717.26">
+  <link rel="icon" href="./icon.png?v=20260719.2" type="image/png">
+  <link rel="manifest" href="./manifest.json?v=20260719.2">
   <meta name="theme-color" content="#f3f1ee">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="./css/style.css?v=20260717.26">
+  <link rel="stylesheet" href="./css/style.css?v=20260719.2">
 </head>
 <body>
   <main class="app-shell">
@@ -73,6 +73,7 @@
         <article class="metric-card">
           <span>接下來可運用</span>
           <strong id="safetyBuffer">$0</strong>
+          <small class="metric-detail" id="safetyBreakdown"></small>
         </article>
         <article class="metric-card">
           <span>本期已花</span>
@@ -83,11 +84,11 @@
           <strong id="pendingAmount">$0</strong>
         </article>
         <article class="metric-card">
-          <span>累積收入</span>
+          <span>本期收入</span>
           <strong id="dailyAllowance">$0</strong>
         </article>
         <article class="metric-card">
-          <span>本期信用卡應繳</span>
+          <span>信用卡待繳</span>
           <strong id="cardDueAmount">$0</strong>
         </article>
         <article class="metric-card">
@@ -466,7 +467,7 @@
     </section>
 
     <div class="toast" id="toast" hidden></div>
-    <p class="app-version">v20260717.26</p>
+    <p class="app-version">v20260719.2</p>
   </main>
 
   <dialog id="editDialog">
@@ -492,9 +493,9 @@
     </form>
   </dialog>
 
-  <script src="./js/config.js?v=20260717.26"></script>
+  <script src="./js/config.js?v=20260719.2"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"></script>
-  <script src="./js/budget.js?v=20260717.26"></script>
-  <script src="./js/app.js?v=20260717.26"></script>
+  <script src="./js/budget.js?v=20260719.2"></script>
+  <script src="./js/app.js?v=20260719.2"></script>
 </body>
 </html>

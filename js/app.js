@@ -227,7 +227,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260717.26")
+      navigator.serviceWorker.register("./sw.js?v=20260719.2")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -319,20 +319,20 @@
     if (buffer < 0) {
       hero.classList.add("danger");
       pill.classList.add("danger");
-      pill.textContent = "低於最低存款";
+      pill.textContent = "低於最低保留";
       return;
     }
 
     if (buffer <= 1000) {
       hero.classList.add("warning");
       pill.classList.add("warning");
-      pill.textContent = "接近底線";
+      pill.textContent = "接近最低保留";
       return;
     }
 
     hero.classList.add("safe");
     pill.classList.add("safe");
-    pill.textContent = "達標";
+    pill.textContent = "最低保留已守住";
   }
 
   function renderDashboard() {
@@ -341,13 +341,20 @@
     const summary = calculateSummary();
     $("projectedSavings").textContent = money(summary.projected);
     $("safetyBuffer").textContent = money(summary.commitmentBuffer);
+    const safetyBreakdown = $("safetyBreakdown");
+    if (safetyBreakdown) {
+      safetyBreakdown.textContent = `結餘 ${money(summary.projected)} − 最低保留 ${money(state.cycle.minimum_savings)} − 未來分期 ${money(summary.futureInstallmentBalance)}`;
+    }
     $("spentAmount").textContent = money(summary.spent);
     $("pendingAmount").textContent = money(summary.pending);
     $("dailyAllowance").textContent = money(summary.totalIncome);
-    $("cardDueAmount").textContent = money(summary.cardDueActual || summary.cardDueEstimate);
+    $("cardDueAmount").textContent = money(summary.cardDueActual);
     const cardDueDetail = $("cardDueDetail");
     if (cardDueDetail) {
-      cardDueDetail.textContent = `實際帳單 ${money(summary.cardDueActual)} · 未出帳預估 ${money(summary.cardDueEstimate)}`;
+      const paidActual = state.cardCharges
+        .filter((row) => isActualStatement(row) && row.status === "paid")
+        .reduce((sum, row) => sum + toNumber(row.amount), 0);
+      cardDueDetail.textContent = `本期已繳 ${money(paidActual)} · 下期預估 ${money(summary.cardDueEstimate)}`;
     }
     $("futureInstallmentAmount").textContent = money(summary.futureInstallmentBalance);
     $("cycleRange").textContent = `從 ${state.cycle.start_date} 開始`;
@@ -1937,9 +1944,9 @@
     result.hidden = false;
     result.innerHTML = `
       <p class="eyebrow">${escapeHtml(title)}</p>
-      <span>${canBuy ? "買完仍達標" : "買完會低於最低存款"}</span>
+      <span>${canBuy ? "買完仍守住最低保留" : "買完會低於最低保留"}</span>
       <strong>${money(summary.projected)}</strong>
-      <p>${canBuy ? `接下來可運用剩 ${money(summary.commitmentBuffer)}` : `還差 ${money(Math.abs(summary.commitmentBuffer))} 才達標`}</p>
+      <p>${canBuy ? `接下來可運用剩 ${money(summary.commitmentBuffer)}` : `還差 ${money(Math.abs(summary.commitmentBuffer))} 才守住最低保留`}</p>
       <button class="primary-button full-width" type="button" id="buyNowButton">直接記為支出</button>
     `;
     $("buyNowButton").addEventListener("click", async () => {
