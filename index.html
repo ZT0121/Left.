@@ -4,17 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Left.</title>
-  <link rel="icon" href="./assets/branding/left-favicon-64.png?v=20260719.15" type="image/png">
-  <link rel="manifest" href="./manifest.json?v=20260719.15">
+  <link rel="icon" href="./assets/branding/left-favicon-64.png?v=20260719.16" type="image/png">
+  <link rel="manifest" href="./manifest.json?v=20260719.16">
   <meta name="theme-color" content="#f3f1ee">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="./css/style.css?v=20260719.15">
+  <link rel="stylesheet" href="./css/style.css?v=20260719.16">
 </head>
 <body>
   <main class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <img class="brand-logo" src="./assets/branding/left-icon-192.png?v=20260719.15" alt="">
+        <img class="brand-logo" src="./assets/branding/left-icon-192.png?v=20260719.16" alt="">
         <p class="eyebrow">Left.</p>
       </div>
       <div class="topbar-actions">
@@ -53,7 +53,7 @@
             const keys = await caches.keys();
             await Promise.all(keys.map((key) => caches.delete(key)));
           }
-          window.location.replace(`${window.location.pathname}?refresh=20260719.15`);
+          window.location.replace(`${window.location.pathname}?refresh=20260719.16`);
         });
       })();
     </script>
@@ -184,6 +184,7 @@
               <strong>工具與歷史</strong><span>歷史、備份與其他設定</span>
             </button>
           </nav>
+          <button class="secondary-button app-menu-signout" id="changePasswordButton" type="button" hidden>設定／變更登入密碼</button>
           <button class="secondary-button app-menu-signout" id="signOutButton" type="button" hidden>登出</button>
         </aside>
       </div>
@@ -555,7 +556,7 @@
     </section>
 
     <div class="toast" id="toast" hidden></div>
-    <p class="app-version">v20260719.15</p>
+    <p class="app-version">v20260719.16</p>
   </main>
 
   <dialog id="editDialog">
@@ -581,14 +582,14 @@
     </form>
   </dialog>
 
-  <script src="./js/config.js?v=20260719.15"></script>
+  <script src="./js/config.js?v=20260719.16"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"></script>
   <script>
     if (!window.supabase) {
       document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"><\/script>');
     }
   </script>
-  <script src="./js/budget.js?v=20260719.15"></script>
-  <script src="./js/app.js?v=20260719.15"></script>
+  <script src="./js/budget.js?v=20260719.16"></script>
+  <script src="./js/app.js?v=20260719.16"></script>
 </body>
 </html>

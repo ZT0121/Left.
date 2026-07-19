@@ -1,6 +1,7 @@
 (function () {
   const config = window.LEFT_SUPABASE || window.MYLEDGER_SUPABASE || {};
   const hasConfig = Boolean(config.url && config.anonKey);
+  const openedFromRecoveryLink = new URLSearchParams(window.location.hash.slice(1)).get("type") === "recovery";
   const client = hasConfig && window.supabase
     ? window.supabase.createClient(config.url, config.anonKey, {
       auth: {
@@ -241,7 +242,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260719.15")
+      navigator.serviceWorker.register("./sw.js?v=20260719.16")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -286,9 +287,12 @@
   }
 
   async function checkSupabaseConnection() {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 8000);
     try {
       const response = await fetch(`${supabaseUrl}/auth/v1/settings`, {
-        headers: { apikey: config.anonKey }
+        headers: { apikey: config.anonKey },
+        signal: controller.signal
       });
 
       if (response.status === 401 || response.status === 403) {
@@ -302,7 +306,12 @@
       return "";
     } catch (error) {
       console.error(error);
+      if (error?.name === "AbortError") {
+        return "連線等候過久。你仍可嘗試登入，或按上方重新載入。";
+      }
       return formatSupabaseFetchError(error);
+    } finally {
+      window.clearTimeout(timeout);
     }
   }
 
@@ -1772,6 +1781,21 @@
     $("minimumInput").value = settings.default_minimum_savings || 5000;
   }
 
+  function enterPasswordRecoveryMode() {
+    state.passwordRecovery = true;
+    setVisible("bootPanel", false);
+    setVisible("authPanel", true);
+    setVisible("cyclePanel", false);
+    setVisible("dashboard", false);
+    $("authEmailLabel").hidden = true;
+    $("emailInput").required = false;
+    $("passwordInput").value = "";
+    $("passwordInput").autocomplete = "new-password";
+    $("signInButton").textContent = "儲存新密碼";
+    $("resetPasswordButton").hidden = true;
+    $("authMessage").textContent = "請輸入新的密碼（至少 6 個字元）。";
+  }
+
   async function initAuth() {
     if (!hasConfig || !client) {
       setVisible("bootPanel", false);
@@ -1801,23 +1825,19 @@
 
     client.auth.onAuthStateChange((event) => {
       if (event !== "PASSWORD_RECOVERY") return;
-      state.passwordRecovery = true;
-      setVisible("bootPanel", false);
-      setVisible("authPanel", true);
-      setVisible("cyclePanel", false);
-      setVisible("dashboard", false);
-      $("authEmailLabel").hidden = true;
-      $("passwordInput").value = "";
-      $("passwordInput").autocomplete = "new-password";
-      $("signInButton").textContent = "儲存新密碼";
-      $("resetPasswordButton").hidden = true;
-      $("authMessage").textContent = "請輸入新的密碼（至少 6 個字元）。";
+      enterPasswordRecoveryMode();
     });
 
     const { data } = await client.auth.getSession();
     setVisible("bootPanel", false);
     state.user = data.session?.user || null;
     $("signOutButton").hidden = !state.user;
+    $("changePasswordButton").hidden = !state.user;
+
+    if (state.user && openedFromRecoveryLink) {
+      enterPasswordRecoveryMode();
+      return;
+    }
 
     if (!state.user) {
       setVisible("authPanel", true);
@@ -3089,6 +3109,7 @@
 
       state.user = data.user;
       $("signOutButton").hidden = false;
+      $("changePasswordButton").hidden = false;
       $("authMessage").textContent = "登入成功。";
       await refresh();
     }
@@ -3112,6 +3133,7 @@
 
       state.user = data.user;
       $("signOutButton").hidden = false;
+      $("changePasswordButton").hidden = false;
       $("authMessage").textContent = "帳號已建立並登入成功。";
       await refresh();
     }
@@ -3135,6 +3157,11 @@
       if (error) throw error;
       $("authMessage").textContent = "重設密碼信已寄出，請到信箱點連結後設定新密碼。";
     }));
+
+    $("changePasswordButton").addEventListener("click", () => {
+      $("appMenuBackdrop").hidden = true;
+      enterPasswordRecoveryMode();
+    });
 
     $("signOutButton").addEventListener("click", async () => {
       await client.auth.signOut();
