@@ -197,17 +197,23 @@
 
     return accounts.map((account) => {
       const opening = toNumber(account.opening_balance);
+      const balanceDate = account.balance_date || "";
+      const isOnOrAfterBalanceDate = (row) => !balanceDate || !row.date || row.date >= balanceDate;
       const income = incomeRecords
-        .filter((row) => row.account_id === account.id)
+        .filter((row) => row.account_id === account.id && isOnOrAfterBalanceDate(row))
         .reduce((sum, row) => sum + toNumber(row.amount), 0);
       const transferIn = transfers
-        .filter((row) => row.to_account_id === account.id)
+        .filter((row) => row.to_account_id === account.id && isOnOrAfterBalanceDate(row))
         .reduce((sum, row) => sum + toNumber(row.amount), 0);
       const transferOut = transfers
-        .filter((row) => row.from_account_id === account.id)
+        .filter((row) => row.from_account_id === account.id && isOnOrAfterBalanceDate(row))
         .reduce((sum, row) => sum + toNumber(row.amount), 0);
       const spent = transactions
-        .filter((row) => row.account_id === account.id && row.payment_method !== "credit_card")
+        .filter((row) => (
+          row.account_id === account.id
+          && row.payment_method !== "credit_card"
+          && isOnOrAfterBalanceDate(row)
+        ))
         .reduce((sum, row) => sum + toNumber(row.gross_amount || row.amount), 0);
 
       return {

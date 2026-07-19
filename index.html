@@ -450,6 +450,10 @@
             期初餘額
             <input id="accountOpeningBalance" type="number" min="0" step="1" inputmode="numeric" value="0" required>
           </label>
+          <label>
+            餘額基準日
+            <input id="accountBalanceDate" type="date" required>
+          </label>
           <label class="full-width">
             類型
             <select id="accountType">
@@ -460,6 +464,7 @@
             </select>
           </label>
           <button class="primary-button full-width" type="submit">新增帳戶</button>
+          <p class="helper-text full-width">基準日前的回填紀錄不會再影響這筆期初餘額。</p>
         </form>
 
         <form id="transferForm" class="form-grid sub-form">

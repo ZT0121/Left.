@@ -264,6 +264,28 @@ function summarize(overrides = {}) {
 }
 
 {
+  const balances = budget.calculateAccountBalances({
+    accounts: [
+      { id: "bank", name: "銀行", opening_balance: 5000, balance_date: "2026-07-15" }
+    ],
+    incomeRecords: [
+      { account_id: "bank", date: "2026-07-14", amount: 1000 },
+      { account_id: "bank", date: "2026-07-15", amount: 200 }
+    ],
+    accountTransfers: [
+      { from_account_id: "bank", to_account_id: "wallet", date: "2026-07-14", amount: 500 },
+      { from_account_id: "bank", to_account_id: "wallet", date: "2026-07-16", amount: 100 }
+    ],
+    transactions: [
+      { account_id: "bank", date: "2026-07-14", payment_method: "cash", amount: 30 },
+      { account_id: "bank", date: "2026-07-15", payment_method: "cash", amount: 50 }
+    ]
+  });
+
+  assert.equal(balances.find((row) => row.id === "bank").balance, 5050);
+}
+
+{
   const result = summarize({
     incomeRecords: [
       { amount: 32000 },

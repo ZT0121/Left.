@@ -807,7 +807,7 @@
       <article class="record-item">
         <div>
           <p class="record-title">${escapeHtml(account.name)}</p>
-          <p class="record-meta">${typeLabel[account.type] || "其他"} · 期初 ${money(account.opening_balance)}</p>
+          <p class="record-meta">${typeLabel[account.type] || "其他"} · ${account.balance_date || "未設定日期"} 時餘額 ${money(account.opening_balance)}</p>
         </div>
         <div class="record-amount">${money(account.balance)}</div>
         <div class="record-actions">
@@ -2360,11 +2360,13 @@
       name: $("accountName").value.trim(),
       type: $("accountType").value,
       opening_balance: toNumber($("accountOpeningBalance").value),
+      balance_date: $("accountBalanceDate").value,
       is_active: true
     });
     if (error) throw error;
     event.target.reset();
     $("accountOpeningBalance").value = 0;
+    $("accountBalanceDate").value = today();
     showToast("帳戶已新增");
     await refresh();
   }
@@ -2377,12 +2379,18 @@
     if (name === null) return;
     const openingText = window.prompt("期初餘額", account.opening_balance);
     if (openingText === null) return;
+    const balanceDate = window.prompt("餘額基準日（YYYY-MM-DD）", account.balance_date || today());
+    if (balanceDate === null) return;
     const type = window.prompt("類型：bank / wallet / cash / other", account.type || "bank");
     if (type === null) return;
 
     const openingBalance = toNumber(openingText);
+    const normalizedBalanceDate = balanceDate.trim();
     const normalizedType = type.trim();
     if (openingBalance < 0) throw new Error("期初餘額不能小於 0");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedBalanceDate)) {
+      throw new Error("餘額基準日格式必須是 YYYY-MM-DD");
+    }
     if (!["bank", "wallet", "cash", "other"].includes(normalizedType)) {
       throw new Error("類型只能是 bank、wallet、cash、other");
     }
@@ -2392,6 +2400,7 @@
       .update({
         name: name.trim() || account.name,
         opening_balance: openingBalance,
+        balance_date: normalizedBalanceDate,
         type: normalizedType
       })
       .eq("id", id)
@@ -2917,7 +2926,7 @@
   }
 
   function setDefaultDates() {
-    ["expenseDate", "incomeDate", "advanceDate", "openingBillDate", "installmentFirstDate", "cardFeeDate", "cardFeeDueDate", "transferDate"].forEach((id) => {
+    ["expenseDate", "incomeDate", "advanceDate", "openingBillDate", "installmentFirstDate", "cardFeeDate", "cardFeeDueDate", "transferDate", "accountBalanceDate"].forEach((id) => {
       const input = $(id);
       if (input) input.value = today();
     });

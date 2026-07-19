@@ -75,6 +75,7 @@ create table if not exists public.accounts (
   name text not null,
   type text not null default 'bank' check (type in ('bank', 'wallet', 'cash', 'other')),
   opening_balance numeric(12, 0) not null default 0 check (opening_balance >= 0),
+  balance_date date not null default current_date,
   is_active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -205,6 +206,17 @@ alter table public.transactions
   add column if not exists credit_card_id uuid references public.credit_cards(id) on delete set null,
   add column if not exists account_id uuid references public.accounts(id) on delete set null,
   add column if not exists installment_plan_id uuid references public.installment_plans(id) on delete set null;
+
+alter table public.accounts
+  add column if not exists balance_date date;
+
+update public.accounts
+set balance_date = created_at::date
+where balance_date is null;
+
+alter table public.accounts
+  alter column balance_date set default current_date,
+  alter column balance_date set not null;
 
 do $$
 begin
