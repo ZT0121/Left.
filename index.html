@@ -4,17 +4,19 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Left.</title>
-  <link rel="icon" href="./assets/branding/left-favicon-64.png?v=20260719.17" type="image/png">
-  <link rel="manifest" href="./manifest.json?v=20260719.17">
+  <link rel="icon" href="./assets/branding/left-favicon-v2-64.png" type="image/png" sizes="64x64">
+  <link rel="shortcut icon" href="./assets/branding/left-favicon-v2-64.png" type="image/png">
+  <link rel="apple-touch-icon" href="./assets/branding/left-icon-v2-192.png">
+  <link rel="manifest" href="./manifest.json?v=20260719.18">
   <meta name="theme-color" content="#f3f1ee">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="./css/style.css?v=20260719.17">
+  <link rel="stylesheet" href="./css/style.css?v=20260719.18">
 </head>
 <body>
   <main class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <img class="brand-logo" src="./assets/branding/left-icon-192.png?v=20260719.17" alt="">
+        <img class="brand-logo" src="./assets/branding/left-icon-v2-192.png" alt="">
         <p class="eyebrow">Left.</p>
       </div>
       <div class="topbar-actions">
@@ -53,7 +55,7 @@
             const keys = await caches.keys();
             await Promise.all(keys.map((key) => caches.delete(key)));
           }
-          window.location.replace(`${window.location.pathname}?refresh=20260719.17`);
+          window.location.replace(`${window.location.pathname}?refresh=20260719.18`);
         });
       })();
     </script>
@@ -556,7 +558,7 @@
     </section>
 
     <div class="toast" id="toast" hidden></div>
-    <p class="app-version">v20260719.17</p>
+    <p class="app-version">v20260719.18</p>
   </main>
 
   <dialog id="editDialog">
@@ -582,14 +584,14 @@
     </form>
   </dialog>
 
-  <script src="./js/config.js?v=20260719.17"></script>
+  <script src="./js/config.js?v=20260719.18"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"></script>
   <script>
     if (!window.supabase) {
       document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"><\/script>');
     }
   </script>
-  <script src="./js/budget.js?v=20260719.17"></script>
-  <script src="./js/app.js?v=20260719.17"></script>
+  <script src="./js/budget.js?v=20260719.18"></script>
+  <script src="./js/app.js?v=20260719.18"></script>
 </body>
 </html>

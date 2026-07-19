@@ -1,4 +1,4 @@
-const CACHE_VERSION = "left-20260719.17";
+const CACHE_VERSION = "left-20260719.18";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
@@ -40,8 +40,8 @@ self.addEventListener("push", (event) => {
 
   event.waitUntil(self.registration.showNotification(payload.title || "Left.", {
     body: payload.body || "你有一筆待處理提醒。",
-    icon: payload.icon || "./assets/branding/left-icon-192.png",
-    badge: payload.badge || "./assets/branding/left-favicon-64.png",
+    icon: payload.icon || "./assets/branding/left-icon-v2-192.png",
+    badge: payload.badge || "./assets/branding/left-favicon-v2-64.png",
     tag: payload.tag || "left-reminder",
     renotify: true,
     data: { url: payload.url || "./index.html" }
