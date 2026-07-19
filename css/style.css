@@ -80,7 +80,10 @@ button {
 .menu-icon-button {
   display: inline-grid;
   width: 44px;
+  min-height: 44px;
+  border: 0;
   padding: 10px;
+  background: transparent;
   place-items: center;
 }
 
@@ -396,6 +399,8 @@ select:focus {
   right: 0;
   width: min(88vw, 360px);
   height: 100%;
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
   padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
   background: var(--surface);
@@ -405,6 +410,11 @@ select:focus {
 .app-menu-list {
   display: grid;
   gap: 8px;
+}
+
+.app-menu-signout {
+  width: 100%;
+  margin-top: auto;
 }
 
 .app-menu-list .tab-button {
