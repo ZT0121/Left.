@@ -4,17 +4,17 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Left.</title>
-  <link rel="icon" href="./assets/branding/left-favicon-64.png?v=20260719.14" type="image/png">
-  <link rel="manifest" href="./manifest.json?v=20260719.14">
+  <link rel="icon" href="./assets/branding/left-favicon-64.png?v=20260719.15" type="image/png">
+  <link rel="manifest" href="./manifest.json?v=20260719.15">
   <meta name="theme-color" content="#f3f1ee">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="./css/style.css?v=20260719.14">
+  <link rel="stylesheet" href="./css/style.css?v=20260719.15">
 </head>
 <body>
   <main class="app-shell">
     <header class="topbar">
       <div class="brand-lockup">
-        <img class="brand-logo" src="./assets/branding/left-icon-192.png?v=20260719.14" alt="">
+        <img class="brand-logo" src="./assets/branding/left-icon-192.png?v=20260719.15" alt="">
         <p class="eyebrow">Left.</p>
       </div>
       <div class="topbar-actions">
@@ -53,7 +53,7 @@
             const keys = await caches.keys();
             await Promise.all(keys.map((key) => caches.delete(key)));
           }
-          window.location.replace(`${window.location.pathname}?refresh=20260719.14`);
+          window.location.replace(`${window.location.pathname}?refresh=20260719.15`);
         });
       })();
     </script>
@@ -70,7 +70,7 @@
         <p>資料會存在 Supabase，不會把收入、支出或代墊存在這台裝置。</p>
       </div>
       <form id="authForm" class="stack">
-        <label>
+        <label id="authEmailLabel">
           Email
           <input id="emailInput" type="email" autocomplete="email" placeholder="you@example.com" required>
         </label>
@@ -78,8 +78,9 @@
           密碼
           <input id="passwordInput" type="password" autocomplete="current-password" minlength="6" placeholder="至少 6 個字元" required>
         </label>
-        <button class="primary-button" type="submit">登入</button>
-        <button class="secondary-button" id="signUpButton" type="button">建立帳號</button>
+        <button class="primary-button" id="signInButton" type="submit">登入</button>
+        <button class="secondary-button" id="resetPasswordButton" type="button">忘記密碼</button>
+        <button class="secondary-button" id="signUpButton" type="button" hidden>建立帳號</button>
         <p class="helper-text" id="authMessage">使用 Email 和密碼登入，同一帳號可在手機和電腦同步。</p>
       </form>
     </section>
@@ -554,7 +555,7 @@
     </section>
 
     <div class="toast" id="toast" hidden></div>
-    <p class="app-version">v20260719.14</p>
+    <p class="app-version">v20260719.15</p>
   </main>
 
   <dialog id="editDialog">
@@ -580,14 +581,14 @@
     </form>
   </dialog>
 
-  <script src="./js/config.js?v=20260719.14"></script>
+  <script src="./js/config.js?v=20260719.15"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"></script>
   <script>
     if (!window.supabase) {
       document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"><\/script>');
     }
   </script>
-  <script src="./js/budget.js?v=20260719.14"></script>
-  <script src="./js/app.js?v=20260719.14"></script>
+  <script src="./js/budget.js?v=20260719.15"></script>
+  <script src="./js/app.js?v=20260719.15"></script>
 </body>
 </html>

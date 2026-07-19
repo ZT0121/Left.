@@ -29,7 +29,8 @@
     historyTransactions: [],
     historyIncomeRecords: [],
     historyReimbursements: [],
-    historyLoaded: false
+    historyLoaded: false,
+    passwordRecovery: false
   };
 
   const $ = (id) => document.getElementById(id);
@@ -240,7 +241,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260719.14")
+      navigator.serviceWorker.register("./sw.js?v=20260719.15")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -1798,6 +1799,21 @@
       return;
     }
 
+    client.auth.onAuthStateChange((event) => {
+      if (event !== "PASSWORD_RECOVERY") return;
+      state.passwordRecovery = true;
+      setVisible("bootPanel", false);
+      setVisible("authPanel", true);
+      setVisible("cyclePanel", false);
+      setVisible("dashboard", false);
+      $("authEmailLabel").hidden = true;
+      $("passwordInput").value = "";
+      $("passwordInput").autocomplete = "new-password";
+      $("signInButton").textContent = "儲存新密碼";
+      $("resetPasswordButton").hidden = true;
+      $("authMessage").textContent = "請輸入新的密碼（至少 6 個字元）。";
+    });
+
     const { data } = await client.auth.getSession();
     setVisible("bootPanel", false);
     state.user = data.session?.user || null;
@@ -3047,13 +3063,27 @@
 
     async function signInWithPassword() {
       const { email, password } = getAuthCredentials();
+      if (state.passwordRecovery) {
+        const { error } = await client.auth.updateUser({ password });
+        if (error) {
+          $("authMessage").textContent = `無法更新密碼：${error.message}`;
+          return;
+        }
+        state.passwordRecovery = false;
+        $("authMessage").textContent = "密碼已更新，正在登入…";
+        await refresh();
+        return;
+      }
+
       const { data, error } = await client.auth.signInWithPassword({
         email,
         password
       });
 
       if (error) {
-        $("authMessage").textContent = `登入失敗：${error.message}`;
+        $("authMessage").textContent = error.message === "Invalid login credentials"
+          ? "登入失敗：Email 或密碼不正確。忘記密碼可以按下方重新設定。"
+          : `登入失敗：${error.message}`;
         return;
       }
 
@@ -3092,6 +3122,19 @@
     });
 
     $("signUpButton").addEventListener("click", wrap(signUpWithPassword));
+
+    $("resetPasswordButton").addEventListener("click", wrap(async () => {
+      const email = $("emailInput").value.trim();
+      if (!email) {
+        $("authMessage").textContent = "請先輸入你的 Email。";
+        $("emailInput").focus();
+        return;
+      }
+      const redirectTo = `${window.location.origin}${window.location.pathname}`;
+      const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo });
+      if (error) throw error;
+      $("authMessage").textContent = "重設密碼信已寄出，請到信箱點連結後設定新密碼。";
+    }));
 
     $("signOutButton").addEventListener("click", async () => {
       await client.auth.signOut();
