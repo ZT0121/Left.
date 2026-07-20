@@ -3233,6 +3233,13 @@
     });
     $("copyMotherRequestButton").addEventListener("click", wrap(copyMotherRequest));
     $("restoreInput").addEventListener("change", wrap(restoreBackup));
+    document.querySelectorAll("[data-expense-note]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const input = $("expenseTitle");
+        input.value = button.dataset.expenseNote || "";
+        input.focus();
+      });
+    });
     $("expensePaymentMethod").addEventListener("change", toggleCardFields);
     $("advancePaymentMethod").addEventListener("change", toggleCardFields);
     $("subscriptionPaymentMethod").addEventListener("change", toggleCardFields);

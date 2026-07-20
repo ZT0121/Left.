@@ -192,7 +192,7 @@
       </div>
 
       <section class="work-panel active" id="expensePanel">
-        <form id="expenseForm" class="form-grid">
+        <form id="expenseForm" class="form-grid" autocomplete="off">
           <label>
             金額
             <input id="expenseAmount" type="number" min="1" step="1" inputmode="numeric" required>
@@ -203,8 +203,15 @@
           </label>
           <label class="full-width">
             備註
-            <input id="expenseTitle" type="text" maxlength="80" placeholder="全聯、Uber、晚餐...">
+            <input id="expenseTitle" type="text" maxlength="80" autocomplete="off" placeholder="全聯、Uber、晚餐...">
           </label>
+          <div class="quick-note-tags full-width" aria-label="常用備註">
+            <button type="button" data-expense-note="早餐">早餐</button>
+            <button type="button" data-expense-note="午餐">午餐</button>
+            <button type="button" data-expense-note="晚餐">晚餐</button>
+            <button type="button" data-expense-note="停車費">停車費</button>
+            <button type="button" data-expense-note="飲料">飲料</button>
+          </div>
           <label>
             付款方式
             <select id="expensePaymentMethod">

@@ -223,6 +223,35 @@ select:focus {
   box-shadow: 0 0 0 3px rgba(111, 104, 96, 0.16);
 }
 
+.quick-note-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: -4px;
+}
+
+.quick-note-tags button {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 12px;
+  color: var(--primary-dark);
+  background: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 800;
+  box-shadow: var(--shadow-soft);
+}
+
+.quick-note-tags button:focus-visible {
+  outline: 0;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(111, 104, 96, 0.16);
+}
+
+.quick-note-tags button:active {
+  transform: translateY(1px);
+}
+
 .primary-button,
 .secondary-button,
 .ghost-button,
