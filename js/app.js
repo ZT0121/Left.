@@ -810,6 +810,14 @@
       const select = $(id);
       if (select) select.innerHTML = options;
     });
+
+    selectPreferredIncomeAccount(activeAccounts);
+  }
+
+  function selectPreferredIncomeAccount(accounts) {
+    const select = $("incomeAccountSelect");
+    const preferredAccount = accounts.find((account) => String(account.name || "").includes("富邦"));
+    if (select && preferredAccount) select.value = preferredAccount.id;
   }
 
   function getAccountBalances() {
@@ -2109,6 +2117,7 @@
     if (error) throw error;
     event.target.reset();
     setDefaultDates();
+    selectPreferredIncomeAccount(state.accounts.filter((account) => account.is_active !== false));
     showToast("收入已新增");
     await refresh();
   }
