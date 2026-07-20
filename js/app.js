@@ -61,6 +61,13 @@
   const daysBetween = window.LeftBudget.daysBetween;
   const estimatedCardSources = new Set(["general", "advance", "installment", "subscription"]);
   const pushPublicKey = "BN6FJFRU6jNrwzJ_bhi9K-2TADOYFwIwEvahgezvjl8hs87n2DcWw_f8ts9ol0rtN7_YYDneDHubzB9ZCq3-mH8";
+  const preferredCardOrder = [
+    { rank: 0, patterns: ["cube", "國泰世華"], displayName: "Cube" },
+    { rank: 1, patterns: ["hsbc", "匯豐"], displayName: null },
+    { rank: 2, patterns: ["富邦costco", "costco", "富邦"], displayName: null },
+    { rank: 3, patterns: ["台新"], displayName: null },
+    { rank: 4, patterns: ["中國信託", "中信"], displayName: null }
+  ];
 
   function currentMonth() {
     return today().slice(0, 7);
@@ -76,6 +83,28 @@
     if (row.is_active === false) return false;
     if ((row.billing_cycle || "monthly") !== "yearly") return true;
     return Number(row.charge_month) === Number(month.slice(5, 7));
+  }
+
+  function normalizedCardName(card) {
+    return String(card?.name || "").replace(/\s+/g, "").toLowerCase();
+  }
+
+  function cardPreference(card) {
+    const normalized = normalizedCardName(card);
+    return preferredCardOrder.find((item) => item.patterns.some((pattern) => normalized.includes(pattern.toLowerCase())));
+  }
+
+  function cardDisplayName(card) {
+    return cardPreference(card)?.displayName || card?.name || "信用卡";
+  }
+
+  function sortCards(cards) {
+    return [...cards].sort((a, b) => {
+      const aRank = cardPreference(a)?.rank ?? 99;
+      const bRank = cardPreference(b)?.rank ?? 99;
+      if (aRank !== bRank) return aRank - bRank;
+      return cardDisplayName(a).localeCompare(cardDisplayName(b), "zh-Hant");
+    });
   }
 
   function isEstimatedCardCharge(row) {
@@ -757,9 +786,9 @@
   }
 
   function renderCardOptions() {
-    const activeCards = state.creditCards.filter((card) => card.is_active);
+    const activeCards = sortCards(state.creditCards.filter((card) => card.is_active));
     const options = activeCards.length
-      ? activeCards.map((card) => `<option value="${card.id}">${escapeHtml(card.name)}</option>`).join("")
+      ? activeCards.map((card) => `<option value="${card.id}">${escapeHtml(cardDisplayName(card))}</option>`).join("")
       : '<option value="">請先新增信用卡</option>';
 
     ["expenseCardSelect", "advanceCardSelect", "openingBillCardSelect", "installmentCardSelect", "cardFeeCardSelect", "subscriptionCardSelect", "editCardSelect"].forEach((id) => {
@@ -892,7 +921,7 @@
 
     list.innerHTML = rows.map((row) => {
       const payTarget = row.payment_method === "credit_card"
-        ? cardsById.get(row.credit_card_id)?.name || "信用卡"
+        ? cardDisplayName(cardsById.get(row.credit_card_id))
         : accountsById.get(row.account_id)?.name || "帳戶／現金";
       const statusText = row.is_active === false ? "已停用" : isRecorded ? "本月已記入" : "本月待記入";
 
@@ -928,7 +957,7 @@
 
     list.innerHTML = rows.map((row) => {
       const payTarget = row.payment_method === "credit_card"
-        ? cardsById.get(row.credit_card_id)?.name || "信用卡"
+        ? cardDisplayName(cardsById.get(row.credit_card_id))
         : accountsById.get(row.account_id)?.name || "帳戶／現金";
       const statusText = row.is_active === false ? "已停用" : "每月自動預估";
 
@@ -965,7 +994,7 @@
 
     list.innerHTML = rows.map((row) => {
       const payTarget = row.payment_method === "credit_card"
-        ? cardsById.get(row.credit_card_id)?.name || "信用卡"
+        ? cardDisplayName(cardsById.get(row.credit_card_id))
         : accountsById.get(row.account_id)?.name || "帳戶／現金";
       const scheduleText = (row.billing_cycle || "monthly") === "yearly"
         ? `每年 ${row.charge_month || "?"} 月 ${row.charge_day} 日`
@@ -1032,7 +1061,7 @@
         <article class="record-item reminder-item ${row.daysLeft < 0 ? "overdue" : ""}">
           <div>
             <p class="record-title">${escapeHtml(row.title)}</p>
-            <p class="record-meta">${escapeHtml(card?.name || "信用卡")} · ${row.due_date} · ${dueText}</p>
+            <p class="record-meta">${escapeHtml(cardDisplayName(card))} · ${row.due_date} · ${dueText}</p>
           </div>
           <div class="record-amount">${money(row.amount)}</div>
           <div class="record-actions">
@@ -1054,7 +1083,7 @@
 
     list.innerHTML = rows.map((row) => {
       const card = state.creditCards.find((item) => item.id === row.card_id);
-      const cardName = card?.name || "信用卡";
+      const cardName = cardDisplayName(card);
       const dueText = row.daysLeft < 0
         ? `逾期 ${Math.abs(row.daysLeft)} 天`
         : row.daysLeft === 0
@@ -1105,10 +1134,10 @@
       return;
     }
 
-    list.innerHTML = state.creditCards.map((card) => `
+    list.innerHTML = sortCards(state.creditCards).map((card) => `
       <article class="record-item">
         <div>
-          <p class="record-title">${escapeHtml(card.name)}</p>
+          <p class="record-title">${escapeHtml(cardDisplayName(card))}</p>
           <p class="record-meta">結帳 ${card.closing_day} 號 · 繳款 ${card.payment_day} 號 · ${card.is_active ? "啟用中" : "已停用"}</p>
         </div>
         <div class="record-amount">${card.is_active ? "啟用" : "停用"}</div>
@@ -1145,7 +1174,7 @@
         <article class="record-item">
           <div>
             <p class="record-title">${escapeHtml(row.title)}</p>
-            <p class="record-meta">${sourceLabel} · ${escapeHtml(card?.name || "信用卡")} · 消費 ${row.charge_date} · 結帳 ${closingDate || "未設定"} · 繳款 ${row.due_date || "未設定"}${row.status === "paid" ? ` · 已繳 ${row.paid_at || ""}` : ""}</p>
+            <p class="record-meta">${sourceLabel} · ${escapeHtml(cardDisplayName(card))} · 消費 ${row.charge_date} · 結帳 ${closingDate || "未設定"} · 繳款 ${row.due_date || "未設定"}${row.status === "paid" ? ` · 已繳 ${row.paid_at || ""}` : ""}</p>
           </div>
           <div class="record-amount">${money(row.amount)}</div>
           <div class="record-actions">
@@ -1171,7 +1200,7 @@
       const card = state.creditCards.find((item) => item.id === row.card_id);
 
       if (row.row_type === "estimate") {
-        const cardName = card?.name || "信用卡";
+        const cardName = cardDisplayName(card);
         const periodText = row.first_charge_date && row.last_charge_date
           ? `${row.first_charge_date} 到 ${row.last_charge_date}`
           : "依目前刷卡紀錄";
@@ -1224,7 +1253,7 @@
         installment: "分期",
         fee: "費用／利息"
       }[row.source_type] || "信用卡";
-      const cardName = card?.name || "信用卡";
+      const cardName = cardDisplayName(card);
       const displayTitle = isActualStatement(row)
         ? `${cardName} ${sourceLabel}`
         : `${cardName} ${row.title || sourceLabel}`;
@@ -1290,7 +1319,7 @@
 
     const renderEstimateRow = (row) => {
       const card = state.creditCards.find((item) => item.id === row.card_id);
-      const cardName = card?.name || "信用卡";
+      const cardName = cardDisplayName(card);
       const sourceLabel = {
         general: "一般刷卡",
         advance: "代墊",
@@ -1324,7 +1353,7 @@
 
     const renderActualRow = (row) => {
       const card = state.creditCards.find((item) => item.id === row.card_id);
-      const cardName = card?.name || "信用卡";
+      const cardName = cardDisplayName(card);
       const sourceLabel = {
         opening_bill: "實際帳單",
         installment: "分期",
@@ -1392,7 +1421,7 @@
         <article class="record-item">
           <div>
             <p class="record-title">${escapeHtml(plan.title)}</p>
-            <p class="record-meta">${escapeHtml(card?.name || "信用卡")} · ${plan.installment_count} 期 · 首期 ${plan.first_due_date}</p>
+            <p class="record-meta">${escapeHtml(cardDisplayName(card))} · ${plan.installment_count} 期 · 首期 ${plan.first_due_date}</p>
           </div>
           <div class="record-amount">${money(future)}</div>
           <div class="record-actions">
