@@ -276,7 +276,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260719.19")
+      navigator.serviceWorker.register("./sw.js?v=20260720")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -802,21 +802,32 @@
 
   function renderAccountOptions() {
     const activeAccounts = state.accounts.filter((account) => account.is_active !== false);
+    const preferredIncomeAccount = getPreferredIncomeAccount(activeAccounts);
     const options = activeAccounts.length
       ? activeAccounts.map((account) => `<option value="${account.id}">${escapeHtml(account.name)}</option>`).join("")
       : '<option value="">請先新增帳戶</option>';
+    const incomeOptions = activeAccounts.length
+      ? activeAccounts.map((account) => `<option value="${account.id}"${account.id === preferredIncomeAccount?.id ? " selected" : ""}>${escapeHtml(account.name)}</option>`).join("")
+      : options;
 
     ["expenseAccountSelect", "advanceAccountSelect", "incomeAccountSelect", "transferFromSelect", "transferToSelect", "subscriptionAccountSelect", "editAccountSelect"].forEach((id) => {
       const select = $(id);
-      if (select) select.innerHTML = options;
+      if (select) select.innerHTML = id === "incomeAccountSelect" ? incomeOptions : options;
     });
 
     selectPreferredIncomeAccount(activeAccounts);
   }
 
+  function getPreferredIncomeAccount(accounts) {
+    return accounts.find((account) => {
+      const name = String(account.name || "").replace(/\s+/g, "").toLowerCase();
+      return name.includes("富邦") || name.includes("fubon");
+    });
+  }
+
   function selectPreferredIncomeAccount(accounts) {
     const select = $("incomeAccountSelect");
-    const preferredAccount = accounts.find((account) => String(account.name || "").includes("富邦"));
+    const preferredAccount = getPreferredIncomeAccount(accounts);
     if (select && preferredAccount) select.value = preferredAccount.id;
   }
 
