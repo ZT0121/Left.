@@ -276,7 +276,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260720")
+      navigator.serviceWorker.register("./sw.js?v=20260721")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -370,6 +370,7 @@
   function applyStatus(buffer) {
     const hero = $("heroCard");
     const pill = $("statusPill");
+    const headline = $("statusHeadline");
     hero.classList.remove("safe", "warning", "danger");
     pill.classList.remove("safe", "warning", "danger");
 
@@ -377,6 +378,7 @@
       hero.classList.add("danger");
       pill.classList.add("danger");
       pill.textContent = "低於最低保留";
+      if (headline) headline.textContent = "需要收斂一下";
       return;
     }
 
@@ -384,12 +386,14 @@
       hero.classList.add("warning");
       pill.classList.add("warning");
       pill.textContent = "接近最低保留";
+      if (headline) headline.textContent = "快碰到底線";
       return;
     }
 
     hero.classList.add("safe");
     pill.classList.add("safe");
     pill.textContent = "最低保留已守住";
+    if (headline) headline.textContent = "目前還穩";
   }
 
   function renderAttentionBanner() {
@@ -2991,7 +2995,7 @@
     ensureSubscriptionPanel();
     organizeDashboardSections();
     const heroEyebrow = $("heroCard")?.querySelector(".eyebrow");
-    if (heroEyebrow) heroEyebrow.textContent = "預估月底總結餘";
+    if (heroEyebrow) heroEyebrow.textContent = "本期狀態";
     setLabelText("openingBillAmount", "實際帳單金額");
     setLabelText("openingBillDate", "帳單日");
     setLabelText("openingBillCardSelect", "信用卡");

@@ -302,20 +302,48 @@ select:focus {
 .hero-card {
   position: relative;
   overflow: hidden;
-  padding: 22px;
+  display: grid;
+  gap: 12px;
+  padding: 18px;
   background: linear-gradient(145deg, #ffffff 0%, #f3f0eb 100%);
 }
 
-.hero-card strong {
-  display: block;
-  margin: 2px 0 10px;
-  font-size: clamp(2.35rem, 15vw, 4rem);
-  line-height: 1;
+.hero-status-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
 }
 
-.hero-card p:last-child {
+.hero-status-row strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 1.36rem;
+  line-height: 1.2;
+}
+
+.hero-card p {
   margin-bottom: 0;
+}
+
+.hero-card p:not(.eyebrow) {
   color: var(--muted);
+  line-height: 1.55;
+}
+
+.quiet-balance {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid rgba(111, 104, 96, 0.14);
+  padding-top: 12px;
+  font-size: 0.86rem;
+}
+
+.quiet-balance span {
+  color: var(--text);
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .hero-card.safe {
@@ -334,7 +362,6 @@ select:focus {
   display: inline-flex;
   align-items: center;
   min-height: 28px;
-  margin-bottom: 10px;
   border-radius: 999px;
   padding: 4px 10px;
   color: #fff;
@@ -912,6 +939,10 @@ dialog::backdrop {
   }
 
   .notification-setup {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-status-row {
     grid-template-columns: 1fr;
   }
 
