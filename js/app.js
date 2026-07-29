@@ -1559,8 +1559,8 @@
     return Array.from({ length: count }, (_, index) => base + (index < remainder ? 1 : 0));
   }
 
-  function splitSharedFeeForMealRows(total, count) {
-    const otherCount = Math.max(0, count - 1);
+  function splitSharedFeeForMealRows(total, count, mealRowCount) {
+    const otherCount = Math.max(0, mealRowCount);
     if (!total || !count) {
       return {
         own: 0,
@@ -1568,11 +1568,14 @@
       };
     }
 
-    const base = Math.floor(total / count);
-    const remainder = total - (base * count);
+    const ownParticipates = count > otherCount;
+    const shares = splitSharedFee(total, count);
     return {
-      own: base + remainder,
-      others: Array.from({ length: otherCount }, () => base)
+      own: ownParticipates ? shares[0] : 0,
+      others: Array.from(
+        { length: otherCount },
+        (_, index) => shares[ownParticipates ? index + 1 : index] || 0
+      )
     };
   }
 
@@ -1991,7 +1994,11 @@
     const shared = toNumber($("advanceShared").value);
     const mealRows = parseAmountLines($("advanceMeals").value, "別人的餐點明細");
     const usesMealSplit = mealRows.length > 0;
-    const splitPeople = peopleInput || (usesMealSplit ? mealRows.length + 1 : 0);
+    const ownParticipatesInMealSplit = usesMealSplit && personal > 0;
+    const minimumSplitPeople = usesMealSplit
+      ? mealRows.length + (ownParticipatesInMealSplit ? 1 : 0)
+      : 0;
+    const splitPeople = peopleInput || minimumSplitPeople;
     const mealSubtotal = personal + mealRows.reduce((sum, row) => sum + row.amount, 0);
     if (usesMealSplit && grossInput < mealSubtotal) {
       throw new Error(`個別餐點合計 ${money(mealSubtotal)}，已經超過總金額 ${money(grossInput)}。`);
@@ -1999,7 +2006,10 @@
     const sharedToSplit = usesMealSplit
       ? Math.max(0, grossInput - mealSubtotal)
       : shared;
-    const mealShares = splitSharedFeeForMealRows(sharedToSplit, splitPeople);
+    if (usesMealSplit && splitPeople < minimumSplitPeople) {
+      throw new Error("分攤人數不能少於有餐點明細的人數。");
+    }
+    const mealShares = splitSharedFeeForMealRows(sharedToSplit, splitPeople, mealRows.length);
     const ownMealTotal = personal + mealShares.own;
     const mealTotals = mealRows.map((row, index) => ({
       ...row,
