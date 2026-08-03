@@ -600,7 +600,17 @@
       activityAmount: row.amount,
       amountPrefix: ""
     }));
-    const rows = [...transactionRows, ...incomeRows, ...reimbursementRows]
+    const accountsById = new Map(state.accounts.map((account) => [account.id, account]));
+    const transferRows = state.accountTransfers.map((row) => ({
+      ...row,
+      activityType: "轉帳／儲值",
+      activityDate: row.date,
+      activityTitle: row.title || "轉帳／儲值",
+      activityMeta: `${accountsById.get(row.from_account_id)?.name || "來源"} → ${accountsById.get(row.to_account_id)?.name || "目的"}`,
+      activityAmount: row.amount,
+      amountPrefix: ""
+    }));
+    const rows = [...transactionRows, ...incomeRows, ...reimbursementRows, ...transferRows]
       .sort((a, b) => `${b.activityDate || ""}${b.created_at || ""}`.localeCompare(`${a.activityDate || ""}${a.created_at || ""}`))
       .slice(0, 5);
 
