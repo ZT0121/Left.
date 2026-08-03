@@ -13,8 +13,8 @@
   --good: #625d57;
   --warn: #8b7660;
   --bad: #8f4f48;
-  --shadow: 0 16px 34px rgba(47, 45, 42, 0.11);
-  --shadow-soft: 0 8px 22px rgba(47, 45, 42, 0.07);
+  --shadow: none;
+  --shadow-soft: none;
 }
 
 @font-face {
@@ -41,7 +41,7 @@ body {
   margin: 0;
   min-height: 100vh;
   color: var(--text);
-  background: linear-gradient(180deg, #fbfaf8 0%, #f0eeea 48%, #ece9e4 100%);
+  background: var(--bg);
   font-family: "Sarasa Mono TC", ui-monospace, SFMono-Regular, Menlo, Consolas, "Noto Sans TC", monospace;
 }
 
@@ -233,13 +233,13 @@ select:focus {
 .quick-note-tags button {
   min-height: 34px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 7px;
   padding: 6px 12px;
   color: var(--primary-dark);
   background: #ffffff;
   font-size: 0.82rem;
   font-weight: 800;
-  box-shadow: var(--shadow-soft);
+  box-shadow: none;
 }
 
 .quick-note-tags button:focus-visible {
@@ -266,8 +266,8 @@ select:focus {
 
 .primary-button {
   color: #fff;
-  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-  box-shadow: 0 8px 18px rgba(63, 59, 54, 0.2);
+  background: var(--primary-dark);
+  box-shadow: none;
 }
 
 .secondary-button,
@@ -305,7 +305,7 @@ select:focus {
   display: grid;
   gap: 12px;
   padding: 18px;
-  background: linear-gradient(145deg, #ffffff 0%, #f3f0eb 100%);
+  background: var(--surface-strong);
 }
 
 .hero-status-row {
@@ -362,7 +362,7 @@ select:focus {
   display: inline-flex;
   align-items: center;
   min-height: 28px;
-  border-radius: 999px;
+  border-radius: 6px;
   padding: 4px 10px;
   color: #fff;
   background: var(--muted);
@@ -443,16 +443,29 @@ select:focus {
 .metrics-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
 }
 
 .metric-card {
   min-height: 92px;
-  border: 1px solid rgba(111, 104, 96, 0.14);
-  border-radius: 8px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
   padding: 14px;
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: var(--shadow-soft);
+  background: transparent;
+  box-shadow: none;
+}
+
+.metric-card:nth-child(odd) {
+  border-right: 1px solid var(--line);
+}
+
+.metric-card:nth-last-child(-n + 2) {
+  border-bottom: 0;
 }
 
 .metric-card.clickable-metric {
@@ -463,7 +476,7 @@ select:focus {
 .metric-card.clickable-metric:hover,
 .metric-card.clickable-metric:focus-visible {
   border-color: rgba(80, 72, 64, 0.28);
-  box-shadow: 0 10px 24px rgba(47, 45, 42, 0.12);
+  box-shadow: none;
   outline: none;
 }
 
@@ -499,7 +512,7 @@ select:focus {
   padding: 5px;
   background: rgba(255, 255, 255, 0.7);
   border: 1px solid var(--line);
-  box-shadow: var(--shadow-soft);
+  box-shadow: none;
 }
 
 .tab-button {
@@ -514,7 +527,7 @@ select:focus {
 .tab-button.active {
   color: var(--primary-dark);
   background: var(--surface-strong);
-  box-shadow: 0 6px 16px rgba(47, 45, 42, 0.1);
+  box-shadow: none;
 }
 
 .app-menu-backdrop {
@@ -554,7 +567,7 @@ select:focus {
   min-height: 64px;
   border: 1px solid var(--line);
   padding: 10px 12px;
-  background: #ffffff;
+  background: transparent;
   text-align: left;
 }
 
@@ -656,6 +669,13 @@ select:focus {
   padding: 16px;
 }
 
+#recentActivitySection {
+  border: 0;
+  padding: 4px 0 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .list-tabs {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -684,7 +704,7 @@ select:focus {
 .list-tab-button.active {
   color: var(--primary-dark);
   background: var(--surface-strong);
-  box-shadow: 0 6px 16px rgba(47, 45, 42, 0.1);
+  box-shadow: none;
 }
 
 .list-tab-count {
@@ -727,13 +747,21 @@ select:focus {
 
 .record-list {
   display: grid;
-  gap: 10px;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
 }
 
 .inline-list {
   display: grid;
-  gap: 10px;
+  gap: 0;
+  overflow: hidden;
   margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
 }
 
 .empty-state {
@@ -742,16 +770,28 @@ select:focus {
   line-height: 1.6;
 }
 
+.record-list > .empty-state,
+.inline-list > .empty-state {
+  padding: 14px;
+}
+
 .record-item {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 8px;
   align-items: center;
-  border: 1px solid var(--line);
-  border-radius: 8px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
   padding: 12px;
   background: #ffffff;
-  box-shadow: 0 4px 14px rgba(47, 45, 42, 0.06);
+  box-shadow: none;
+}
+
+.record-list > .record-item:last-child,
+.inline-list > .record-item:last-child,
+.statement-tab-panel > .record-item:last-child {
+  border-bottom: 0;
 }
 
 .record-title {
@@ -818,9 +858,10 @@ select:focus {
   gap: 6px;
   margin-bottom: 0;
   padding: 4px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.72);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: var(--surface-soft);
 }
 
 .statement-tabbar button {
@@ -835,7 +876,7 @@ select:focus {
 .statement-tabbar button.active {
   background: #ffffff;
   color: var(--ink);
-  box-shadow: var(--shadow-soft);
+  box-shadow: none;
 }
 
 .statement-tabbar strong {
@@ -845,7 +886,7 @@ select:focus {
 
 .statement-tab-panel {
   display: grid;
-  gap: 10px;
+  gap: 0;
 }
 
 .record-amount {
@@ -943,8 +984,7 @@ dialog::backdrop {
     padding-inline: 10px;
   }
 
-  .form-grid,
-  .metrics-grid {
+  .form-grid {
     grid-template-columns: 1fr;
   }
 

@@ -289,7 +289,7 @@
         window.location.reload();
       });
 
-      navigator.serviceWorker.register("./sw.js?v=20260803-11")
+      navigator.serviceWorker.register("./sw.js?v=20260803-13")
         .then((registration) => {
           registration.update().catch((error) => console.warn("Service worker update check failed", error));
         })
@@ -578,6 +578,7 @@
       .filter((row) => row.kind === "expense" || row.kind === "advance")
       .map((row) => ({
         ...row,
+        activityKind: "transaction",
         activityType: row.kind === "advance" ? "代墊" : "支出",
         activityDate: row.date,
         activityTitle: row.title || (row.kind === "advance" ? "代墊" : "一般支出"),
@@ -586,16 +587,19 @@
       }));
     const incomeRows = state.incomeRecords.map((row) => ({
       ...row,
+      activityKind: "income",
       activityType: "收入",
       activityDate: row.date,
       activityTitle: row.title || "收入",
       activityAmount: row.amount,
       amountPrefix: "+"
     }));
+    const transactionDates = new Map(state.transactions.map((row) => [row.id, row.date]));
     const reimbursementRows = state.reimbursements.map((row) => ({
       ...row,
+      activityKind: "reimbursement",
       activityType: row.status === "received" ? "已收回補" : "待收",
-      activityDate: row.received_at || String(row.created_at || "").slice(0, 10),
+      activityDate: transactionDates.get(row.transaction_id) || row.received_at || String(row.created_at || "").slice(0, 10),
       activityTitle: row.title || "待收款",
       activityAmount: row.amount,
       amountPrefix: ""
@@ -603,6 +607,7 @@
     const accountsById = new Map(state.accounts.map((account) => [account.id, account]));
     const transferRows = state.accountTransfers.map((row) => ({
       ...row,
+      activityKind: "transfer",
       activityType: "轉帳／儲值",
       activityDate: row.date,
       activityTitle: row.title || "轉帳／儲值",
@@ -610,34 +615,54 @@
       activityAmount: row.amount,
       amountPrefix: ""
     }));
-    const rows = [...transactionRows, ...incomeRows, ...reimbursementRows, ...transferRows]
-      .sort((a, b) => `${b.activityDate || ""}${b.created_at || ""}`.localeCompare(`${a.activityDate || ""}${a.created_at || ""}`))
-      .slice(0, 5);
+    const allRows = [...transactionRows, ...incomeRows, ...reimbursementRows, ...transferRows]
+      .sort((a, b) => `${b.activityDate || ""}${b.created_at || ""}`.localeCompare(`${a.activityDate || ""}${a.created_at || ""}`));
+    const fullList = $("allRecordList");
 
-    if (!rows.length) {
+    if (!allRows.length) {
       list.innerHTML = '<p class="empty-state">還沒有紀錄。記下第一筆收入或支出吧。</p>';
+      if (fullList) fullList.innerHTML = '<p class="empty-state">還沒有任何紀錄。</p>';
       return;
     }
 
-    list.innerHTML = rows.map((row) => `
+    const renderRow = (row, showActions) => {
+      let actions = "";
+      if (showActions && row.activityKind === "transaction") {
+        actions = `<button type="button" data-edit="${row.id}">編輯</button><button type="button" data-delete="${row.id}">刪除</button>`;
+      } else if (showActions && row.activityKind === "income") {
+        actions = `<button type="button" data-delete-income="${row.id}">刪除</button>`;
+      } else if (showActions && row.activityKind === "reimbursement") {
+        actions = `${row.status === "pending" ? `<button type="button" data-received="${row.id}">標記已收</button>` : ""}<button type="button" data-delete-reimbursement="${row.id}">刪除</button>`;
+      } else if (showActions && row.activityKind === "transfer") {
+        actions = `<button type="button" data-delete-transfer="${row.id}">刪除</button>`;
+      }
+
+      const details = [
+        row.activityDate || "未填日期",
+        row.activityType,
+        row.activityMeta,
+        row.kind === "advance" ? `總金額 ${money(row.gross_amount)}` : ""
+      ].filter(Boolean).join(" · ");
+
+      return `
       <article class="record-item">
         <div>
           <p class="record-title">${escapeHtml(row.activityTitle)}</p>
-          <p class="record-meta">${row.activityDate || "未填日期"} · ${row.activityType}${row.kind === "advance" ? ` · 總金額 ${money(row.gross_amount)}` : ""}</p>
+          <p class="record-meta">${escapeHtml(details)}</p>
         </div>
         <div class="record-amount">${row.amountPrefix}${money(row.activityAmount)}</div>
-        ${row.activityType === "支出" || row.activityType === "代墊" ? `
-          <div class="record-actions">
-            <button type="button" data-edit="${row.id}">編輯</button>
-            <button type="button" data-delete="${row.id}">刪除</button>
-          </div>
-        ` : ""}
+        ${actions ? `<div class="record-actions">${actions}</div>` : ""}
       </article>
-    `).join("");
+    `;
+    };
+
+    list.innerHTML = allRows.slice(0, 3).map((row) => renderRow(row, false)).join("");
+    if (fullList) fullList.innerHTML = allRows.map((row) => renderRow(row, true)).join("");
   }
 
   function renderReimbursements() {
     const list = $("reimbursementList");
+    const transactionDates = new Map(state.transactions.map((row) => [row.id, row.date]));
     const rows = [...state.reimbursements]
       .filter((row) => row.status === "pending")
       .sort((a, b) => {
@@ -654,7 +679,7 @@
       <article class="record-item">
         <div>
           <p class="record-title">${escapeHtml(row.title || "待收款")}</p>
-          <p class="record-meta">${row.status === "received" ? `已收 · ${row.received_at || ""}` : "未收"}</p>
+          <p class="record-meta">${transactionDates.get(row.transaction_id) || String(row.created_at || "").slice(0, 10)} · ${row.status === "received" ? `已收 ${row.received_at || ""}` : "未收"}</p>
         </div>
         <div class="record-amount">${money(row.amount)}</div>
         <div class="record-actions">
@@ -3129,7 +3154,7 @@
       const title = recordSection.querySelector("h2");
       if (title) title.textContent = "最近動態";
       const detail = recordSection.querySelector(".section-title span");
-      if (detail) detail.textContent = "最近 5 筆收入、支出、待收與轉帳";
+      if (detail) detail.textContent = "最新 3 筆";
     }
 
     const reimbursementSection = $("reimbursementList")?.closest(".list-section");
@@ -3429,6 +3454,21 @@
       const deleteId = event.target.dataset.delete;
       if (editId) await editTransaction(editId);
       if (deleteId) await deleteTransaction(deleteId);
+    }));
+
+    $("allRecordList").addEventListener("click", wrap(async (event) => {
+      const editId = event.target.closest("[data-edit]")?.dataset.edit;
+      const deleteId = event.target.closest("[data-delete]")?.dataset.delete;
+      const deleteIncomeId = event.target.closest("[data-delete-income]")?.dataset.deleteIncome;
+      const receivedId = event.target.closest("[data-received]")?.dataset.received;
+      const deleteReimbursementId = event.target.closest("[data-delete-reimbursement]")?.dataset.deleteReimbursement;
+      const deleteTransferId = event.target.closest("[data-delete-transfer]")?.dataset.deleteTransfer;
+      if (editId) await editTransaction(editId);
+      else if (deleteId) await deleteTransaction(deleteId);
+      else if (deleteIncomeId) await deleteIncome(deleteIncomeId);
+      else if (receivedId) await markReceived(receivedId);
+      else if (deleteReimbursementId) await deleteReimbursement(deleteReimbursementId);
+      else if (deleteTransferId) await deleteTransfer(deleteTransferId);
     }));
 
     $("reimbursementList").addEventListener("click", wrap(async (event) => {

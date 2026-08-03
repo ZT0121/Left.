@@ -7,10 +7,10 @@
   <link rel="icon" href="./assets/branding/left-favicon-v2-64.png" type="image/png" sizes="64x64">
   <link rel="shortcut icon" href="./assets/branding/left-favicon-v2-64.png" type="image/png">
   <link rel="apple-touch-icon" href="./assets/branding/left-icon-v2-192.png">
-  <link rel="manifest" href="./manifest.json?v=20260803-11">
+  <link rel="manifest" href="./manifest.json?v=20260803-13">
   <meta name="theme-color" content="#f3f1ee">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="./css/style.css?v=20260803-11">
+  <link rel="stylesheet" href="./css/style.css?v=20260803-13">
 </head>
 <body>
   <main class="app-shell">
@@ -55,7 +55,7 @@
             const keys = await caches.keys();
             await Promise.all(keys.map((key) => caches.delete(key)));
           }
-          window.location.replace(`${window.location.pathname}?refresh=20260803-11`);
+          window.location.replace(`${window.location.pathname}?refresh=20260803-13`);
         });
       })();
     </script>
@@ -186,6 +186,9 @@
             </button>
             <button class="tab-button" type="button" data-panel="accountPanel">
               <strong>帳戶</strong><span>管理餘額和轉帳</span>
+            </button>
+            <button class="tab-button" type="button" data-panel="recordsPanel">
+              <strong>所有紀錄</strong><span>查看完整的收支與資金移動</span>
             </button>
             <button class="tab-button" type="button" data-panel="toolsPanel">
               <strong>工具與歷史</strong><span>查看每月紀錄和備份</span>
@@ -511,6 +514,14 @@
         <div class="inline-list" id="transferList"></div>
       </section>
 
+      <section class="work-panel" id="recordsPanel">
+        <div class="section-title">
+          <h2>所有紀錄</h2>
+          <span>收入、支出、待收與轉帳</span>
+        </div>
+        <div class="record-list" id="allRecordList"></div>
+      </section>
+
       <section class="work-panel" id="toolsPanel">
         <section class="history-box">
           <div class="section-title">
@@ -579,7 +590,7 @@
     </section>
 
     <div class="toast" id="toast" hidden></div>
-    <p class="app-version">v20260803-11</p>
+    <p class="app-version">v20260803-13</p>
   </main>
 
   <dialog id="editDialog">
@@ -605,14 +616,14 @@
     </form>
   </dialog>
 
-  <script src="./js/config.js?v=20260803-11"></script>
+  <script src="./js/config.js?v=20260803-13"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"></script>
   <script>
     if (!window.supabase) {
       document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"><\/script>');
     }
   </script>
-  <script src="./js/budget.js?v=20260803-11"></script>
-  <script src="./js/app.js?v=20260803-11"></script>
+  <script src="./js/budget.js?v=20260803-13"></script>
+  <script src="./js/app.js?v=20260803-13"></script>
 </body>
 </html>
