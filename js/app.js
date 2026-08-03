@@ -29,6 +29,10 @@
     installmentPlans: [],
     accounts: [],
     accountTransfers: [],
+    accountBalanceTransfers: [],
+    accountBalanceIncomeRecords: [],
+    accountBalanceTransactions: [],
+    accountBalanceCardCharges: [],
     incomeRecords: [],
     subscriptions: [],
     historyCycles: [],
@@ -836,7 +840,13 @@
   }
 
   function getAccountBalances() {
-    return window.LeftBudget.calculateAccountBalances(state);
+    return window.LeftBudget.calculateAccountBalances({
+      ...state,
+      accountTransfers: state.accountBalanceTransfers,
+      incomeRecords: state.accountBalanceIncomeRecords,
+      transactions: state.accountBalanceTransactions,
+      cardCharges: state.accountBalanceCardCharges
+    });
   }
 
   function renderAccounts() {
@@ -1656,6 +1666,7 @@
     await loadAccounts();
     await loadAccountTransfers();
     await loadIncomeRecords();
+    await loadAccountBalanceEntries();
     await loadSubscriptions();
     await loadInstallmentPlans();
     await generateDueInstallments();
@@ -1737,6 +1748,40 @@
       .order("date", { ascending: false });
     if (error) throw error;
     state.incomeRecords = data || [];
+  }
+
+  async function loadAccountBalanceEntries() {
+    const [transferResult, incomeResult, transactionResult, cardChargeResult] = await Promise.all([
+      client
+        .from("account_transfers")
+        .select("*")
+        .eq("user_id", state.user.id)
+        .order("date", { ascending: false }),
+      client
+        .from("income_records")
+        .select("*")
+        .eq("user_id", state.user.id)
+        .order("date", { ascending: false }),
+      client
+        .from("transactions")
+        .select("*")
+        .eq("user_id", state.user.id)
+        .order("date", { ascending: false }),
+      client
+        .from("credit_card_charges")
+        .select("*")
+        .eq("user_id", state.user.id)
+        .order("charge_date", { ascending: false })
+    ]);
+
+    if (transferResult.error) throw transferResult.error;
+    if (incomeResult.error) throw incomeResult.error;
+    if (transactionResult.error) throw transactionResult.error;
+    if (cardChargeResult.error) throw cardChargeResult.error;
+    state.accountBalanceTransfers = transferResult.data || [];
+    state.accountBalanceIncomeRecords = incomeResult.data || [];
+    state.accountBalanceTransactions = transactionResult.data || [];
+    state.accountBalanceCardCharges = cardChargeResult.data || [];
   }
 
   async function loadSubscriptions() {
@@ -2690,22 +2735,43 @@
     await refresh();
   }
 
+  function choosePaymentAccount() {
+    const accounts = state.accounts.filter((account) => account.is_active !== false);
+    if (!accounts.length) throw new Error("請先新增一個付款帳戶");
+    if (accounts.length === 1) return accounts[0].id;
+
+    const options = accounts
+      .map((account, index) => `${index + 1}. ${account.name}`)
+      .join("\n");
+    const answer = window.prompt(`這筆卡費從哪個帳戶扣款？\n${options}`);
+    if (answer === null) return null;
+
+    const index = Number(answer.trim()) - 1;
+    if (!Number.isInteger(index) || !accounts[index]) {
+      throw new Error("請輸入付款帳戶前面的編號");
+    }
+    return accounts[index].id;
+  }
+
   async function markCardChargePaid(id) {
     const row = state.cardCharges.find((item) => item.id === id);
     if (!row) throw new Error("找不到這筆帳單，請重新整理後再試");
+    const paymentAccountId = choosePaymentAccount();
+    if (!paymentAccountId) return;
 
     const { data, error } = await client
       .from("credit_card_charges")
-      .update({ status: "paid", paid_at: today() })
+      .update({ status: "paid", paid_at: today(), payment_account_id: paymentAccountId })
       .eq("id", id)
       .eq("user_id", state.user.id)
-      .select("id, status, paid_at")
+      .select("id, status, paid_at, payment_account_id")
       .maybeSingle();
     if (error) throw error;
     if (!data) throw new Error("帳單狀態沒有更新，請重新登入後再試");
 
     row.status = data.status;
     row.paid_at = data.paid_at;
+    row.payment_account_id = data.payment_account_id;
     renderDashboard();
     showToast("卡費已標記為已繳");
     await refresh();

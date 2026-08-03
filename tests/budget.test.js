@@ -286,6 +286,21 @@ function summarize(overrides = {}) {
 }
 
 {
+  const balances = budget.calculateAccountBalances({
+    accounts: [
+      { id: "bank", name: "銀行", opening_balance: 10000, balance_date: "2026-07-01" }
+    ],
+    cardCharges: [
+      { payment_account_id: "bank", status: "paid", paid_at: "2026-07-20", amount: 3000 },
+      { payment_account_id: "bank", status: "pending", due_date: "2026-07-25", amount: 2000 },
+      { payment_account_id: "bank", status: "paid", paid_at: "2026-06-30", amount: 1000 }
+    ]
+  });
+
+  assert.equal(balances.find((row) => row.id === "bank").balance, 7000);
+}
+
+{
   const result = summarize({
     incomeRecords: [
       { amount: 32000 },

@@ -168,10 +168,14 @@ create table if not exists public.credit_card_charges (
   amount numeric(12, 0) not null check (amount > 0),
   status text not null default 'pending' check (status in ('pending', 'paid')),
   paid_at date,
+  payment_account_id uuid references public.accounts(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (installment_plan_id, installment_number)
 );
+
+alter table public.credit_card_charges
+  add column if not exists payment_account_id uuid references public.accounts(id) on delete set null;
 
 create table if not exists public.push_subscriptions (
   id uuid primary key default gen_random_uuid(),

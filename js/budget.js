@@ -194,6 +194,7 @@
     const transfers = input.accountTransfers || [];
     const transactions = input.transactions || [];
     const incomeRecords = input.incomeRecords || [];
+    const cardCharges = input.cardCharges || [];
 
     return accounts.map((account) => {
       const opening = toNumber(account.opening_balance);
@@ -215,10 +216,17 @@
           && isOnOrAfterBalanceDate(row)
         ))
         .reduce((sum, row) => sum + toNumber(row.gross_amount || row.amount), 0);
+      const paidCardCharges = cardCharges
+        .filter((row) => (
+          row.payment_account_id === account.id
+          && row.status === "paid"
+          && isOnOrAfterBalanceDate({ date: row.paid_at || row.due_date || row.charge_date })
+        ))
+        .reduce((sum, row) => sum + toNumber(row.amount), 0);
 
       return {
         ...account,
-        balance: opening + income + transferIn - transferOut - spent
+        balance: opening + income + transferIn - transferOut - spent - paidCardCharges
       };
     });
   }
