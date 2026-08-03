@@ -210,34 +210,42 @@
     return accounts.map((account) => {
       const opening = toNumber(account.opening_balance);
       const balanceDate = account.balance_date || "";
-      const isOnOrAfterBalanceDate = (row) => !balanceDate || !row.date || row.date >= balanceDate;
+      const isAfterBalanceDate = (row) => !balanceDate || !row.date || row.date > balanceDate;
       const income = incomeRecords
-        .filter((row) => row.account_id === account.id && isOnOrAfterBalanceDate(row))
+        .filter((row) => row.account_id === account.id && isAfterBalanceDate(row))
         .reduce((sum, row) => sum + toNumber(row.amount), 0);
       const transferIn = transfers
-        .filter((row) => row.to_account_id === account.id && isOnOrAfterBalanceDate(row))
+        .filter((row) => row.to_account_id === account.id && isAfterBalanceDate(row))
         .reduce((sum, row) => sum + toNumber(row.amount), 0);
       const transferOut = transfers
-        .filter((row) => row.from_account_id === account.id && isOnOrAfterBalanceDate(row))
+        .filter((row) => row.from_account_id === account.id && isAfterBalanceDate(row))
         .reduce((sum, row) => sum + toNumber(row.amount), 0);
       const spent = transactions
         .filter((row) => (
           row.account_id === account.id
           && row.payment_method !== "credit_card"
-          && isOnOrAfterBalanceDate(row)
+          && isAfterBalanceDate(row)
         ))
         .reduce((sum, row) => sum + toNumber(row.gross_amount || row.amount), 0);
       const paidCardCharges = cardCharges
         .filter((row) => (
           row.payment_account_id === account.id
           && row.status === "paid"
-          && isOnOrAfterBalanceDate({ date: row.paid_at || row.due_date || row.charge_date })
+          && isAfterBalanceDate({ date: row.paid_at || row.due_date || row.charge_date })
         ))
         .reduce((sum, row) => sum + toNumber(row.amount), 0);
 
       return {
         ...account,
-        balance: opening + income + transferIn - transferOut - spent - paidCardCharges
+        balance: opening + income + transferIn - transferOut - spent - paidCardCharges,
+        balance_breakdown: {
+          opening,
+          income,
+          transferIn,
+          transferOut,
+          spent,
+          paidCardCharges
+        }
       };
     });
   }

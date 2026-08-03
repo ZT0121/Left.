@@ -340,7 +340,7 @@ function summarize(overrides = {}) {
     ]
   });
 
-  assert.equal(balances.find((row) => row.id === "bank").balance, 5050);
+  assert.equal(balances.find((row) => row.id === "bank").balance, 4900);
 }
 
 {

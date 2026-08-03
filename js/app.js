@@ -874,18 +874,23 @@
       other: "其他"
     };
 
-    list.innerHTML = rows.map((account) => `
+    list.innerHTML = rows.map((account) => {
+      const breakdown = account.balance_breakdown || {};
+      const detail = `基準 ${money(breakdown.opening)} + 收入 ${money(breakdown.income)} + 轉入 ${money(breakdown.transferIn)} - 轉出 ${money(breakdown.transferOut)} - 支出 ${money(breakdown.spent)} - 已繳卡費 ${money(breakdown.paidCardCharges)}`;
+      return `
       <article class="record-item">
         <div>
           <p class="record-title">${escapeHtml(account.name)}</p>
           <p class="record-meta">${typeLabel[account.type] || "其他"} · ${account.balance_date || "未設定日期"} 時餘額 ${money(account.opening_balance)}</p>
+          <p class="record-meta">${detail}</p>
         </div>
         <div class="record-amount">${money(account.balance)}</div>
         <div class="record-actions">
           <button type="button" data-edit-account="${account.id}">編輯</button>
         </div>
       </article>
-    `).join("");
+    `;
+    }).join("");
   }
 
   function renderTransfers() {
