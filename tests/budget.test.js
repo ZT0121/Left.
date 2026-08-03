@@ -55,6 +55,42 @@ function summarize(overrides = {}) {
 
 {
   const result = summarize({
+    accountBalances: [
+      { balance: 50000 }
+    ],
+    cardCharges: [
+      { source_type: "general", amount: 12000, status: "pending", card_id: "card-1", due_date: "2026-08-15" }
+    ],
+    subscriptions: [
+      { amount: 1000, billing_cycle: "monthly" }
+    ]
+  });
+
+  assert.equal(result.accountBalance, 50000);
+  assert.equal(result.afterCardPayment, 38000);
+  assert.equal(result.safeToSpend, 32000);
+}
+
+{
+  const result = summarize({
+    accountBalances: [
+      { balance: 50000 }
+    ],
+    cardCharges: [
+      { source_type: "general", amount: 12000, status: "pending", card_id: "card-1", due_date: "2026-08-15" },
+      { source_type: "general", amount: 3000, status: "pending", card_id: "card-1", due_date: "2026-08-15" }
+    ],
+    subscriptions: [
+      { amount: 1000, billing_cycle: "monthly" }
+    ]
+  });
+
+  assert.equal(result.afterCardPayment, 35000);
+  assert.equal(result.safeToSpend, 29000);
+}
+
+{
+  const result = summarize({
     cardCharges: [
       { source_type: "subscription", amount: 149, status: "pending", card_id: "card-1", due_date: "2026-08-15" }
     ]
@@ -150,6 +186,9 @@ function summarize(overrides = {}) {
     is_active: true
   };
   const result = summarize({
+    accountBalances: [
+      { balance: 52000 }
+    ],
     transactions: [
       { kind: "installment", amount: 2000, installment_plan_id: "plan-1" }
     ],
@@ -178,6 +217,25 @@ function summarize(overrides = {}) {
 
   assert.equal(result.subscriptionEstimate, 3029);
   assert.equal(result.projected, 48971);
+}
+
+{
+  const result = summarize({
+    accountBalances: [
+      { balance: 20000 }
+    ],
+    subscriptions: [
+      { title: "Netflix", amount: 390, is_active: true, payment_method: "credit_card" },
+      { title: "Rent", amount: 5000, is_active: true, payment_method: "cash" }
+    ],
+    cardCharges: [
+      { source_type: "subscription", amount: 390, status: "pending", card_id: "card-1", due_date: "2026-08-15" }
+    ]
+  });
+
+  assert.equal(result.cardDue, 390);
+  assert.equal(result.subscriptionEstimate, 5000);
+  assert.equal(result.safeToSpend, 9610);
 }
 
 {

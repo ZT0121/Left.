@@ -361,11 +361,20 @@
   }
 
   function calculateSummary(extraSpend = 0) {
+    const accountBalances = getAccountBalances();
+    const simulatedCardCharge = extraSpend > 0
+      ? [{ source_type: "general", amount: extraSpend, status: "pending" }]
+      : [];
     return window.LeftBudget.summarizeBudget({
       ...state,
-      cardCharges: [...state.cardCharges, ...getSubscriptionCardEstimateRows(), ...getUpcomingInstallmentEstimateRows()]
+      accountBalances,
+      cardCharges: [
+        ...state.cardCharges,
+        ...getSubscriptionCardEstimateRows(),
+        ...getUpcomingInstallmentEstimateRows(),
+        ...simulatedCardCharge
+      ]
     }, {
-      spend: extraSpend,
       today: today(),
       currentMonth: currentMonth()
     });
@@ -520,32 +529,32 @@
     if (!state.cycle) return;
 
     const summary = calculateSummary();
-    $("projectedSavings").textContent = money(summary.projected);
-    $("safetyBuffer").textContent = money(summary.commitmentBuffer);
+    $("projectedSavings").textContent = money(summary.afterCardPayment);
+    $("safetyBuffer").textContent = money(summary.safeToSpend);
     const safetyBreakdown = $("safetyBreakdown");
     if (safetyBreakdown) {
-      safetyBreakdown.textContent = `結餘 ${money(summary.projected)} − 最低保留 ${money(state.cycle.minimum_savings)} − 未來分期 ${money(summary.futureInstallmentBalance)}`;
+      safetyBreakdown.textContent = `帳戶 ${money(summary.accountBalance)} - 未繳卡費 ${money(summary.cardDue)} - 固定扣款 ${money(summary.subscriptionEstimate)} - 未來分期 ${money(summary.futureInstallmentBalance)} - 保留 ${money(state.cycle.minimum_savings)}`;
     }
-    $("spentAmount").textContent = money(summary.spent);
+    $("spentAmount").textContent = money(summary.afterCardPayment);
     $("pendingAmount").textContent = money(summary.pending);
-    $("dailyAllowance").textContent = money(summary.totalIncome);
-    $("cardDueAmount").textContent = money(summary.cardDueActual);
+    $("dailyAllowance").textContent = money(summary.accountBalance);
+    $("cardDueAmount").textContent = money(summary.cardDue);
     const cardDueDetail = $("cardDueDetail");
     if (cardDueDetail) {
       const paidActual = state.cardCharges
         .filter((row) => isActualStatement(row) && row.status === "paid")
         .reduce((sum, row) => sum + toNumber(row.amount), 0);
-      cardDueDetail.textContent = `本期已繳 ${money(paidActual)} · 下期預估 ${money(summary.cardDueEstimate)}`;
+      cardDueDetail.textContent = `已繳 ${money(paidActual)} · 預估未出帳 ${money(summary.cardDueEstimate)}`;
     }
     $("futureInstallmentAmount").textContent = money(summary.futureInstallmentBalance);
     $("cycleRange").textContent = `從 ${state.cycle.start_date} 開始`;
     const subscriptionText = summary.subscriptionEstimate
       ? `含本月訂閱預估 ${money(summary.subscriptionEstimate)}。`
       : "";
-    $("safetyText").textContent = summary.commitmentBuffer >= 0
-      ? `保留 ${money(state.cycle.minimum_savings)} 並扣掉未來分期後，接下來可安排 ${money(summary.commitmentBuffer)}；尚未記錄的生活費仍會從這裡支出。${subscriptionText}`
-      : `扣掉未來分期後，還差 ${money(Math.abs(summary.commitmentBuffer))} 才能保留 ${money(state.cycle.minimum_savings)}。${subscriptionText}`;
-    applyStatus(summary.commitmentBuffer);
+    $("safetyText").textContent = summary.safeToSpend >= 0
+      ? `所有未繳卡費都繳完，並保留 ${money(state.cycle.minimum_savings)} 後，還可以安心刷 ${money(summary.safeToSpend)}。${subscriptionText}`
+      : `如果現在把卡費全繳掉，還差 ${money(Math.abs(summary.safeToSpend))} 才能守住 ${money(state.cycle.minimum_savings)}。先別再刷新的非必要支出。${subscriptionText}`;
+    applyStatus(summary.safeToSpend);
     renderCardOptions();
     renderCreditCards();
     renderTransactions();
@@ -2276,23 +2285,36 @@
     const amount = toNumber($("wishAmount").value);
     const title = $("wishTitle").value.trim() || "這筆購物";
     const summary = calculateSummary(amount);
-    const canBuy = summary.commitmentBuffer >= 0;
+    const canBuy = summary.safeToSpend >= 0;
     const result = $("wishResult");
     result.hidden = false;
     result.innerHTML = `
       <p class="eyebrow">${escapeHtml(title)}</p>
-      <span>${canBuy ? "買完仍守住最低保留" : "買完會低於最低保留"}</span>
-      <strong>${money(summary.projected)}</strong>
-      <p>${canBuy ? `接下來可運用剩 ${money(summary.commitmentBuffer)}` : `還差 ${money(Math.abs(summary.commitmentBuffer))} 才守住最低保留`}</p>
-      <button class="primary-button full-width" type="button" id="buyNowButton">直接記為支出</button>
+      <span>${canBuy ? "刷下去仍守得住" : "刷下去會超過安全線"}</span>
+      <strong>${money(summary.safeToSpend)}</strong>
+      <p>${canBuy ? `刷完後安心可刷剩 ${money(summary.safeToSpend)}` : `還差 ${money(Math.abs(summary.safeToSpend))} 才守住最低保留`}</p>
+      <button class="primary-button full-width" type="button" id="buyNowButton">記成信用卡消費</button>
     `;
     $("buyNowButton").addEventListener("click", async () => {
-      await insertTransaction({
+      const cardId = requireCard("expenseCardSelect");
+      const tx = await insertTransaction({
         kind: "expense",
         date: today(),
         title,
         amount,
-        gross_amount: amount
+        gross_amount: amount,
+        payment_method: "credit_card",
+        credit_card_id: cardId,
+        account_id: null
+      }, false);
+      await insertCardCharge({
+        card_id: cardId,
+        transaction_id: tx.id,
+        source_type: "general",
+        title: tx.title,
+        charge_date: tx.date,
+        due_date: getCardDueDate(cardId, tx.date),
+        amount
       });
       $("wishForm").reset();
       result.hidden = true;

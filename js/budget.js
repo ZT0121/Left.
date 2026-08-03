@@ -94,6 +94,9 @@
         cardDue: 0,
         cardDueActual: 0,
         cardDueEstimate: 0,
+        accountBalance: 0,
+        afterCardPayment: 0,
+        safeToSpend: 0,
         futureInstallmentBalance: 0,
         subscriptionEstimate: 0
       };
@@ -108,12 +111,15 @@
     const subscriptions = input.subscriptions || [];
     const today = extra.today || new Date().toISOString().slice(0, 10);
     const currentMonth = extra.currentMonth || today.slice(0, 7);
+    const accountBalance = (input.accountBalances || [])
+      .reduce((sum, row) => sum + toNumber(row.balance), 0);
 
     const recordedIncome = incomeRecords.reduce((sum, row) => sum + toNumber(row.amount), 0);
     const totalIncome = toNumber(cycle.salary_income) + toNumber(cycle.mother_support) + recordedIncome;
     const spent = transactions.reduce((sum, row) => sum + toNumber(row.amount), 0) + toNumber(extra.spend);
     const subscriptionEstimate = subscriptions
       .filter((row) => isSubscriptionDueInMonth(row, currentMonth))
+      .filter((row) => (row.payment_method || "cash") !== "credit_card")
       .reduce((sum, row) => sum + toNumber(row.amount), 0);
     const pending = reimbursements
       .filter((row) => row.status === "pending")
@@ -168,7 +174,9 @@
 
     const projected = totalIncome + receivedManualReimbursements - spent - subscriptionEstimate;
     const cashBuffer = projected - toNumber(cycle.minimum_savings);
-    const commitmentBuffer = cashBuffer - futureInstallmentBalance;
+    const afterCardPayment = accountBalance - cardDue;
+    const safeToSpend = afterCardPayment - subscriptionEstimate - futureInstallmentBalance - toNumber(cycle.minimum_savings);
+    const commitmentBuffer = safeToSpend;
     const daysLeft = daysBetween(today, cycle.expected_pay_date);
     const daily = daysLeft > 0 ? Math.max(0, Math.floor(cashBuffer / daysLeft)) : Math.max(0, cashBuffer);
 
@@ -184,6 +192,9 @@
       cardDue,
       cardDueActual,
       cardDueEstimate,
+      accountBalance,
+      afterCardPayment,
+      safeToSpend,
       futureInstallmentBalance,
       subscriptionEstimate
     };
