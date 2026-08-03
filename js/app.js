@@ -552,7 +552,7 @@
       ? `含本月訂閱預估 ${money(summary.subscriptionEstimate)}。`
       : "";
     $("safetyText").textContent = summary.safeToSpend >= 0
-      ? `所有未繳卡費都繳完，並保留 ${money(state.cycle.minimum_savings)} 後，還可以安心刷 ${money(summary.safeToSpend)}。${subscriptionText}`
+      ? `所有未繳卡費都繳完，並保留 ${money(state.cycle.minimum_savings)} 後，安全餘額還有 ${money(summary.safeToSpend)}。${subscriptionText}`
       : `如果現在把卡費全繳掉，還差 ${money(Math.abs(summary.safeToSpend))} 才能守住 ${money(state.cycle.minimum_savings)}。先別再刷新的非必要支出。${subscriptionText}`;
     applyStatus(summary.safeToSpend);
     renderCardOptions();
@@ -2290,9 +2290,9 @@
     result.hidden = false;
     result.innerHTML = `
       <p class="eyebrow">${escapeHtml(title)}</p>
-      <span>${canBuy ? "刷下去仍守得住" : "刷下去會超過安全線"}</span>
+      <span>${canBuy ? "刷完仍守得住底線" : "刷完會超過安全線"}</span>
       <strong>${money(summary.safeToSpend)}</strong>
-      <p>${canBuy ? `刷完後安心可刷剩 ${money(summary.safeToSpend)}` : `還差 ${money(Math.abs(summary.safeToSpend))} 才守住最低保留`}</p>
+      <p>${canBuy ? `刷完後安全餘額剩 ${money(summary.safeToSpend)}` : `還差 ${money(Math.abs(summary.safeToSpend))} 才守住最低保留`}</p>
       <button class="primary-button full-width" type="button" id="buyNowButton">記成信用卡消費</button>
     `;
     $("buyNowButton").addEventListener("click", async () => {
