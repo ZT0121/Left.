@@ -280,17 +280,18 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260803-10")
+      const hadController = Boolean(navigator.serviceWorker.controller);
+      let isRefreshing = false;
+
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (!hadController || isRefreshing) return;
+        isRefreshing = true;
+        window.location.reload();
+      });
+
+      navigator.serviceWorker.register("./sw.js?v=20260803-11")
         .then((registration) => {
-          registration.addEventListener("updatefound", () => {
-            const worker = registration.installing;
-            if (!worker) return;
-            worker.addEventListener("statechange", () => {
-              if (worker.state === "activated" && navigator.serviceWorker.controller) {
-                showToast("新版已準備好，重新整理後套用");
-              }
-            });
-          });
+          registration.update().catch((error) => console.warn("Service worker update check failed", error));
         })
         .catch((error) => console.warn("Service worker registration failed", error));
     });
