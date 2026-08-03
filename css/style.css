@@ -10,7 +10,7 @@
   --primary-dark: #3f3b36;
   --accent: #8d7469;
   --accent-soft: #f4eee9;
-  --good: #575f55;
+  --good: #625d57;
   --warn: #8b7660;
   --bad: #8f4f48;
   --shadow: 0 16px 34px rgba(47, 45, 42, 0.11);
@@ -347,7 +347,7 @@ select:focus {
 }
 
 .hero-card.safe {
-  border-color: rgba(87, 95, 85, 0.32);
+  border-color: rgba(98, 93, 87, 0.32);
 }
 
 .hero-card.warning {
@@ -581,6 +581,16 @@ select:focus {
   display: block;
 }
 
+.work-panel > .list-section {
+  margin-top: 18px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  padding: 18px 0 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .sub-form {
   margin-top: 14px;
   border-top: 1px solid var(--line);
@@ -717,12 +727,12 @@ select:focus {
 
 .record-list {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .inline-list {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   margin-top: 14px;
 }
 
@@ -806,7 +816,7 @@ select:focus {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 6px;
-  margin-bottom: 10px;
+  margin-bottom: 0;
   padding: 4px;
   border: 1px solid var(--line);
   border-radius: 8px;

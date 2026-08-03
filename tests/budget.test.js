@@ -400,4 +400,17 @@ function summarize(overrides = {}) {
   assert.equal(result.total, 20600);
 }
 
+{
+  const reminders = budget.getCardPaymentReminders([
+    { id: "actual", source_type: "opening_bill", status: "pending", due_date: "2026-08-08" },
+    { id: "estimate", source_type: "general", status: "pending", due_date: "2026-08-08" },
+    { id: "installment", source_type: "installment", status: "pending", due_date: "2026-08-08" },
+    { id: "paid", source_type: "opening_bill", status: "paid", due_date: "2026-08-06" },
+    { id: "later", source_type: "opening_bill", status: "pending", due_date: "2026-08-20" }
+  ], "2026-08-03", 7);
+
+  assert.deepEqual(reminders.map((row) => row.id), ["actual"]);
+  assert.equal(reminders[0].daysLeft, 5);
+}
+
 console.log("budget tests passed");

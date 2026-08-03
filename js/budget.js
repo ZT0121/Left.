@@ -51,6 +51,22 @@
     return Math.max(0, Math.ceil((end - start) / DAY_MS));
   }
 
+  function getCardPaymentReminders(cardCharges, currentDate, maxDays = 7) {
+    const estimatedSources = new Set(["general", "advance", "installment", "subscription"]);
+    return (cardCharges || [])
+      .filter((row) => (
+        !estimatedSources.has(row.source_type)
+        && row.status !== "paid"
+        && row.due_date
+      ))
+      .map((row) => ({
+        ...row,
+        daysLeft: Math.ceil((parseDate(row.due_date) - parseDate(currentDate)) / DAY_MS)
+      }))
+      .filter((row) => row.daysLeft <= maxDays)
+      .sort((a, b) => a.daysLeft - b.daysLeft);
+  }
+
   function isDateInCycle(dateValue, cycle) {
     return Boolean(
       cycle
@@ -275,6 +291,7 @@
     calculateMotherRequest,
     createInstallmentSchedule,
     daysBetween,
+    getCardPaymentReminders,
     isDateInCycle,
     summarizeBudget,
     toNumber

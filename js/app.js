@@ -280,7 +280,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260729")
+      navigator.serviceWorker.register("./sw.js?v=20260803-10")
         .then((registration) => {
           registration.addEventListener("updatefound", () => {
             const worker = registration.installing;
@@ -1075,26 +1075,8 @@
   }
 
   function getBillReminderRows() {
-    const current = today();
-    const actualRows = state.cardCharges
-      .filter((row) => !isEstimatedCardCharge(row) && row.status !== "paid" && row.due_date)
-      .map((row) => ({
-        ...row,
-        row_type: "actual",
-        daysLeft: Math.ceil((parseLocalDate(row.due_date) - parseLocalDate(current)) / 86400000)
-      }));
-    const estimateRows = getEstimatedStatementGroups()
-      .map((row) => ({
-        ...row,
-        id: row.key,
-        title: "預估帳單",
-        row_type: "estimate",
-        daysLeft: Math.ceil((parseLocalDate(row.due_date) - parseLocalDate(current)) / 86400000)
-      }));
-
-    return [...actualRows, ...estimateRows]
-      .filter((row) => row.daysLeft <= 7)
-      .sort((a, b) => a.daysLeft - b.daysLeft);
+    return window.LeftBudget.getCardPaymentReminders(state.cardCharges, today(), 7)
+      .map((row) => ({ ...row, row_type: "actual" }));
   }
 
   function renderBillReminders() {
@@ -1102,7 +1084,7 @@
     if (!list) return;
     const rows = getBillReminderRows();
     if (!rows.length) {
-      list.innerHTML = '<p class="empty-state">接下來 7 天沒有要繳的信用卡帳單。</p>';
+      list.innerHTML = '<p class="empty-state">接下來 7 天沒有已出帳的卡費要繳。</p>';
       return;
     }
 
@@ -1134,7 +1116,7 @@
     if (!list) return;
     const rows = getBillReminderRows();
     if (!rows.length) {
-      list.innerHTML = '<p class="empty-state">接下來 7 天沒有要繳的信用卡帳單。</p>';
+      list.innerHTML = '<p class="empty-state">接下來 7 天沒有已出帳的卡費要繳。</p>';
       return;
     }
 
@@ -3115,6 +3097,8 @@
     setLabelText("openingBillDueDate", "繳款日");
     const billReminderTitle = $("billReminderList")?.closest(".list-section")?.querySelector("h2");
     if (billReminderTitle) billReminderTitle.textContent = "帳單提醒";
+    const billReminderDetail = $("billReminderList")?.closest(".list-section")?.querySelector(".section-title span");
+    if (billReminderDetail) billReminderDetail.textContent = "只提醒已輸入的實際帳單";
     const cardChargeTitle = $("cardChargeList")?.closest(".list-section")?.querySelector("h2");
     if (cardChargeTitle) cardChargeTitle.textContent = "信用卡帳單";
     const cardDueMetric = $("cardDueAmount")?.closest(".metric-card");
