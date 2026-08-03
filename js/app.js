@@ -854,7 +854,8 @@
       accountTransfers: state.accountBalanceTransfers,
       incomeRecords: state.accountBalanceIncomeRecords,
       transactions: state.accountBalanceTransactions,
-      cardCharges: state.accountBalanceCardCharges
+      cardCharges: state.accountBalanceCardCharges,
+      asOfDate: today()
     });
   }
 

@@ -346,6 +346,22 @@ function summarize(overrides = {}) {
 {
   const balances = budget.calculateAccountBalances({
     accounts: [
+      { id: "bank", name: "銀行", opening_balance: 45256, balance_date: "2026-08-03" }
+    ],
+    transactions: [
+      { account_id: "bank", date: "2026-08-03", payment_method: "cash", amount: 570 },
+      { account_id: "bank", date: "2026-08-04", payment_method: "cash", amount: 100 },
+      { account_id: "bank", date: "2026-08-05", payment_method: "cash", amount: 200 }
+    ],
+    asOfDate: "2026-08-04"
+  });
+
+  assert.equal(balances.find((row) => row.id === "bank").balance, 45156);
+}
+
+{
+  const balances = budget.calculateAccountBalances({
+    accounts: [
       { id: "bank", name: "銀行", opening_balance: 10000, balance_date: "2026-07-01" }
     ],
     cardCharges: [

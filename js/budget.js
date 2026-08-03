@@ -206,32 +206,36 @@
     const transactions = input.transactions || [];
     const incomeRecords = input.incomeRecords || [];
     const cardCharges = input.cardCharges || [];
+    const asOfDate = input.asOfDate || new Date().toISOString().slice(0, 10);
 
     return accounts.map((account) => {
       const opening = toNumber(account.opening_balance);
       const balanceDate = account.balance_date || "";
-      const isAfterBalanceDate = (row) => !balanceDate || !row.date || row.date > balanceDate;
+      const isActualAfterBalanceDate = (row) => {
+        if (!row.date) return !balanceDate;
+        return (!balanceDate || row.date > balanceDate) && row.date <= asOfDate;
+      };
       const income = incomeRecords
-        .filter((row) => row.account_id === account.id && isAfterBalanceDate(row))
+        .filter((row) => row.account_id === account.id && isActualAfterBalanceDate(row))
         .reduce((sum, row) => sum + toNumber(row.amount), 0);
       const transferIn = transfers
-        .filter((row) => row.to_account_id === account.id && isAfterBalanceDate(row))
+        .filter((row) => row.to_account_id === account.id && isActualAfterBalanceDate(row))
         .reduce((sum, row) => sum + toNumber(row.amount), 0);
       const transferOut = transfers
-        .filter((row) => row.from_account_id === account.id && isAfterBalanceDate(row))
+        .filter((row) => row.from_account_id === account.id && isActualAfterBalanceDate(row))
         .reduce((sum, row) => sum + toNumber(row.amount), 0);
       const spent = transactions
         .filter((row) => (
           row.account_id === account.id
           && row.payment_method !== "credit_card"
-          && isAfterBalanceDate(row)
+          && isActualAfterBalanceDate(row)
         ))
         .reduce((sum, row) => sum + toNumber(row.gross_amount || row.amount), 0);
       const paidCardCharges = cardCharges
         .filter((row) => (
           row.payment_account_id === account.id
           && row.status === "paid"
-          && isAfterBalanceDate({ date: row.paid_at || row.due_date || row.charge_date })
+          && isActualAfterBalanceDate({ date: row.paid_at || row.due_date || row.charge_date })
         ))
         .reduce((sum, row) => sum + toNumber(row.amount), 0);
 
