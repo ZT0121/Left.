@@ -7,10 +7,10 @@
   <link rel="icon" href="./assets/branding/left-favicon-v2-64.png" type="image/png" sizes="64x64">
   <link rel="shortcut icon" href="./assets/branding/left-favicon-v2-64.png" type="image/png">
   <link rel="apple-touch-icon" href="./assets/branding/left-icon-v2-192.png">
-  <link rel="manifest" href="./manifest.json?v=20260803-5">
+  <link rel="manifest" href="./manifest.json?v=20260803-8">
   <meta name="theme-color" content="#f3f1ee">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="./css/style.css?v=20260803-5">
+  <link rel="stylesheet" href="./css/style.css?v=20260803-8">
 </head>
 <body>
   <main class="app-shell">
@@ -55,7 +55,7 @@
             const keys = await caches.keys();
             await Promise.all(keys.map((key) => caches.delete(key)));
           }
-          window.location.replace(`${window.location.pathname}?refresh=20260803-5`);
+          window.location.replace(`${window.location.pathname}?refresh=20260803-8`);
         });
       })();
     </script>
@@ -68,8 +68,8 @@
     <section class="auth-panel" id="authPanel" hidden>
       <div class="panel-heading">
         <p class="eyebrow">跨裝置同步</p>
-        <h2>先登入再開始記帳</h2>
-        <p>資料會存在 Supabase，不會把收入、支出或代墊存在這台裝置。</p>
+        <h2>登入你的帳本</h2>
+        <p>登入後，手機和電腦都能看到同一份帳目。</p>
       </div>
       <form id="authForm" class="stack">
         <label id="authEmailLabel">
@@ -83,22 +83,22 @@
         <button class="primary-button" id="signInButton" type="submit">登入</button>
         <button class="secondary-button" id="resetPasswordButton" type="button">忘記密碼</button>
         <button class="secondary-button" id="signUpButton" type="button" hidden>建立帳號</button>
-        <p class="helper-text" id="authMessage">使用 Email 和密碼登入，同一帳號可在手機和電腦同步。</p>
+        <p class="helper-text" id="authMessage">使用 Email 和密碼登入，資料會自動同步。</p>
       </form>
     </section>
 
     <section class="cycle-panel" id="cyclePanel" hidden>
       <div class="panel-heading">
         <p class="eyebrow">帳本設定</p>
-        <h2>開始連續帳本</h2>
-        <p>設定想保留的最低餘額，收入與支出之後都直接一筆一筆記。</p>
+        <h2>先設定想保留的金額</h2>
+        <p>填入希望帳戶至少留下多少錢，之後照平常記收入和支出就好。</p>
       </div>
       <form id="cycleForm" class="form-grid">
         <label class="full-width">
-          最低保留餘額
+          至少想留下
           <input id="minimumInput" type="number" min="0" step="1" inputmode="numeric" value="5000" required>
         </label>
-        <button class="primary-button full-width" type="submit">開始記帳</button>
+        <button class="primary-button full-width" type="submit">開始使用</button>
       </form>
     </section>
 
@@ -106,13 +106,13 @@
       <section class="hero-card" id="heroCard">
         <div class="hero-status-row">
           <div>
-            <p class="eyebrow">本期狀態</p>
-            <strong id="statusHeadline">正在整理</strong>
+            <p class="eyebrow">目前狀況</p>
+            <strong id="statusHeadline">整理中</strong>
           </div>
           <span id="statusPill" class="status-pill">讀取中</span>
         </div>
-        <p id="safetyText">正在整理本期資料...</p>
-        <p class="quiet-balance">繳完卡費後 <span id="projectedSavings">$0</span></p>
+        <p id="safetyText">正在整理帳目…</p>
+        <p class="quiet-balance">卡費繳清後 <span id="projectedSavings">$0</span></p>
       </section>
 
       <section class="notification-setup" id="notificationSetup" hidden>
@@ -133,12 +133,12 @@
 
       <section class="metrics-grid">
         <article class="metric-card">
-          <span>安全餘額</span>
+          <span id="bottomLineLabel">高於底線</span>
           <strong id="safetyBuffer">$0</strong>
           <small class="metric-detail" id="safetyBreakdown"></small>
         </article>
         <article class="metric-card">
-          <span>繳完卡費後</span>
+          <span>卡費繳清後</span>
           <strong id="spentAmount">$0</strong>
         </article>
         <article class="metric-card">
@@ -146,15 +146,15 @@
           <strong id="pendingAmount">$0</strong>
         </article>
         <article class="metric-card">
-          <span>帳戶總餘額</span>
+          <span>帳戶餘額</span>
           <strong id="dailyAllowance">$0</strong>
         </article>
         <article class="metric-card">
-          <span>信用卡未繳</span>
+          <span>未繳卡費</span>
           <strong id="cardDueAmount">$0</strong>
         </article>
         <article class="metric-card">
-          <span>未來分期未償</span>
+          <span>還沒繳的分期</span>
           <strong id="futureInstallmentAmount">$0</strong>
         </article>
       </section>
@@ -176,19 +176,19 @@
           </div>
           <nav class="app-menu-list">
             <button class="tab-button" type="button" data-panel="wishPanel">
-              <strong>我想買</strong><span>購買前試算</span>
+              <strong>我想買</strong><span>先看看買了會不會低於底線</span>
             </button>
             <button class="tab-button" type="button" data-panel="cardPanel">
-              <strong>信用卡</strong><span>帳單與卡片設定</span>
+              <strong>信用卡</strong><span>管理卡片和帳單</span>
             </button>
             <button class="tab-button" type="button" data-panel="installmentPanel">
-              <strong>分期</strong><span>分期計畫管理</span>
+              <strong>分期</strong><span>查看還有多少沒繳</span>
             </button>
             <button class="tab-button" type="button" data-panel="accountPanel">
-              <strong>帳戶</strong><span>帳戶餘額與轉帳紀錄</span>
+              <strong>帳戶</strong><span>管理餘額和轉帳</span>
             </button>
             <button class="tab-button" type="button" data-panel="toolsPanel">
-              <strong>工具與歷史</strong><span>歷史、備份與其他設定</span>
+              <strong>工具與歷史</strong><span>查看每月紀錄和備份</span>
             </button>
           </nav>
           <button class="secondary-button app-menu-signout" id="changePasswordButton" type="button" hidden>設定／變更登入密碼</button>
@@ -232,7 +232,7 @@
             扣款帳戶
             <select id="expenseAccountSelect"></select>
           </label>
-          <button class="primary-button full-width" type="submit">新增支出</button>
+          <button class="primary-button full-width" type="submit">記下這筆支出</button>
         </form>
       </section>
 
@@ -262,7 +262,7 @@
             備註
             <input id="incomeTitle" type="text" maxlength="80" placeholder="薪水、媽媽生活費、獎金">
           </label>
-          <button class="primary-button full-width" type="submit">新增收入</button>
+          <button class="primary-button full-width" type="submit">記下這筆收入</button>
         </form>
         <div class="inline-list" id="incomeList"></div>
       </section>
@@ -316,8 +316,8 @@
             扣款帳戶
             <select id="advanceAccountSelect"></select>
           </label>
-          <button class="primary-button full-width" type="submit">新增代墊／補貼待收</button>
-          <p class="helper-text full-width">餐點不同時，上面填自己的餐點，這裡只填別人的餐點；平台費／運費會依分攤人數平均，並把每個人分攤後的金額列入待收。</p>
+          <button class="primary-button full-width" type="submit">記下這筆代墊</button>
+          <p class="helper-text full-width">每個人金額不同時，只要填自己的金額和別人的明細。平台費、運費會依人數平均分攤。</p>
         </form>
 
         <form id="reimbursementForm" class="form-grid sub-form" hidden>
@@ -336,8 +336,8 @@
             名稱
             <input id="reimbursementTitle" type="text" maxlength="80" placeholder="媽媽信用卡帳單回補">
           </label>
-          <button class="secondary-button full-width" type="submit">新增回補 / 待收</button>
-          <p class="helper-text full-width">用在已經包含於帳單或支出裡的回補款；標成已收到會加回月底餘額。</p>
+          <button class="secondary-button full-width" type="submit">記下回補款</button>
+          <p class="helper-text full-width">適合記錄已經算在支出裡、之後會收回來的錢。</p>
         </form>
       </section>
 
@@ -351,7 +351,7 @@
             商品名稱
             <input id="wishTitle" type="text" maxlength="80" placeholder="Pikmin、手機、生活用品">
           </label>
-          <button class="secondary-button full-width" type="submit">試算能不能買</button>
+          <button class="secondary-button full-width" type="submit">看看買了會剩多少</button>
         </form>
         <div class="wish-result" id="wishResult" hidden></div>
       </section>
@@ -391,7 +391,7 @@
             <input id="openingBillDueDate" type="date">
           </label>
           <button class="secondary-button full-width" type="submit">新增期初帳單</button>
-          <p class="helper-text full-width">從 0 開始使用時，把目前這期卡費整筆輸入；未來尚未到期的分期不要放進來。</p>
+          <p class="helper-text full-width">第一次使用時，把目前還沒繳的帳單總額填在這裡。之後才到期的分期先不用填。</p>
         </form>
 
         <form id="cardFeeForm" class="form-grid sub-form">
@@ -448,7 +448,7 @@
             <select id="installmentCardSelect" required></select>
           </label>
           <button class="primary-button full-width" type="submit">新增分期</button>
-          <p class="helper-text full-width">首頁會用完整承諾金額計算「接下來可運用」，但本期現金流只計入本期應繳。</p>
+          <p class="helper-text full-width">還沒繳的分期會先保留起來；未繳卡費只會算目前要繳的部分。</p>
         </form>
       </section>
 
@@ -459,11 +459,11 @@
             <input id="accountName" type="text" maxlength="40" placeholder="銀行、現金、街口支付" required>
           </label>
           <label>
-            期初餘額
+            這天的餘額
             <input id="accountOpeningBalance" type="number" min="0" step="1" inputmode="numeric" value="0" required>
           </label>
           <label>
-            餘額基準日
+            餘額日期
             <input id="accountBalanceDate" type="date" required>
           </label>
           <label class="full-width">
@@ -476,7 +476,7 @@
             </select>
           </label>
           <button class="primary-button full-width" type="submit">新增帳戶</button>
-          <p class="helper-text full-width">基準日前的回填紀錄不會再影響這筆期初餘額。</p>
+          <p class="helper-text full-width">系統會從這一天的餘額往後計算，較早的紀錄不會再重複加減。</p>
         </form>
 
         <form id="transferForm" class="form-grid sub-form">
@@ -506,7 +506,7 @@
         <div class="inline-list" id="accountList"></div>
         <div class="section-title">
           <h2>轉帳／儲值紀錄</h2>
-          <span>只影響帳戶間餘額，不算一般消費</span>
+          <span>只移動帳戶裡的錢，不會算成消費</span>
         </div>
         <div class="inline-list" id="transferList"></div>
       </section>
@@ -514,15 +514,15 @@
       <section class="work-panel" id="toolsPanel">
         <section class="history-box">
           <div class="section-title">
-            <h2>歷史週期</h2>
-            <span>系統按月份自動整理，不用分類</span>
+            <h2>每月紀錄</h2>
+            <span>會依日期自動整理</span>
           </div>
           <button class="secondary-button full-width" id="historyButton" type="button">查看歷史</button>
           <div class="record-list history-list" id="historyList" hidden></div>
         </section>
         <section class="mom-request-box">
           <div class="section-title">
-            <h2>給媽媽金額</h2>
+            <h2>給媽媽的訊息</h2>
             <span id="motherRequestTotal">$0</span>
           </div>
           <textarea id="motherRequestMessage" readonly></textarea>
@@ -548,7 +548,7 @@
       <section class="list-section">
         <div class="section-title">
           <h2>待收款</h2>
-          <span>收回後只會結清待收，不算收入</span>
+          <span>收到錢後會結清，不會再算一次收入</span>
         </div>
         <div class="record-list" id="reimbursementList"></div>
       </section>
@@ -556,7 +556,7 @@
       <section class="list-section">
         <div class="section-title">
           <h2>信用卡明細</h2>
-          <span>繳卡費只會標記已繳，不會再算支出</span>
+          <span>繳卡費不會重複算成支出</span>
         </div>
         <div class="record-list" id="billReminderList"></div>
       </section>
@@ -564,7 +564,7 @@
       <section class="list-section">
         <div class="section-title">
           <h2>信用卡帳單明細</h2>
-          <span>所有未繳與已繳帳單</span>
+          <span>未繳和已繳的帳單都在這裡</span>
         </div>
         <div class="record-list" id="cardChargeList"></div>
       </section>
@@ -572,14 +572,14 @@
       <section class="list-section">
         <div class="section-title">
           <h2>分期計畫</h2>
-          <span>用來看未來還綁住多少</span>
+          <span>看看之後還有多少要繳</span>
         </div>
         <div class="record-list" id="installmentList"></div>
       </section>
     </section>
 
     <div class="toast" id="toast" hidden></div>
-    <p class="app-version">v20260803-5</p>
+    <p class="app-version">v20260803-8</p>
   </main>
 
   <dialog id="editDialog">
@@ -605,14 +605,14 @@
     </form>
   </dialog>
 
-  <script src="./js/config.js?v=20260803-5"></script>
+  <script src="./js/config.js?v=20260803-8"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"></script>
   <script>
     if (!window.supabase) {
       document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"><\/script>');
     }
   </script>
-  <script src="./js/budget.js?v=20260803-5"></script>
-  <script src="./js/app.js?v=20260803-5"></script>
+  <script src="./js/budget.js?v=20260803-8"></script>
+  <script src="./js/app.js?v=20260803-8"></script>
 </body>
 </html>

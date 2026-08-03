@@ -390,23 +390,23 @@
     if (buffer < 0) {
       hero.classList.add("danger");
       pill.classList.add("danger");
-      pill.textContent = "低於最低保留";
-      if (headline) headline.textContent = "需要收斂一下";
+      pill.textContent = "低於底線";
+      if (headline) headline.textContent = "最近先緩一緩";
       return;
     }
 
     if (buffer <= 1000) {
       hero.classList.add("warning");
       pill.classList.add("warning");
-      pill.textContent = "接近最低保留";
-      if (headline) headline.textContent = "快碰到底線";
+      pill.textContent = "接近底線";
+      if (headline) headline.textContent = "留下的餘裕不多";
       return;
     }
 
     hero.classList.add("safe");
     pill.classList.add("safe");
-    pill.textContent = "最低保留已守住";
-    if (headline) headline.textContent = "目前還穩";
+    pill.textContent = "高於底線";
+    if (headline) headline.textContent = "目前有留住";
   }
 
   function renderAttentionBanner() {
@@ -530,10 +530,12 @@
 
     const summary = calculateSummary();
     $("projectedSavings").textContent = money(summary.afterCardPayment);
-    $("safetyBuffer").textContent = money(summary.safeToSpend);
+    $("safetyBuffer").textContent = money(Math.abs(summary.safeToSpend));
+    const bottomLineLabel = $("bottomLineLabel");
+    if (bottomLineLabel) bottomLineLabel.textContent = summary.safeToSpend >= 0 ? "高於底線" : "低於底線";
     const safetyBreakdown = $("safetyBreakdown");
     if (safetyBreakdown) {
-      safetyBreakdown.textContent = `帳戶 ${money(summary.accountBalance)} - 未繳卡費 ${money(summary.cardDue)} - 固定扣款 ${money(summary.subscriptionEstimate)} - 未來分期 ${money(summary.futureInstallmentBalance)} - 保留 ${money(state.cycle.minimum_savings)}`;
+      safetyBreakdown.textContent = `帳戶 ${money(summary.accountBalance)} - 未繳卡費 ${money(summary.cardDue)} - 固定扣款 ${money(summary.subscriptionEstimate)} - 未繳分期 ${money(summary.futureInstallmentBalance)} - 最低保留 ${money(state.cycle.minimum_savings)}`;
     }
     $("spentAmount").textContent = money(summary.afterCardPayment);
     $("pendingAmount").textContent = money(summary.pending);
@@ -547,13 +549,10 @@
       cardDueDetail.textContent = `已繳 ${money(paidActual)} · 預估未出帳 ${money(summary.cardDueEstimate)}`;
     }
     $("futureInstallmentAmount").textContent = money(summary.futureInstallmentBalance);
-    $("cycleRange").textContent = `從 ${state.cycle.start_date} 開始`;
-    const subscriptionText = summary.subscriptionEstimate
-      ? `含本月訂閱預估 ${money(summary.subscriptionEstimate)}。`
-      : "";
+    $("cycleRange").textContent = `${state.cycle.start_date} 以來`;
     $("safetyText").textContent = summary.safeToSpend >= 0
-      ? `所有未繳卡費都繳完，並保留 ${money(state.cycle.minimum_savings)} 後，安全餘額還有 ${money(summary.safeToSpend)}。${subscriptionText}`
-      : `如果現在把卡費全繳掉，還差 ${money(Math.abs(summary.safeToSpend))} 才能守住 ${money(state.cycle.minimum_savings)}。先別再刷新的非必要支出。${subscriptionText}`;
+      ? `卡費、固定扣款和分期都算進去後，還比你設定的底線多 ${money(summary.safeToSpend)}。`
+      : `卡費、固定扣款和分期都算進去後，還差 ${money(Math.abs(summary.safeToSpend))} 才能留到你設定的金額。`;
     applyStatus(summary.safeToSpend);
     renderCardOptions();
     renderCreditCards();
@@ -615,7 +614,7 @@
       .slice(0, 5);
 
     if (!rows.length) {
-      list.innerHTML = '<p class="empty-state">目前還沒有動態。第一筆就從最常見的支出開始。</p>';
+      list.innerHTML = '<p class="empty-state">還沒有紀錄。記下第一筆收入或支出吧。</p>';
       return;
     }
 
@@ -646,7 +645,7 @@
       });
 
     if (!rows.length) {
-      list.innerHTML = '<p class="empty-state">目前沒有待收款。</p>';
+      list.innerHTML = '<p class="empty-state">目前沒有等著收回的款項。</p>';
       return;
     }
 
@@ -874,7 +873,7 @@
     if (!list) return;
     const rows = getAccountBalances();
     if (!rows.length) {
-      list.innerHTML = '<p class="empty-state">先新增銀行、現金或街口支付帳戶，之後儲值就可以用轉帳記錄。</p>';
+      list.innerHTML = '<p class="empty-state">先新增一個帳戶，之後就能記錄餘額和轉帳。</p>';
       return;
     }
 
@@ -887,12 +886,12 @@
 
     list.innerHTML = rows.map((account) => {
       const breakdown = account.balance_breakdown || {};
-      const detail = `基準 ${money(breakdown.opening)} + 收入 ${money(breakdown.income)} + 轉入 ${money(breakdown.transferIn)} - 轉出 ${money(breakdown.transferOut)} - 支出 ${money(breakdown.spent)} - 已繳卡費 ${money(breakdown.paidCardCharges)}`;
+      const detail = `原有 ${money(breakdown.opening)} + 收入 ${money(breakdown.income)} + 轉入 ${money(breakdown.transferIn)} - 轉出 ${money(breakdown.transferOut)} - 支出 ${money(breakdown.spent)} - 繳卡費 ${money(breakdown.paidCardCharges)}`;
       return `
       <article class="record-item">
         <div>
           <p class="record-title">${escapeHtml(account.name)}</p>
-          <p class="record-meta">${typeLabel[account.type] || "其他"} · ${account.balance_date || "未設定日期"} 時餘額 ${money(account.opening_balance)}</p>
+          <p class="record-meta">${typeLabel[account.type] || "其他"} · ${account.balance_date || "未設定日期"} 的餘額是 ${money(account.opening_balance)}</p>
           <p class="record-meta">${detail}</p>
         </div>
         <div class="record-amount">${money(account.balance)}</div>
@@ -913,7 +912,7 @@
       .slice(0, 8);
 
     if (!rows.length) {
-      list.innerHTML = '<p class="empty-state">還沒有轉帳／儲值紀錄。</p>';
+      list.innerHTML = '<p class="empty-state">還沒有轉帳或儲值紀錄。</p>';
       return;
     }
 
@@ -940,7 +939,7 @@
       .slice(0, 8);
 
     if (!rows.length) {
-      list.innerHTML = '<p class="empty-state">還沒有收入紀錄。</p>';
+      list.innerHTML = '<p class="empty-state">還沒記過收入。</p>';
       return;
     }
 
@@ -973,7 +972,7 @@
       .sort((a, b) => Number(a.charge_day) - Number(b.charge_day) || String(a.title).localeCompare(String(b.title)));
 
     if (!rows.length) {
-      list.innerHTML = '<p class="empty-state">還沒有每月訂閱項目。</p>';
+      list.innerHTML = '<p class="empty-state">還沒有固定扣款。</p>';
       return;
     }
 
@@ -1009,7 +1008,7 @@
       .sort((a, b) => Number(a.charge_day) - Number(b.charge_day) || String(a.title).localeCompare(String(b.title)));
 
     if (!rows.length) {
-      list.innerHTML = '<p class="empty-state">還沒有每月訂閱項目。</p>';
+      list.innerHTML = '<p class="empty-state">還沒有固定扣款。</p>';
       return;
     }
 
@@ -1046,7 +1045,7 @@
         || String(a.title).localeCompare(String(b.title)));
 
     if (!rows.length) {
-      list.innerHTML = '<p class="empty-state">還沒有每月或每年訂閱項目。</p>';
+      list.innerHTML = '<p class="empty-state">還沒有固定扣款。</p>';
       return;
     }
 
@@ -1103,7 +1102,7 @@
     if (!list) return;
     const rows = getBillReminderRows();
     if (!rows.length) {
-      list.innerHTML = '<p class="empty-state">7 天內沒有需要提醒的信用卡帳單。</p>';
+      list.innerHTML = '<p class="empty-state">接下來 7 天沒有要繳的信用卡帳單。</p>';
       return;
     }
 
@@ -1135,7 +1134,7 @@
     if (!list) return;
     const rows = getBillReminderRows();
     if (!rows.length) {
-      list.innerHTML = '<p class="empty-state">7 天內沒有信用卡帳單要處理。</p>';
+      list.innerHTML = '<p class="empty-state">接下來 7 天沒有要繳的信用卡帳單。</p>';
       return;
     }
 
@@ -1188,7 +1187,7 @@
     const list = $("cardList");
     if (!list) return;
     if (!state.creditCards.length) {
-      list.innerHTML = '<p class="empty-state">先新增一張信用卡，刷卡與分期才有地方歸帳。</p>';
+      list.innerHTML = '<p class="empty-state">先新增一張信用卡，就能開始記刷卡和分期。</p>';
       return;
     }
 
@@ -1213,7 +1212,7 @@
       .sort((a, b) => `${b.due_date || ""}${b.created_at}`.localeCompare(`${a.due_date || ""}${a.created_at}`));
 
     if (!rows.length) {
-      list.innerHTML = '<p class="empty-state">目前沒有本期信用卡待繳。</p>';
+      list.innerHTML = '<p class="empty-state">目前沒有未繳卡費。</p>';
       return;
     }
 
@@ -1250,7 +1249,7 @@
     const rows = getCardStatementRows();
 
     if (!rows.length) {
-      list.innerHTML = '<p class="empty-state">還沒有信用卡帳單資料。</p>';
+      list.innerHTML = '<p class="empty-state">還沒有信用卡帳單。</p>';
       return;
     }
 
@@ -1461,7 +1460,7 @@
       .sort((a, b) => String(b.purchase_date).localeCompare(String(a.purchase_date)));
 
     if (!rows.length) {
-      list.innerHTML = '<p class="empty-state">目前沒有分期計畫。</p>';
+      list.innerHTML = '<p class="empty-state">目前沒有分期。</p>';
       return;
     }
 
@@ -2018,7 +2017,7 @@
         default_minimum_savings: payload.minimum_savings
       }, { onConflict: "user_id" });
 
-    showToast("連續帳本已開始");
+    showToast("設定完成，可以開始記帳了");
     await refresh();
   }
 
@@ -2052,7 +2051,7 @@
     event.target.reset();
     setDefaultDates();
     toggleCardFields();
-    showToast("支出已新增");
+    showToast("這筆支出已記下");
     await refresh();
   }
 
@@ -2166,7 +2165,7 @@
     event.target.reset();
     setDefaultDates();
     toggleCardFields();
-    showToast("代墊已新增");
+    showToast("這筆代墊已記下");
     await refresh();
   }
 
@@ -2187,7 +2186,7 @@
     if (error) throw error;
     event.target.reset();
     $("reimbursementStatus").value = "received";
-    showToast(status === "received" ? "回補已加入月底餘額" : "待收款已新增");
+    showToast(status === "received" ? "回補款已記下" : "待收款已記下");
     await refresh();
   }
 
@@ -2213,7 +2212,7 @@
     event.target.reset();
     setDefaultDates();
     selectPreferredIncomeAccount(state.accounts.filter((account) => account.is_active !== false));
-    showToast("收入已新增");
+    showToast("這筆收入已記下");
     await refresh();
   }
 
@@ -2306,10 +2305,10 @@
     result.hidden = false;
     result.innerHTML = `
       <p class="eyebrow">${escapeHtml(title)}</p>
-      <span>${canBuy ? "刷完仍守得住底線" : "刷完會超過安全線"}</span>
-      <strong>${money(summary.safeToSpend)}</strong>
-      <p>${canBuy ? `刷完後安全餘額剩 ${money(summary.safeToSpend)}` : `還差 ${money(Math.abs(summary.safeToSpend))} 才守住最低保留`}</p>
-      <button class="primary-button full-width" type="button" id="buyNowButton">記成信用卡消費</button>
+      <span>${canBuy ? "買下後仍高於底線" : "買下後會低於底線"}</span>
+      <strong>${money(Math.abs(summary.safeToSpend))}</strong>
+      <p>${canBuy ? `這筆刷下去後，還比你設定的底線多 ${money(summary.safeToSpend)}。` : `這筆刷下去後，會比你設定的底線少 ${money(Math.abs(summary.safeToSpend))}。`}</p>
+      <button class="primary-button full-width" type="button" id="buyNowButton">記為信用卡支出</button>
     `;
     $("buyNowButton").addEventListener("click", async () => {
       const cardId = requireCard("expenseCardSelect");
@@ -2334,7 +2333,7 @@
       });
       $("wishForm").reset();
       result.hidden = true;
-      showToast("已記為支出");
+      showToast("這筆支出已記下");
     });
   }
 
@@ -2523,9 +2522,9 @@
 
     const name = window.prompt("帳戶名稱", account.name);
     if (name === null) return;
-    const openingText = window.prompt("期初餘額", account.opening_balance);
+    const openingText = window.prompt("這天的餘額", account.opening_balance);
     if (openingText === null) return;
-    const balanceDate = window.prompt("餘額基準日（YYYY-MM-DD）", account.balance_date || today());
+    const balanceDate = window.prompt("餘額日期（YYYY-MM-DD）", account.balance_date || today());
     if (balanceDate === null) return;
     const type = window.prompt("類型：bank / wallet / cash / other", account.type || "bank");
     if (type === null) return;
@@ -2533,9 +2532,9 @@
     const openingBalance = toNumber(openingText);
     const normalizedBalanceDate = balanceDate.trim();
     const normalizedType = type.trim();
-    if (openingBalance < 0) throw new Error("期初餘額不能小於 0");
+    if (openingBalance < 0) throw new Error("餘額不能小於 0");
     if (!/^\d{4}-\d{2}-\d{2}$/.test(normalizedBalanceDate)) {
-      throw new Error("餘額基準日格式必須是 YYYY-MM-DD");
+      throw new Error("餘額日期請使用 YYYY-MM-DD 格式");
     }
     if (!["bank", "wallet", "cash", "other"].includes(normalizedType)) {
       throw new Error("類型只能是 bank、wallet、cash、other");
@@ -2930,7 +2929,7 @@
     ].filter((month) => /^\d{4}-\d{2}$/.test(month)));
     const sortedMonths = [...months].sort((a, b) => b.localeCompare(a));
     if (!sortedMonths.length) {
-      list.innerHTML = '<p class="empty-state">目前還沒有可整理的歷史資料。</p>';
+      list.innerHTML = '<p class="empty-state">還沒有過去的紀錄。</p>';
       return;
     }
 
@@ -2972,7 +2971,7 @@
         <article class="record-item">
           <div>
             <p class="record-title">${month.replace("-", " 年 ")} 月</p>
-            <p class="record-meta">${transactions.length} 筆消費 · 系統依日期自動整理</p>
+            <p class="record-meta">${transactions.length} 筆消費 · 已按日期整理</p>
             <div class="history-summary">
               <span>當月收入<strong>${money(income)}</strong></span>
               <span>當月支出<strong>${money(spent)}</strong></span>
@@ -2981,7 +2980,7 @@
             <details class="statement-details">
               <summary>查看類型與明細</summary>
               <div class="statement-detail-list">
-                ${typeRows || '<p class="record-meta">本期沒有支出。</p>'}
+                ${typeRows || '<p class="record-meta">這個月沒有支出。</p>'}
                 ${transactionRows ? `<div class="statement-detail-row statement-difference-row"><span>全部消費明細</span><strong>${transactions.length} 筆</strong></div>${transactionRows}` : ""}
               </div>
             </details>
@@ -3109,7 +3108,7 @@
     ensureSubscriptionPanel();
     organizeDashboardSections();
     const heroEyebrow = $("heroCard")?.querySelector(".eyebrow");
-    if (heroEyebrow) heroEyebrow.textContent = "本期狀態";
+    if (heroEyebrow) heroEyebrow.textContent = "目前狀況";
     setLabelText("openingBillAmount", "實際帳單金額");
     setLabelText("openingBillDate", "帳單日");
     setLabelText("openingBillCardSelect", "信用卡");
@@ -3128,7 +3127,7 @@
     const openingButton = $("openingBillForm")?.querySelector("button[type=\"submit\"]");
     if (openingButton) openingButton.textContent = "新增實際帳單";
     const helper = $("openingBillForm")?.querySelector(".helper-text");
-    if (helper) helper.textContent = "收到信用卡帳單後，把帳單上的總金額填在這裡；系統會拿已記錄的刷卡預估和實際帳單比對差額。";
+    if (helper) helper.textContent = "收到帳單後，填入帳單總額，就能和目前記下的刷卡金額核對。";
     if ($("subscriptionDay") && !$("subscriptionDay").value) {
       $("subscriptionDay").value = new Date().getDate();
     }
@@ -3145,7 +3144,7 @@
       const title = recordSection.querySelector("h2");
       if (title) title.textContent = "最近動態";
       const detail = recordSection.querySelector(".section-title span");
-      if (detail) detail.textContent = "最近 5 筆收入、支出與待收狀態";
+      if (detail) detail.textContent = "最近 5 筆收入、支出、待收與轉帳";
     }
 
     const reimbursementSection = $("reimbursementList")?.closest(".list-section");
@@ -3156,7 +3155,7 @@
       const title = reimbursementSection.querySelector("h2");
       if (title) title.textContent = "待收款明細";
       const detail = reimbursementSection.querySelector(".section-title span");
-      if (detail) detail.textContent = "收回後只會結清待收，不算收入";
+      if (detail) detail.textContent = "收到錢後會結清，不會再算一次收入";
     }
     if (reminderSection && $("cardPanel") && !reminderSection.closest("#cardPanel")) {
       $("cardPanel").appendChild(reminderSection);
@@ -3213,7 +3212,7 @@
     button.className = "tab-button";
     button.type = "button";
     button.dataset.panel = "subscriptionPanel";
-    button.innerHTML = "<strong>訂閱</strong><span>固定扣款與續訂管理</span>";
+    button.innerHTML = "<strong>固定扣款</strong><span>管理訂閱和定期費用</span>";
     menu?.insertBefore(button, accountButton || installmentButton?.nextSibling || null);
 
     const panel = document.createElement("section");
@@ -3259,8 +3258,8 @@
           扣款帳戶
           <select id="subscriptionAccountSelect"></select>
         </label>
-        <button class="primary-button full-width" type="submit">新增訂閱</button>
-        <p class="helper-text full-width">啟用中的訂閱會自動納入每月預估；退訂或暫停時按停用即可。</p>
+        <button class="primary-button full-width" type="submit">新增固定扣款</button>
+        <p class="helper-text full-width">啟用的項目會先算進固定扣款。取消或暫停後，按「停用」就好。</p>
       </form>
       <div class="inline-list" id="subscriptionList"></div>
     `;
