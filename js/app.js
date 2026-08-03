@@ -280,18 +280,10 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      const hadController = Boolean(navigator.serviceWorker.controller);
-      let isRefreshing = false;
-
-      navigator.serviceWorker.addEventListener("controllerchange", () => {
-        if (!hadController || isRefreshing) return;
-        isRefreshing = true;
-        window.location.reload();
-      });
-
-      navigator.serviceWorker.register("./sw.js?v=20260803-13")
+      navigator.serviceWorker.register("./sw.js?v=20260803-15")
         .then((registration) => {
-          registration.update().catch((error) => console.warn("Service worker update check failed", error));
+          registration.update()
+            .catch((error) => console.warn("Service worker update check failed", error));
         })
         .catch((error) => console.warn("Service worker registration failed", error));
     });

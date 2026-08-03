@@ -1,4 +1,5 @@
-const CACHE_VERSION = "left-20260803-13";
+const CACHE_VERSION = "left-20260803-15";
+const APP_VERSION = "20260803-15";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
@@ -11,6 +12,12 @@ self.addEventListener("activate", (event) => {
       .filter((key) => key !== CACHE_VERSION)
       .map((key) => caches.delete(key)));
     await self.clients.claim();
+    const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    await Promise.all(windows.map((client) => {
+      const url = new URL(client.url);
+      url.searchParams.set("app-version", APP_VERSION);
+      return client.navigate(url.href);
+    }));
   })());
 });
 
