@@ -299,6 +299,88 @@ select:focus {
   gap: 14px;
 }
 
+.detail-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  min-height: 52px;
+  border-bottom: 1px solid var(--line);
+  padding: 6px 0 8px;
+  background: var(--bg);
+}
+
+.detail-header h2 {
+  grid-column: 2;
+  margin: 0;
+  text-align: center;
+}
+
+.detail-back-button {
+  grid-column: 1;
+  width: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 1.35rem;
+}
+
+.dashboard.detail-view > .hero-card,
+.dashboard.detail-view > .notification-setup,
+.dashboard.detail-view > .attention-banner,
+.dashboard.detail-view > .metrics-grid,
+.dashboard.detail-view > .action-tabs,
+.dashboard.detail-view > #recentActivitySection {
+  display: none !important;
+}
+
+.dashboard.detail-view > .work-panel.active {
+  display: block;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+body.detail-view-active .topbar {
+  display: none;
+}
+
+.panel-disclosure {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-strong);
+}
+
+.panel-disclosure + .panel-disclosure {
+  margin-top: 8px;
+}
+
+.panel-disclosure summary {
+  cursor: pointer;
+  padding: 13px 14px;
+  color: var(--primary-dark);
+  font-weight: 800;
+  list-style-position: inside;
+}
+
+.panel-disclosure[open] summary {
+  border-bottom: 1px solid var(--line);
+}
+
+.panel-disclosure form {
+  padding: 14px;
+}
+
+.records-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 150px;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
 .hero-card {
   position: relative;
   overflow: hidden;
@@ -505,6 +587,9 @@ select:focus {
 }
 
 .action-tabs {
+  position: sticky;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  z-index: 12;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
@@ -594,6 +679,14 @@ select:focus {
   display: block;
 }
 
+.menu-close-button {
+  width: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 1.4rem;
+}
+
 .work-panel > .list-section {
   margin-top: 18px;
   border: 0;
@@ -669,11 +762,21 @@ select:focus {
   padding: 16px;
 }
 
+.dashboard.detail-view #toolsPanel .mom-request-box,
+.dashboard.detail-view #toolsPanel .history-box {
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 0 0 18px;
+  background: transparent;
+}
+
 #recentActivitySection {
   border: 0;
   padding: 4px 0 0;
   background: transparent;
   box-shadow: none;
+  margin-bottom: 56px;
 }
 
 .list-tabs {
@@ -989,6 +1092,10 @@ dialog::backdrop {
   }
 
   .notification-setup {
+    grid-template-columns: 1fr;
+  }
+
+  .records-toolbar {
     grid-template-columns: 1fr;
   }
 

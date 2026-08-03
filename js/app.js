@@ -280,7 +280,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260803-15")
+      navigator.serviceWorker.register("./sw.js?v=20260803-17")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
@@ -610,6 +610,13 @@
     const allRows = [...transactionRows, ...incomeRows, ...reimbursementRows, ...transferRows]
       .sort((a, b) => `${b.activityDate || ""}${b.created_at || ""}`.localeCompare(`${a.activityDate || ""}${a.created_at || ""}`));
     const fullList = $("allRecordList");
+    const searchText = $("recordSearch")?.value.trim().toLocaleLowerCase("zh-Hant") || "";
+    const typeFilter = $("recordTypeFilter")?.value || "all";
+    const filteredRows = allRows.filter((row) => {
+      const matchesType = typeFilter === "all" || row.activityKind === typeFilter;
+      const searchable = `${row.activityTitle || ""} ${row.activityType || ""} ${row.activityMeta || ""}`.toLocaleLowerCase("zh-Hant");
+      return matchesType && (!searchText || searchable.includes(searchText));
+    });
 
     if (!allRows.length) {
       list.innerHTML = '<p class="empty-state">還沒有紀錄。記下第一筆收入或支出吧。</p>';
@@ -649,7 +656,11 @@
     };
 
     list.innerHTML = allRows.slice(0, 3).map((row) => renderRow(row, false)).join("");
-    if (fullList) fullList.innerHTML = allRows.map((row) => renderRow(row, true)).join("");
+    if (fullList) {
+      fullList.innerHTML = filteredRows.length
+        ? filteredRows.map((row) => renderRow(row, true)).join("")
+        : '<p class="empty-state">找不到符合條件的紀錄。</p>';
+    }
   }
 
   function renderReimbursements() {
@@ -767,6 +778,39 @@
     });
   }
 
+  let detailHistoryActive = false;
+
+  function closeDetailView() {
+    document.body.classList.remove("detail-view-active");
+    $("dashboard")?.classList.remove("detail-view");
+    $("detailHeader").hidden = true;
+    document.querySelectorAll(".tab-button[data-panel]").forEach((item) => item.classList.remove("active"));
+    document.querySelectorAll(".work-panel").forEach((item) => item.classList.remove("active"));
+    $("openAppMenuButton")?.classList.remove("active");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function openDetailView(panelId, title, pushHistory = true) {
+    const panel = $(panelId);
+    if (!panel) return;
+    document.querySelectorAll(".tab-button[data-panel]").forEach((item) => {
+      item.classList.toggle("active", item.dataset.panel === panelId);
+    });
+    document.querySelectorAll(".work-panel").forEach((item) => item.classList.remove("active"));
+    panel.classList.add("active");
+    document.body.classList.add("detail-view-active");
+    $("dashboard").classList.add("detail-view");
+    $("detailTitle").textContent = title;
+    $("detailHeader").hidden = false;
+    $("appMenuBackdrop").hidden = true;
+    $("openAppMenuButton")?.classList.toggle("active", Boolean(document.querySelector(`.app-menu [data-panel="${panelId}"]`)));
+    if (pushHistory && !detailHistoryActive) {
+      window.history.pushState({ ...(window.history.state || {}), leftDetail: true }, "");
+      detailHistoryActive = true;
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
   function showPendingCardEstimateDetails() {
     const list = $("cardChargeList");
     if (!list) return;
@@ -783,10 +827,7 @@
   function showReimbursementDetails() {
     const list = $("reimbursementList");
     if (!list) return;
-    document.querySelectorAll(".tab-button[data-panel]").forEach((item) => item.classList.remove("active"));
-    document.querySelectorAll(".work-panel").forEach((item) => item.classList.remove("active"));
-    $("openAppMenuButton")?.classList.remove("active");
-    $("reimbursementPanel")?.classList.add("active");
+    openDetailView("reimbursementPanel", "待收款");
     $("reimbursementPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
     if (!state.reimbursements.some((row) => row.status === "pending")) {
       showToast("目前沒有待收款明細");
@@ -3104,9 +3145,26 @@
     label.firstChild.textContent = `\n            ${text}\n            `;
   }
 
+  function wrapPanelForm(formId, label) {
+    const form = $(formId);
+    if (!form || form.closest(".panel-disclosure")) return;
+    const details = document.createElement("details");
+    details.className = "panel-disclosure";
+    const summary = document.createElement("summary");
+    summary.textContent = label;
+    form.before(details);
+    form.classList.remove("sub-form");
+    details.append(summary, form);
+  }
+
   function applyCopyOverrides() {
     ensureSubscriptionPanel();
     organizeDashboardSections();
+    wrapPanelForm("cardForm", "新增信用卡");
+    wrapPanelForm("openingBillForm", "輸入實際帳單");
+    wrapPanelForm("cardFeeForm", "新增費用或利息");
+    wrapPanelForm("accountForm", "新增帳戶");
+    wrapPanelForm("transferForm", "轉帳或儲值");
     const heroEyebrow = $("heroCard")?.querySelector(".eyebrow");
     if (heroEyebrow) heroEyebrow.textContent = "目前狀況";
     setLabelText("openingBillAmount", "實際帳單金額");
@@ -3432,13 +3490,33 @@
 
     document.querySelectorAll(".tab-button[data-panel]").forEach((button) => {
       button.addEventListener("click", () => {
-        document.querySelectorAll(".tab-button[data-panel]").forEach((item) => item.classList.remove("active"));
-        document.querySelectorAll(".work-panel").forEach((item) => item.classList.remove("active"));
-        button.classList.add("active");
-        $("openAppMenuButton").classList.toggle("active", Boolean(button.closest(".app-menu")));
-        $(button.dataset.panel).classList.add("active");
+        const title = button.querySelector("strong")?.textContent.trim() || button.textContent.trim();
+        openDetailView(button.dataset.panel, title);
         closeAppMenu();
       });
+    });
+
+    document.querySelectorAll(".panel-disclosure").forEach((disclosure) => {
+      disclosure.addEventListener("toggle", () => {
+        if (!disclosure.open) return;
+        disclosure.parentElement?.querySelectorAll(":scope > .panel-disclosure").forEach((item) => {
+          if (item !== disclosure) item.open = false;
+        });
+      });
+    });
+
+    $("detailBackButton").addEventListener("click", () => {
+      if (detailHistoryActive) {
+        window.history.back();
+      } else {
+        closeDetailView();
+      }
+    });
+
+    window.addEventListener("popstate", () => {
+      if (!detailHistoryActive) return;
+      detailHistoryActive = false;
+      closeDetailView();
     });
 
     $("recordList").addEventListener("click", wrap(async (event) => {
@@ -3462,6 +3540,8 @@
       else if (deleteReimbursementId) await deleteReimbursement(deleteReimbursementId);
       else if (deleteTransferId) await deleteTransfer(deleteTransferId);
     }));
+    $("recordSearch").addEventListener("input", renderTransactions);
+    $("recordTypeFilter").addEventListener("change", renderTransactions);
 
     $("reimbursementList").addEventListener("click", wrap(async (event) => {
       const receivedId = event.target.dataset.received;

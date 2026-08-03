@@ -7,10 +7,10 @@
   <link rel="icon" href="./assets/branding/left-favicon-v2-64.png" type="image/png" sizes="64x64">
   <link rel="shortcut icon" href="./assets/branding/left-favicon-v2-64.png" type="image/png">
   <link rel="apple-touch-icon" href="./assets/branding/left-icon-v2-192.png">
-  <link rel="manifest" href="./manifest.json?v=20260803-15">
+  <link rel="manifest" href="./manifest.json?v=20260803-17">
   <meta name="theme-color" content="#f3f1ee">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="./css/style.css?v=20260803-15">
+  <link rel="stylesheet" href="./css/style.css?v=20260803-17">
 </head>
 <body>
   <main class="app-shell">
@@ -55,7 +55,7 @@
             const keys = await caches.keys();
             await Promise.all(keys.map((key) => caches.delete(key)));
           }
-          window.location.replace(`${window.location.pathname}?refresh=20260803-15`);
+          window.location.replace(`${window.location.pathname}?refresh=20260803-17`);
         });
       })();
     </script>
@@ -103,6 +103,11 @@
     </section>
 
     <section class="dashboard" id="dashboard" hidden>
+      <header class="detail-header" id="detailHeader" hidden>
+        <button class="icon-button detail-back-button" id="detailBackButton" type="button" title="返回主頁" aria-label="返回主頁">←</button>
+        <h2 id="detailTitle"></h2>
+      </header>
+
       <section class="hero-card" id="heroCard">
         <div class="hero-status-row">
           <div>
@@ -160,7 +165,7 @@
       </section>
 
       <nav class="action-tabs" aria-label="主要操作">
-        <button class="tab-button active" type="button" data-panel="expensePanel">記一筆</button>
+        <button class="tab-button" type="button" data-panel="expensePanel">記一筆</button>
         <button class="tab-button" type="button" data-panel="incomePanel">收入</button>
         <button class="tab-button" type="button" data-panel="advancePanel">代墊</button>
       </nav>
@@ -172,7 +177,7 @@
               <p class="eyebrow">更多功能</p>
               <h2>管理與設定</h2>
             </div>
-            <button class="icon-button" id="closeAppMenuButton" type="button">關閉</button>
+            <button class="icon-button menu-close-button" id="closeAppMenuButton" type="button" title="關閉選單" aria-label="關閉選單">×</button>
           </div>
           <nav class="app-menu-list">
             <button class="tab-button" type="button" data-panel="wishPanel">
@@ -199,7 +204,7 @@
         </aside>
       </div>
 
-      <section class="work-panel active" id="expensePanel">
+      <section class="work-panel" id="expensePanel">
         <form id="expenseForm" class="form-grid" autocomplete="off">
           <label>
             金額
@@ -515,9 +520,15 @@
       </section>
 
       <section class="work-panel" id="recordsPanel">
-        <div class="section-title">
-          <h2>所有紀錄</h2>
-          <span>收入、支出、待收與轉帳</span>
+        <div class="records-toolbar">
+          <input id="recordSearch" type="search" placeholder="搜尋紀錄" aria-label="搜尋紀錄">
+          <select id="recordTypeFilter" aria-label="紀錄類型">
+            <option value="all">全部類型</option>
+            <option value="transaction">支出與代墊</option>
+            <option value="income">收入</option>
+            <option value="reimbursement">待收款</option>
+            <option value="transfer">轉帳與儲值</option>
+          </select>
         </div>
         <div class="record-list" id="allRecordList"></div>
       </section>
@@ -590,7 +601,7 @@
     </section>
 
     <div class="toast" id="toast" hidden></div>
-    <p class="app-version">v20260803-15</p>
+    <p class="app-version">v20260803-17</p>
   </main>
 
   <dialog id="editDialog">
@@ -616,14 +627,14 @@
     </form>
   </dialog>
 
-  <script src="./js/config.js?v=20260803-15"></script>
+  <script src="./js/config.js?v=20260803-17"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"></script>
   <script>
     if (!window.supabase) {
       document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"><\/script>');
     }
   </script>
-  <script src="./js/budget.js?v=20260803-15"></script>
-  <script src="./js/app.js?v=20260803-15"></script>
+  <script src="./js/budget.js?v=20260803-17"></script>
+  <script src="./js/app.js?v=20260803-17"></script>
 </body>
 </html>
