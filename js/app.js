@@ -558,6 +558,7 @@
     renderTransfers();
     renderIncomeRecords();
     renderSubscriptions();
+    renderWishPurchases();
     renderBillReminders();
     renderMotherRequest();
     renderAttentionBanner();
@@ -661,6 +662,39 @@
         ? filteredRows.map((row) => renderRow(row, true)).join("")
         : '<p class="empty-state">找不到符合條件的紀錄。</p>';
     }
+  }
+
+  function renderWishPurchases() {
+    const list = $("wishPurchaseList");
+    if (!list) return;
+
+    const rows = [...state.transactions]
+      .filter((row) => row.kind === "expense" && row.payment_method === "credit_card")
+      .sort((a, b) => `${b.date || ""}${b.created_at || ""}`.localeCompare(`${a.date || ""}${a.created_at || ""}`))
+      .slice(0, 8);
+
+    if (!rows.length) {
+      list.innerHTML = '<p class="empty-state">還沒有從這裡記下購物。試算後可以直接記成信用卡支出。</p>';
+      return;
+    }
+
+    const cardsById = new Map(state.creditCards.map((card) => [card.id, card]));
+    list.innerHTML = rows.map((row) => {
+      const card = cardsById.get(row.credit_card_id);
+      return `
+        <article class="record-item">
+          <div>
+            <p class="record-title">${escapeHtml(row.title || "一般消費")}</p>
+            <p class="record-meta">${row.date || "未填日期"} · ${escapeHtml(cardDisplayName(card))}</p>
+          </div>
+          <div class="record-amount">${money(row.amount)}</div>
+          <div class="record-actions">
+            <button type="button" data-edit-wish="${row.id}">編輯</button>
+            <button type="button" data-delete-wish="${row.id}">刪除</button>
+          </div>
+        </article>
+      `;
+    }).join("");
   }
 
   function renderReimbursements() {
@@ -2375,6 +2409,7 @@
       $("wishForm").reset();
       result.hidden = true;
       showToast("這筆支出已記下");
+      await refresh();
     });
   }
 
@@ -3441,6 +3476,12 @@
     $("advanceForm").addEventListener("submit", wrap(addAdvance));
     $("reimbursementForm").addEventListener("submit", wrap(addManualReimbursement));
     $("wishForm").addEventListener("submit", runWish);
+    $("wishPurchaseList").addEventListener("click", wrap(async (event) => {
+      const editId = event.target.closest("[data-edit-wish]")?.dataset.editWish;
+      const deleteId = event.target.closest("[data-delete-wish]")?.dataset.deleteWish;
+      if (editId) await editTransaction(editId);
+      else if (deleteId) await deleteTransaction(deleteId);
+    }));
     $("cardForm").addEventListener("submit", wrap(addCreditCard));
     $("openingBillForm").addEventListener("submit", wrap(addOpeningBill));
     $("installmentForm").addEventListener("submit", wrap(addInstallment));
