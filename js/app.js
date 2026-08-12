@@ -306,7 +306,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260812-01")
+      navigator.serviceWorker.register("./sw.js?v=20260812-02")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
@@ -1525,12 +1525,40 @@
         ? ` · 預估 ${money(estimate)} · 差額 ${formatDifference(toNumber(row.amount) - estimate)}`
         : "";
       const paidText = row.status === "paid" ? ` · 已繳 ${row.paid_at || ""}` : "";
+      const estimateItems = isActualStatement(row) ? getEstimateItemsForActual(row) : [];
+      const estimateSourceLabel = {
+        general: "一般刷卡",
+        advance: "代墊",
+        installment: "分期",
+        subscription: "訂閱"
+      };
+      const estimateDetailRows = estimateItems.map((item) => `
+        <div class="statement-detail-row">
+          <span>${item.charge_date || item.due_date || "未填日期"} · ${estimateSourceLabel[item.source_type] || "預估"} · ${escapeHtml(item.title || "未命名")}</span>
+          <strong>${money(item.amount)}</strong>
+        </div>
+      `).join("");
+      const differenceDetails = isActualStatement(row)
+        ? `
+          <details class="statement-details" open>
+            <summary>查看預估明細（${estimateItems.length} 筆，共 ${money(estimate)}）</summary>
+            <div class="statement-detail-list">
+              ${estimateDetailRows || '<p class="record-meta">這期目前沒有 App 預估明細。</p>'}
+              <div class="statement-detail-row statement-difference-row">
+                <span>實際帳單 - App 預估</span>
+                <strong>${formatDifference(toNumber(row.amount) - estimate)}</strong>
+              </div>
+            </div>
+          </details>
+        `
+        : "";
 
       return `
         <article class="record-item">
           <div>
             <p class="record-title">${escapeHtml(displayTitle)}</p>
             <p class="record-meta">${sourceLabel} · 帳單日 ${row.charge_date || "未填"} · 繳款日 ${row.due_date || "未填"}${diffText}${paidText}</p>
+            ${differenceDetails}
           </div>
           <div class="record-amount">${money(row.amount)}</div>
           <div class="record-actions">
