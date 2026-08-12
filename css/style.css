@@ -1013,6 +1013,38 @@ body.detail-view-active .topbar {
   font-weight: 800;
 }
 
+#cardList .record-item {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  padding: 9px 12px;
+}
+
+#cardList .record-title {
+  margin-bottom: 1px;
+  font-size: 0.95rem;
+}
+
+#cardList .record-meta {
+  font-size: 0.76rem;
+}
+
+#cardList .record-amount {
+  display: none;
+}
+
+#cardList .record-actions {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  justify-content: flex-end;
+}
+
+#cardList .record-actions button {
+  min-height: 30px;
+  padding: 4px 8px;
+  font-size: 0.82rem;
+}
+
 .reminder-item {
   border-color: rgba(141, 116, 105, 0.36);
   background: var(--accent-soft);

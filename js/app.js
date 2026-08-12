@@ -176,6 +176,31 @@
     return `${amount > 0 ? "+" : "-"}${money(Math.abs(amount))}`;
   }
 
+  function cardEstimateItemKey(row) {
+    if (row.transaction_id) return `tx:${row.transaction_id}`;
+    if (row.source_type === "subscription" && row.id) return `subscription:${row.id}`;
+    if (row.installment_plan_id && row.installment_number) {
+      return `installment:${row.installment_plan_id}:${row.installment_number}`;
+    }
+    return [
+      row.source_type,
+      row.card_id,
+      row.charge_date || row.due_date || "",
+      row.title || "",
+      toNumber(row.amount)
+    ].join(":");
+  }
+
+  function uniqueCardEstimateItems(rows) {
+    const seen = new Set();
+    return (rows || []).filter((row) => {
+      const key = cardEstimateItemKey(row);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
   function urlBase64ToUint8Array(value) {
     const padding = "=".repeat((4 - value.length % 4) % 4);
     const base64 = (value + padding).replace(/-/g, "+").replace(/_/g, "/");
@@ -187,16 +212,18 @@
     if (!cardId || !dueDate) return 0;
     const actualRow = state.cardCharges.find((row) => isActualStatement(row) && row.card_id === cardId && row.due_date === dueDate);
     const statementKey = actualRow ? cardStatementKey(actualRow) : `${cardId}:${String(dueDate).slice(0, 7)}`;
-    return [...state.cardCharges, ...getSubscriptionCardEstimateRows(), ...getUpcomingInstallmentEstimateRows()]
+    return uniqueCardEstimateItems([...state.cardCharges, ...getSubscriptionCardEstimateRows(), ...getUpcomingInstallmentEstimateRows()]
       .filter((row) => isEstimatedCardCharge(row) && row.card_id === cardId && cardStatementKey(row) === statementKey)
+    )
       .reduce((sum, row) => sum + toNumber(row.amount), 0);
   }
 
   function getEstimateItemsForActual(row) {
     if (!isActualStatement(row) || !row.card_id || !row.due_date) return [];
     const key = cardStatementKey(row);
-    return [...state.cardCharges, ...getSubscriptionCardEstimateRows(), ...getUpcomingInstallmentEstimateRows()]
+    return uniqueCardEstimateItems([...state.cardCharges, ...getSubscriptionCardEstimateRows(), ...getUpcomingInstallmentEstimateRows()]
       .filter((item) => isEstimatedCardCharge(item) && item.card_id === row.card_id && cardStatementKey(item) === key)
+    )
       .sort((a, b) => String(a.charge_date || a.due_date || "").localeCompare(String(b.charge_date || b.due_date || "")));
   }
 
@@ -259,7 +286,7 @@
     );
     const groups = new Map();
 
-    [...state.cardCharges, ...getSubscriptionCardEstimateRows(), ...getUpcomingInstallmentEstimateRows()]
+    uniqueCardEstimateItems([...state.cardCharges, ...getSubscriptionCardEstimateRows(), ...getUpcomingInstallmentEstimateRows()])
       .filter((row) => isEstimatedCardCharge(row) && (row.due_date || row.charge_date))
       .forEach((row) => {
         const key = cardStatementKey(row);
@@ -306,7 +333,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260812-02")
+      navigator.serviceWorker.register("./sw.js?v=20260812-03")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
@@ -3728,10 +3755,17 @@
 
   function wrap(fn) {
     return async function wrapped(event) {
+      const form = event?.target instanceof HTMLFormElement ? event.target : null;
+      const submitter = event?.submitter || form?.querySelector("button[type=\"submit\"]");
+      if (form?.dataset.submitting === "true") return;
       try {
+        if (form) form.dataset.submitting = "true";
+        if (submitter) submitter.disabled = true;
         await fn(event);
       } catch (error) {
         console.error(error);
+        if (submitter) submitter.disabled = false;
+        if (form) delete form.dataset.submitting;
         showToast(error.message || "操作失敗，請稍後再試");
       }
     };
