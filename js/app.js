@@ -306,7 +306,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260803-17")
+      navigator.serviceWorker.register("./sw.js?v=20260812-01")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
