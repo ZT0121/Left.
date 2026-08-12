@@ -118,6 +118,11 @@ function parseAmount(text: string) {
     const amount = Number((text.match(pattern)?.[1] || "").replace(/,/g, ""));
     if (amount > 0 && amount < 10000000) return amount;
   }
+  const candidates = [...text.matchAll(/(?:^|[^\d])([\d,]{2,})(?:\.\d+)?(?:[^\d]|$)/g)]
+    .map((match) => Number(String(match[1]).replace(/,/g, "")))
+    .filter((amount) => amount > 0 && amount < 10000000)
+    .filter((amount) => !/^20\d{6}$/.test(String(amount)));
+  if (candidates.length) return Math.max(...candidates);
   return 0;
 }
 
@@ -246,6 +251,20 @@ async function gmailFetchWithRetry(path: string, accessToken: string, attempts =
   }
 }
 
+async function listGmailMessageIds(query: string, accessToken: string, limit = 100) {
+  const messages: any[] = [];
+  let pageToken = "";
+  while (messages.length < limit) {
+    const remaining = Math.min(50, limit - messages.length);
+    const tokenParam = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : "";
+    const page: any = await gmailFetchWithRetry(`messages?q=${query}&maxResults=${remaining}${tokenParam}`, accessToken) || {};
+    messages.push(...(page?.messages || []));
+    pageToken = page?.nextPageToken || "";
+    if (!pageToken || !(page?.messages || []).length) break;
+  }
+  return messages;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: jsonHeaders });
 
@@ -331,9 +350,9 @@ Deno.serve(async (req) => {
       if (cardResult.error) throw cardResult.error;
 
       const query = encodeURIComponent('newer_than:30d ("刷卡成功" OR "刷卡消費" OR "消費通知" OR "大筆消費通知" OR "大額消費通知" OR "消費彙整通知" OR "消費彙總通知" OR "授權成功" OR "交易成功" OR "信用卡電子帳單" OR "信用卡帳單") -發票 -統一發票 -載具 -同意 -問卷 -in:spam -in:trash');
-      const list = await gmailFetchWithRetry(`messages?q=${query}&maxResults=20`, token.access_token);
+      const messageIds = await listGmailMessageIds(query, token.access_token, 100);
       const messages = [];
-      for (const item of list.messages || []) {
+      for (const item of messageIds) {
         messages.push(await gmailFetchWithRetry(`messages/${item.id}?format=full`, token.access_token));
         await wait(150);
       }
@@ -384,6 +403,7 @@ Deno.serve(async (req) => {
             .delete()
             .eq("user_id", user.id)
             .eq("cycle_id", cycleResult.data.id)
+            .eq("source_type", "email")
             .in("status", ["pending", "duplicate"])
             .select("id");
           if (resetResult.error) throw resetResult.error;
