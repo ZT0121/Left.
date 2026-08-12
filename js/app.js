@@ -112,11 +112,37 @@
   }
 
   function isEstimatedCardCharge(row) {
-    return estimatedCardSources.has(row.source_type);
+    return estimatedCardSources.has(row.source_type) && !isStatementLinkedCharge(row);
   }
 
   function isActualStatement(row) {
     return row.source_type === "opening_bill";
+  }
+
+  function getCardChargeTransaction(row) {
+    if (!row?.transaction_id) return null;
+    return state.transactions.find((item) => item.id === row.transaction_id)
+      || state.accountBalanceTransactions.find((item) => item.id === row.transaction_id)
+      || null;
+  }
+
+  function getActualStatementAmount(row) {
+    const transaction = getCardChargeTransaction(row);
+    const transactionAmount = toNumber(transaction?.gross_amount || transaction?.amount);
+    return transactionAmount > 0 ? transactionAmount : toNumber(row.amount);
+  }
+
+  function isStatementLinkedCharge(row) {
+    const transaction = getCardChargeTransaction(row);
+    return transaction?.kind === "opening_card_bill";
+  }
+
+  function normalizeCardChargeAmounts(rows) {
+    return (rows || []).map((row) => (
+      isActualStatement(row)
+        ? { ...row, amount: getActualStatementAmount(row) }
+        : row
+    ));
   }
 
   function shouldDeriveStatementDate(row) {
@@ -1793,7 +1819,7 @@
     if (chargeResult.error) throw chargeResult.error;
     state.transactions = txResult.data || [];
     state.reimbursements = reimbursementResult.data || [];
-    state.cardCharges = chargeResult.data || [];
+    state.cardCharges = normalizeCardChargeAmounts(chargeResult.data);
   }
 
   async function loadCreditCards() {
@@ -1880,7 +1906,7 @@
     state.accountBalanceTransfers = transferResult.data || [];
     state.accountBalanceIncomeRecords = incomeResult.data || [];
     state.accountBalanceTransactions = transactionResult.data || [];
-    state.accountBalanceCardCharges = cardChargeResult.data || [];
+    state.accountBalanceCardCharges = normalizeCardChargeAmounts(cardChargeResult.data);
   }
 
   async function loadSubscriptions() {
