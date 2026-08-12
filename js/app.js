@@ -333,7 +333,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260812-03")
+      navigator.serviceWorker.register("./sw.js?v=20260812-04")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
@@ -3273,9 +3273,21 @@
     details.append(summary, form);
   }
 
+  function wrapPanelElement(elementId, label) {
+    const element = $(elementId);
+    if (!element || element.closest(".panel-disclosure")) return;
+    const details = document.createElement("details");
+    details.className = "panel-disclosure";
+    const summary = document.createElement("summary");
+    summary.textContent = label;
+    element.before(details);
+    details.append(summary, element);
+  }
+
   function applyCopyOverrides() {
     ensureSubscriptionPanel();
     organizeDashboardSections();
+    wrapPanelElement("cardList", "管理信用卡");
     wrapPanelForm("cardForm", "新增信用卡");
     wrapPanelForm("openingBillForm", "輸入實際帳單");
     wrapPanelForm("cardFeeForm", "新增費用或利息");
