@@ -335,7 +335,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260812-06")
+      navigator.serviceWorker.register("./sw.js?v=20260812-09")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
@@ -808,6 +808,23 @@
     return Math.abs(Math.ceil((parseLocalDate(a) - parseLocalDate(b)) / 86400000));
   }
 
+  function formatLocalDateTime(value) {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const parts = new Intl.DateTimeFormat("zh-TW", {
+      timeZone: "Asia/Taipei",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    }).formatToParts(date);
+    const pick = (type) => parts.find((part) => part.type === type)?.value || "";
+    return `${pick("year")}-${pick("month")}-${pick("day")} ${pick("hour")}:${pick("minute")}`;
+  }
+
   function parseCandidateDate(text) {
     const full = text.match(/(20\d{2})[/-](\d{1,2})[/-](\d{1,2})/);
     if (full) {
@@ -872,6 +889,7 @@
     const firstLine = raw.split(/\r?\n/).map((line) => line.trim()).find(Boolean) || "";
     const candidate = {
       card_id: cardId,
+      candidate_kind: "purchase",
       occurred_at: occurredAt,
       merchant,
       amount,
@@ -912,7 +930,7 @@
     if (!list) return;
     if (status) {
       status.textContent = state.gmailConnection
-        ? `已連接 ${state.gmailConnection.gmail_email || "Gmail"}${state.gmailConnection.last_sync_at ? ` · 上次同步 ${String(state.gmailConnection.last_sync_at).slice(0, 16).replace("T", " ")}` : ""}`
+        ? `已連接 ${state.gmailConnection.gmail_email || "Gmail"}${state.gmailConnection.last_sync_at ? ` · 上次同步 ${formatLocalDateTime(state.gmailConnection.last_sync_at)}` : ""}`
         : "尚未連接 Gmail";
     }
     const rows = [...state.emailCandidates]
@@ -928,15 +946,17 @@
       const card = state.creditCards.find((item) => item.id === row.card_id);
       const duplicateText = row.matched_transaction_id ? " · 疑似已記錄" : "";
       const sourceText = row.source_count > 1 ? ` · 合併 ${row.source_count} 封` : "";
+      const kindText = row.candidate_kind === "statement" ? " · 實際帳單" : "";
+      const acceptText = row.candidate_kind === "statement" ? "建立帳單" : "加入帳本";
       return `
         <article class="record-item ${row.matched_transaction_id ? "reminder-item" : ""}">
           <div>
             <p class="record-title">${escapeHtml(row.merchant)}</p>
-            <p class="record-meta">${row.occurred_at} · ${escapeHtml(cardDisplayName(card))}${sourceText}${duplicateText}</p>
+            <p class="record-meta">${row.occurred_at} · ${escapeHtml(cardDisplayName(card))}${kindText}${sourceText}${duplicateText}</p>
           </div>
           <div class="record-amount">${money(row.amount)}</div>
           <div class="record-actions">
-            <button type="button" data-accept-email-candidate="${row.id}">加入帳本</button>
+            <button type="button" data-accept-email-candidate="${row.id}">${acceptText}</button>
             <button type="button" data-skip-email-candidate="${row.id}">略過</button>
           </div>
         </article>
@@ -2704,7 +2724,37 @@
   async function acceptEmailCandidate(id) {
     const row = state.emailCandidates.find((item) => item.id === id);
     if (!row) return;
-    const title = row.merchant || "信用卡消費";
+    const title = row.merchant || (row.candidate_kind === "statement" ? "實際信用卡帳單" : "信用卡消費");
+    if (row.candidate_kind === "statement") {
+      const tx = await insertTransaction({
+        kind: "opening_card_bill",
+        date: row.occurred_at,
+        title,
+        amount: toNumber(row.amount),
+        gross_amount: toNumber(row.amount),
+        payment_method: "credit_card",
+        credit_card_id: row.card_id
+      }, false);
+      await insertCardCharge({
+        card_id: row.card_id,
+        transaction_id: tx.id,
+        source_type: "opening_bill",
+        title,
+        charge_date: row.occurred_at,
+        due_date: row.due_date || getCardDueDate(row.card_id, row.occurred_at),
+        amount: toNumber(row.amount)
+      });
+      const { error } = await client
+        .from("email_transaction_candidates")
+        .update({ status: "accepted", matched_transaction_id: tx.id })
+        .eq("id", id)
+        .eq("user_id", state.user.id);
+      if (error) throw error;
+      showToast("已建立實際帳單");
+      await refresh();
+      return;
+    }
+
     const tx = await insertTransaction({
       kind: "expense",
       date: row.occurred_at,
@@ -2751,7 +2801,13 @@
 
   async function syncGmail() {
     const result = await callGmailSync("sync");
-    showToast(`Gmail 同步完成：掃描 ${result.scanned || 0} 封，新增 ${result.imported || 0} 筆，合併 ${result.merged || 0} 筆`);
+    showToast(`Gmail 同步完成：掃描 ${result.scanned || 0} 封，已記住 ${result.remembered || 0} 封，新增 ${result.imported || 0} 筆，合併 ${result.merged || 0} 筆`);
+    await refresh();
+  }
+
+  async function rerunGmailInbox() {
+    const result = await callGmailSync("sync", { reset_pending: true });
+    showToast(`Inbox 已重跑：清掉 ${result.reset || 0} 筆，掃描 ${result.scanned || 0} 封，新增 ${result.imported || 0} 筆`);
     await refresh();
   }
 
@@ -3786,6 +3842,7 @@
         <div class="button-row">
           <button class="secondary-button" id="connectGmailButton" type="button">連接 Gmail</button>
           <button class="primary-button" id="syncGmailButton" type="button">同步 Gmail</button>
+          <button class="secondary-button" id="rerunGmailInboxButton" type="button">重跑 Inbox</button>
         </div>
         <p class="helper-text">同步會讀近 30 天信用卡通知信，匯入到待確認，不會直接入帳。</p>
       </section>
@@ -3945,6 +4002,7 @@
     $("emailCandidateForm").addEventListener("submit", wrap(importEmailCandidate));
     $("connectGmailButton").addEventListener("click", wrap(connectGmail));
     $("syncGmailButton").addEventListener("click", wrap(syncGmail));
+    $("rerunGmailInboxButton").addEventListener("click", wrap(rerunGmailInbox));
     $("cancelEditButton").addEventListener("click", () => $("editDialog").close());
     $("backupButton").addEventListener("click", wrap(downloadBackup));
     $("historyButton").addEventListener("click", wrap(toggleHistory));

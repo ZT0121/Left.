@@ -202,11 +202,13 @@ create table if not exists public.email_transaction_candidates (
   cycle_id uuid not null references public.budget_cycles(id) on delete cascade,
   card_id uuid references public.credit_cards(id) on delete set null,
   candidate_key text not null,
+  candidate_kind text not null default 'purchase' check (candidate_kind in ('purchase', 'statement')),
   status text not null default 'pending' check (status in ('pending', 'accepted', 'skipped', 'duplicate')),
   source_type text not null default 'manual_email' check (source_type in ('email', 'manual_email')),
   source_count integer not null default 1 check (source_count > 0),
   source_refs jsonb not null default '[]'::jsonb,
   occurred_at date not null,
+  due_date date,
   merchant text not null,
   amount numeric(12, 0) not null check (amount > 0),
   currency text not null default 'TWD',
@@ -218,6 +220,10 @@ create table if not exists public.email_transaction_candidates (
   updated_at timestamptz not null default now(),
   unique (user_id, candidate_key)
 );
+
+alter table public.email_transaction_candidates
+  add column if not exists candidate_kind text not null default 'purchase',
+  add column if not exists due_date date;
 
 create table if not exists public.gmail_connections (
   user_id uuid primary key references auth.users(id) on delete cascade,

@@ -13,10 +13,12 @@ type Card = { id: string; name: string; is_active: boolean | null };
 type Candidate = {
   card_id: string | null;
   candidate_key: string;
+  candidate_kind: "purchase" | "statement";
   source_type: "email";
   source_count: number;
   source_refs: Array<Record<string, string>>;
   occurred_at: string;
+  due_date?: string | null;
   merchant: string;
   amount: number;
   currency: string;
@@ -77,6 +79,35 @@ function parseDate(text: string) {
   return formatTaipeiDate();
 }
 
+function isNonPurchaseMessage(text: string) {
+  return [
+    /發票|統一發票|載具|中獎/,
+    /同意書|同意願|詢問意願|滿意度|問卷/,
+    /驗證碼|登入|密碼|安全性/,
+    /繳款|扣繳|轉帳|入帳通知/
+  ].some((pattern) => pattern.test(text));
+}
+
+function isStatementMessage(text: string) {
+  return /信用卡.*(?:電子)?帳單|(?:電子)?帳單.*信用卡|對帳單/.test(text);
+}
+
+function hasPurchaseSignal(text: string) {
+  return [
+    /刷卡(?:消費)?(?:成功|通知)?/,
+    /消費(?:成功|通知|金額)/,
+    /交易(?:成功|通知|金額)/,
+    /授權(?:成功|通知|金額)/,
+    /特店|商店|商家|店家|merchant/i
+  ].some((pattern) => pattern.test(text));
+}
+
+function parseDueDate(text: string) {
+  const labeled = text.match(/(?:繳款日|繳費日|繳款截止日|應繳日期|付款截止日)[^\d]{0,12}(20\d{2})[/-](\d{1,2})[/-](\d{1,2})/);
+  if (labeled) return `${labeled[1]}-${labeled[2].padStart(2, "0")}-${labeled[3].padStart(2, "0")}`;
+  return null;
+}
+
 function parseAmount(text: string) {
   const patterns = [
     /(?:NT\$|TWD|新臺幣|新台幣|金額|消費金額|交易金額|授權金額)[^\d]{0,12}([\d,]+)(?:\.\d+)?/i,
@@ -86,11 +117,7 @@ function parseAmount(text: string) {
     const amount = Number((text.match(pattern)?.[1] || "").replace(/,/g, ""));
     if (amount > 0 && amount < 10000000) return amount;
   }
-  const candidates = [...text.matchAll(/(?:^|[^\d])([\d,]{2,})(?:\.\d+)?(?:[^\d]|$)/g)]
-    .map((match) => Number(match[1].replace(/,/g, "")))
-    .filter((amount) => amount > 0 && amount < 10000000)
-    .filter((amount) => !/^20\d{6}$/.test(String(amount)));
-  return candidates.length ? Math.max(...candidates) : 0;
+  return 0;
 }
 
 function parseMerchant(text: string, subject: string) {
@@ -117,6 +144,7 @@ function inferCardId(text: string, cards: Card[]) {
 
 function candidateKey(candidate: Omit<Candidate, "candidate_key">) {
   return [
+    candidate.candidate_kind,
     candidate.card_id || "no-card",
     candidate.occurred_at,
     candidate.amount,
@@ -124,19 +152,40 @@ function candidateKey(candidate: Omit<Candidate, "candidate_key">) {
   ].join(":");
 }
 
+function gmailIdsFromSourceRefs(sourceRefs: unknown) {
+  if (!Array.isArray(sourceRefs)) return [];
+  return sourceRefs
+    .map((ref: any) => String(ref?.gmail_id || ""))
+    .filter(Boolean);
+}
+
 function buildCandidate(message: any, cards: Card[]): Candidate | null {
   const subject = header(message, "subject");
   const from = header(message, "from");
   const text = messageText(message);
   const combined = `${subject}\n${from}\n${text}`;
+  const candidateKind = isStatementMessage(combined) ? "statement" : "purchase";
+  if (candidateKind === "purchase" && isNonPurchaseMessage(combined)) {
+    console.log("gmail candidate skipped: non_purchase", { subject, from });
+    return null;
+  }
+  if (candidateKind === "purchase" && !hasPurchaseSignal(combined)) {
+    console.log("gmail candidate skipped: weak_purchase_signal", { subject, from });
+    return null;
+  }
   const amount = parseAmount(combined);
-  if (!amount) return null;
+  if (!amount) {
+    console.log("gmail candidate skipped: no_labeled_amount", { subject, from });
+    return null;
+  }
   const base = {
     card_id: inferCardId(combined, cards),
+    candidate_kind: candidateKind,
     source_type: "email" as const,
     source_count: 1,
     source_refs: [{ gmail_id: message.id, thread_id: message.threadId, subject }],
     occurred_at: parseDate(combined),
+    due_date: candidateKind === "statement" ? parseDueDate(combined) : null,
     merchant: parseMerchant(text, subject),
     amount,
     currency: "TWD",
@@ -146,17 +195,18 @@ function buildCandidate(message: any, cards: Card[]): Candidate | null {
   return { ...base, candidate_key: candidateKey(base) };
 }
 
-async function getUserClient(req: Request) {
+async function getAuthenticatedUser(req: Request) {
   const supabaseUrl = env("SUPABASE_URL");
-  const anonKey = env("SUPABASE_ANON_KEY");
   const auth = req.headers.get("authorization") || "";
-  const userClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { authorization: auth } },
-    auth: { persistSession: false, autoRefreshToken: false }
+  if (!auth.toLowerCase().startsWith("bearer ")) throw new Error("unauthorized");
+  const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+    headers: {
+      "authorization": auth,
+      "apikey": env("SUPABASE_ANON_KEY")
+    }
   });
-  const { data, error } = await userClient.auth.getUser();
-  if (error || !data.user) throw new Error("unauthorized");
-  return data.user;
+  if (!response.ok) throw new Error("unauthorized");
+  return await response.json();
 }
 
 async function exchangeRefreshToken(refreshToken: string) {
@@ -179,6 +229,22 @@ async function gmailFetch(path: string, accessToken: string) {
   return await response.json();
 }
 
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function gmailFetchWithRetry(path: string, accessToken: string, attempts = 3) {
+  for (let index = 0; index < attempts; index += 1) {
+    try {
+      return await gmailFetch(path, accessToken);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes("rateLimitExceeded") || index === attempts - 1) throw error;
+      await wait(800 * (index + 1));
+    }
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: jsonHeaders });
 
@@ -189,7 +255,7 @@ Deno.serve(async (req) => {
       auth: { persistSession: false, autoRefreshToken: false }
     });
     const url = new URL(req.url);
-    const redirectUri = `${url.origin}/gmail-sync/callback`;
+    const redirectUri = `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/gmail-sync/callback`;
 
     if (url.pathname.endsWith("/callback")) {
       const code = url.searchParams.get("code") || "";
@@ -224,7 +290,7 @@ Deno.serve(async (req) => {
       return Response.redirect(stateResult.data.redirect_to, 302);
     }
 
-    const user = await getUserClient(req);
+    const user = await getAuthenticatedUser(req);
     if (url.pathname.endsWith("/start")) {
       const state = crypto.randomUUID();
       const body = await req.json().catch(() => ({}));
@@ -251,6 +317,7 @@ Deno.serve(async (req) => {
     }
 
     if (url.pathname.endsWith("/sync")) {
+      const syncBody = await req.json().catch(() => ({}));
       const connection = await admin.from("gmail_connections").select("*").eq("user_id", user.id).single();
       if (connection.error || !connection.data) throw new Error("gmail_not_connected");
       const token = await exchangeRefreshToken(connection.data.refresh_token);
@@ -262,12 +329,43 @@ Deno.serve(async (req) => {
       if (cycleResult.error || !cycleResult.data) throw new Error("active_cycle_not_found");
       if (cardResult.error) throw cardResult.error;
 
-      const query = encodeURIComponent('newer_than:30d ("信用卡" OR "刷卡" OR "消費" OR "授權" OR "交易") -in:spam -in:trash');
-      const list = await gmailFetch(`messages?q=${query}&maxResults=30`, token.access_token);
-      const messages = await Promise.all((list.messages || []).map((item: any) => (
-        gmailFetch(`messages/${item.id}?format=full`, token.access_token)
-      )));
-      const candidates = messages
+      const query = encodeURIComponent('newer_than:30d ("刷卡成功" OR "刷卡消費" OR "消費通知" OR "授權成功" OR "交易成功" OR "信用卡電子帳單" OR "信用卡帳單") -發票 -統一發票 -載具 -同意 -問卷 -in:spam -in:trash');
+      const list = await gmailFetchWithRetry(`messages?q=${query}&maxResults=20`, token.access_token);
+      const messages = [];
+      for (const item of list.messages || []) {
+        messages.push(await gmailFetchWithRetry(`messages/${item.id}?format=full`, token.access_token));
+        await wait(150);
+      }
+
+      let reset = 0;
+      if (syncBody.reset_pending || syncBody.resetPending) {
+        const resetResult = await admin
+          .from("email_transaction_candidates")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("cycle_id", cycleResult.data.id)
+          .in("status", ["pending", "duplicate"])
+          .select("id");
+        if (resetResult.error) throw resetResult.error;
+        reset = resetResult.data?.length || 0;
+      }
+
+      const existingCandidateRefs = await admin
+        .from("email_transaction_candidates")
+        .select("source_refs")
+        .eq("user_id", user.id);
+      if (existingCandidateRefs.error) throw existingCandidateRefs.error;
+      const rememberedGmailIds = new Set(
+        (existingCandidateRefs.data || []).flatMap((row: any) => gmailIdsFromSourceRefs(row.source_refs))
+      );
+      let remembered = 0;
+      const newMessages = messages.filter((message: any) => {
+        if (!rememberedGmailIds.has(message.id)) return true;
+        remembered += 1;
+        return false;
+      });
+
+      const candidates = newMessages
         .map((message) => buildCandidate(message, cardResult.data || []))
         .filter(Boolean) as Candidate[];
 
@@ -285,6 +383,7 @@ Deno.serve(async (req) => {
           const refs = Array.isArray(existing.data.source_refs) ? existing.data.source_refs : [];
           const ids = new Set(refs.map((ref: any) => ref.gmail_id));
           const nextRefs = ids.has(candidate.source_refs[0].gmail_id) ? refs : [...refs, ...candidate.source_refs];
+          if (candidate.source_refs[0].gmail_id) rememberedGmailIds.add(candidate.source_refs[0].gmail_id);
           await admin.from("email_transaction_candidates").update({
             source_count: nextRefs.length,
             source_refs: nextRefs,
@@ -297,12 +396,13 @@ Deno.serve(async (req) => {
             cycle_id: cycleResult.data.id,
             ...candidate
           });
+          if (candidate.source_refs[0].gmail_id) rememberedGmailIds.add(candidate.source_refs[0].gmail_id);
           imported += 1;
         }
       }
 
       await admin.from("gmail_connections").update({ last_sync_at: new Date().toISOString() }).eq("user_id", user.id);
-      return new Response(JSON.stringify({ scanned: messages.length, parsed: candidates.length, imported, merged }), { headers: jsonHeaders });
+      return new Response(JSON.stringify({ scanned: messages.length, reset, remembered, parsed: candidates.length, imported, merged }), { headers: jsonHeaders });
     }
 
     return new Response(JSON.stringify({ error: "not_found" }), { status: 404, headers: jsonHeaders });
