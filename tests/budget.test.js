@@ -401,6 +401,20 @@ function summarize(overrides = {}) {
 }
 
 {
+  const message = budget.formatMotherRequestMessage({
+    cycle,
+    reimbursements: [
+      { title: "遠雄住宿 - 媽媽", amount: 31080, status: "pending" }
+    ]
+  });
+
+  assert.equal(message, [
+    "媽媽，這個月 $20,000+$31,080(花蓮住宿)",
+    "給我 $50000 就好"
+  ].join("\n"));
+}
+
+{
   const reminders = budget.getCardPaymentReminders([
     { id: "actual", source_type: "opening_bill", status: "pending", due_date: "2026-08-08" },
     { id: "estimate", source_type: "general", status: "pending", due_date: "2026-08-08" },

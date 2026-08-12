@@ -285,12 +285,53 @@
     };
   }
 
+  function formatMoney(value, options = {}) {
+    const amount = Math.trunc(toNumber(value));
+    if (options.grouping === false) return `$${amount}`;
+    return new Intl.NumberFormat("zh-TW", {
+      style: "currency",
+      currency: "TWD",
+      maximumFractionDigits: 0
+    }).format(amount);
+  }
+
+  function formatMotherRequestReason(row) {
+    const title = String(row?.title || "待收")
+      .replace(/\s*[-－–—]\s*媽媽\s*$/u, "")
+      .replace(/\s*媽媽\s*$/u, "")
+      .trim();
+    if (/遠雄/.test(title) && /住宿/.test(title)) return "花蓮住宿";
+    return title || "待收";
+  }
+
+  function getRoundedMotherRequestTotal(total) {
+    const amount = toNumber(total);
+    if (amount <= 0) return 0;
+    return Math.floor(amount / 10000) * 10000;
+  }
+
+  function formatMotherRequestMessage(input) {
+    const request = calculateMotherRequest(input);
+    const pendingRows = (input.reimbursements || []).filter((row) => row.status === "pending");
+    const pendingText = pendingRows.length
+      ? `+${formatMoney(request.pending)}(${pendingRows.map(formatMotherRequestReason).join("、")})`
+      : "";
+    const roundedTotal = getRoundedMotherRequestTotal(request.total);
+
+    return [
+      `媽媽，這個月 ${formatMoney(request.support)}${pendingText}`,
+      `給我 ${formatMoney(roundedTotal, { grouping: false })} 就好`
+    ].join("\n");
+  }
+
   root.LeftBudget = {
     addMonths,
     calculateAccountBalances,
     calculateMotherRequest,
     createInstallmentSchedule,
     daysBetween,
+    formatMotherRequestMessage,
+    getRoundedMotherRequestTotal,
     getCardPaymentReminders,
     isDateInCycle,
     summarizeBudget,

@@ -1486,17 +1486,8 @@
     if (!total || !message) return;
 
     const request = window.LeftBudget.calculateMotherRequest(state);
-    const pendingRows = state.reimbursements.filter((row) => row.status === "pending");
     total.textContent = money(request.total);
-    const details = pendingRows.length
-      ? pendingRows.map((row) => `- ${row.title || "待收"}：${money(row.amount)}`).join("\n")
-      : "- 目前沒有額外待收";
-    message.value = [
-      `媽媽，這個月生活費 ${money(request.support)}。`,
-      `另外待收／代墊是 ${money(request.pending)}：`,
-      details,
-      `所以這次一共是 ${money(request.total)}，謝謝。`
-    ].join("\n");
+    message.value = window.LeftBudget.formatMotherRequestMessage(state);
   }
 
   function renderCreditCards() {
