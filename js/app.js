@@ -36,6 +36,7 @@
     incomeRecords: [],
     subscriptions: [],
     emailCandidates: [],
+    gmailConnection: null,
     historyCycles: [],
     historyTransactions: [],
     historyIncomeRecords: [],
@@ -334,7 +335,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260812-05")
+      navigator.serviceWorker.register("./sw.js?v=20260812-06")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
@@ -907,7 +908,13 @@
   function renderEmailCandidates() {
     const list = $("emailCandidateList");
     const count = $("emailCandidateCount");
+    const status = $("gmailConnectionStatus");
     if (!list) return;
+    if (status) {
+      status.textContent = state.gmailConnection
+        ? `已連接 ${state.gmailConnection.gmail_email || "Gmail"}${state.gmailConnection.last_sync_at ? ` · 上次同步 ${String(state.gmailConnection.last_sync_at).slice(0, 16).replace("T", " ")}` : ""}`
+        : "尚未連接 Gmail";
+    }
     const rows = [...state.emailCandidates]
       .filter((row) => ["pending", "duplicate"].includes(row.status))
       .sort((a, b) => String(b.occurred_at).localeCompare(String(a.occurred_at)));
@@ -2047,6 +2054,31 @@
     state.reimbursements = reimbursementResult.data || [];
     state.cardCharges = normalizeCardChargeAmounts(chargeResult.data);
     state.emailCandidates = candidateResult.error ? [] : candidateResult.data || [];
+    await loadGmailConnection();
+  }
+
+  async function callGmailSync(path, payload = {}) {
+    const { data } = await client.auth.getSession();
+    const response = await fetch(`${supabaseUrl}/functions/v1/gmail-sync/${path}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "authorization": `Bearer ${data.session?.access_token || ""}`
+      },
+      body: JSON.stringify(payload)
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || "Gmail 同步失敗");
+    return body;
+  }
+
+  async function loadGmailConnection() {
+    try {
+      const result = await callGmailSync("status");
+      state.gmailConnection = result.connection || null;
+    } catch (error) {
+      state.gmailConnection = null;
+    }
   }
 
   async function loadCreditCards() {
@@ -2709,6 +2741,17 @@
       .eq("user_id", state.user.id);
     if (error) throw error;
     showToast("已略過");
+    await refresh();
+  }
+
+  async function connectGmail() {
+    const result = await callGmailSync("start", { redirect_to: window.location.href });
+    window.location.href = result.auth_url;
+  }
+
+  async function syncGmail() {
+    const result = await callGmailSync("sync");
+    showToast(`Gmail 同步完成：掃描 ${result.scanned || 0} 封，新增 ${result.imported || 0} 筆，合併 ${result.merged || 0} 筆`);
     await refresh();
   }
 
@@ -3732,6 +3775,20 @@
     panel.className = "work-panel";
     panel.id = "emailCandidatePanel";
     panel.innerHTML = `
+      <section class="list-section gmail-sync-panel">
+        <div class="section-title">
+          <div>
+            <p class="eyebrow">Gmail</p>
+            <h2>自動匯入通知信</h2>
+          </div>
+          <span id="gmailConnectionStatus">尚未連接 Gmail</span>
+        </div>
+        <div class="button-row">
+          <button class="secondary-button" id="connectGmailButton" type="button">連接 Gmail</button>
+          <button class="primary-button" id="syncGmailButton" type="button">同步 Gmail</button>
+        </div>
+        <p class="helper-text">同步會讀近 30 天信用卡通知信，匯入到待確認，不會直接入帳。</p>
+      </section>
       <form id="emailCandidateForm" class="form-grid">
         <label>
           信用卡
@@ -3886,6 +3943,8 @@
     $("transferForm").addEventListener("submit", wrap(addTransfer));
     $("editForm").addEventListener("submit", wrap(saveEdit));
     $("emailCandidateForm").addEventListener("submit", wrap(importEmailCandidate));
+    $("connectGmailButton").addEventListener("click", wrap(connectGmail));
+    $("syncGmailButton").addEventListener("click", wrap(syncGmail));
     $("cancelEditButton").addEventListener("click", () => $("editDialog").close());
     $("backupButton").addEventListener("click", wrap(downloadBackup));
     $("historyButton").addEventListener("click", wrap(toggleHistory));

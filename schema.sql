@@ -219,6 +219,23 @@ create table if not exists public.email_transaction_candidates (
   unique (user_id, candidate_key)
 );
 
+create table if not exists public.gmail_connections (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  gmail_email text,
+  refresh_token text not null,
+  scope text,
+  connected_at timestamptz not null default now(),
+  last_sync_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.gmail_oauth_states (
+  state text primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  redirect_to text not null,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.push_config (
   singleton boolean primary key default true check (singleton),
   vapid_public_key text not null,
@@ -280,6 +297,7 @@ create index if not exists credit_card_charges_user_cycle_idx on public.credit_c
 create index if not exists credit_card_charges_card_idx on public.credit_card_charges(user_id, card_id, due_date);
 create index if not exists email_transaction_candidates_user_cycle_idx on public.email_transaction_candidates(user_id, cycle_id, status, occurred_at desc);
 create index if not exists email_transaction_candidates_card_idx on public.email_transaction_candidates(user_id, card_id, amount, occurred_at);
+create index if not exists gmail_oauth_states_user_idx on public.gmail_oauth_states(user_id, created_at desc);
 create index if not exists push_subscriptions_user_idx on public.push_subscriptions(user_id);
 create index if not exists notification_deliveries_user_idx on public.notification_deliveries(user_id, sent_at desc);
 
@@ -369,6 +387,11 @@ create trigger set_email_transaction_candidates_updated_at
 before update on public.email_transaction_candidates
 for each row execute function public.set_updated_at();
 
+drop trigger if exists set_gmail_connections_updated_at on public.gmail_connections;
+create trigger set_gmail_connections_updated_at
+before update on public.gmail_connections
+for each row execute function public.set_updated_at();
+
 alter table public.profiles enable row level security;
 alter table public.user_settings enable row level security;
 alter table public.budget_cycles enable row level security;
@@ -382,6 +405,8 @@ alter table public.monthly_subscriptions enable row level security;
 alter table public.installment_plans enable row level security;
 alter table public.credit_card_charges enable row level security;
 alter table public.email_transaction_candidates enable row level security;
+alter table public.gmail_connections enable row level security;
+alter table public.gmail_oauth_states enable row level security;
 alter table public.push_subscriptions enable row level security;
 alter table public.notification_deliveries enable row level security;
 alter table public.push_config enable row level security;
@@ -1047,6 +1072,24 @@ with check (
 drop policy if exists "Users can delete their email transaction candidates" on public.email_transaction_candidates;
 create policy "Users can delete their email transaction candidates"
 on public.email_transaction_candidates for delete
+to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can read their Gmail connection" on public.gmail_connections;
+create policy "Users can read their Gmail connection"
+on public.gmail_connections for select
+to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can delete their Gmail connection" on public.gmail_connections;
+create policy "Users can delete their Gmail connection"
+on public.gmail_connections for delete
+to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can read their Gmail OAuth states" on public.gmail_oauth_states;
+create policy "Users can read their Gmail OAuth states"
+on public.gmail_oauth_states for select
 to authenticated
 using ((select auth.uid()) = user_id);
 
