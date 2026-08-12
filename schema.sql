@@ -196,6 +196,29 @@ create table if not exists public.notification_deliveries (
   unique (subscription_id, reminder_key)
 );
 
+create table if not exists public.email_transaction_candidates (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  cycle_id uuid not null references public.budget_cycles(id) on delete cascade,
+  card_id uuid references public.credit_cards(id) on delete set null,
+  candidate_key text not null,
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'skipped', 'duplicate')),
+  source_type text not null default 'manual_email' check (source_type in ('email', 'manual_email')),
+  source_count integer not null default 1 check (source_count > 0),
+  source_refs jsonb not null default '[]'::jsonb,
+  occurred_at date not null,
+  merchant text not null,
+  amount numeric(12, 0) not null check (amount > 0),
+  currency text not null default 'TWD',
+  raw_subject text,
+  raw_excerpt text,
+  duplicate_of uuid references public.email_transaction_candidates(id) on delete set null,
+  matched_transaction_id uuid references public.transactions(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, candidate_key)
+);
+
 create table if not exists public.push_config (
   singleton boolean primary key default true check (singleton),
   vapid_public_key text not null,
@@ -255,6 +278,8 @@ create index if not exists monthly_subscriptions_user_idx on public.monthly_subs
 create index if not exists installment_plans_user_card_idx on public.installment_plans(user_id, card_id, is_active);
 create index if not exists credit_card_charges_user_cycle_idx on public.credit_card_charges(user_id, cycle_id, status, due_date);
 create index if not exists credit_card_charges_card_idx on public.credit_card_charges(user_id, card_id, due_date);
+create index if not exists email_transaction_candidates_user_cycle_idx on public.email_transaction_candidates(user_id, cycle_id, status, occurred_at desc);
+create index if not exists email_transaction_candidates_card_idx on public.email_transaction_candidates(user_id, card_id, amount, occurred_at);
 create index if not exists push_subscriptions_user_idx on public.push_subscriptions(user_id);
 create index if not exists notification_deliveries_user_idx on public.notification_deliveries(user_id, sent_at desc);
 
@@ -339,6 +364,11 @@ create trigger set_credit_card_charges_updated_at
 before update on public.credit_card_charges
 for each row execute function public.set_updated_at();
 
+drop trigger if exists set_email_transaction_candidates_updated_at on public.email_transaction_candidates;
+create trigger set_email_transaction_candidates_updated_at
+before update on public.email_transaction_candidates
+for each row execute function public.set_updated_at();
+
 alter table public.profiles enable row level security;
 alter table public.user_settings enable row level security;
 alter table public.budget_cycles enable row level security;
@@ -351,6 +381,7 @@ alter table public.income_records enable row level security;
 alter table public.monthly_subscriptions enable row level security;
 alter table public.installment_plans enable row level security;
 alter table public.credit_card_charges enable row level security;
+alter table public.email_transaction_candidates enable row level security;
 alter table public.push_subscriptions enable row level security;
 alter table public.notification_deliveries enable row level security;
 alter table public.push_config enable row level security;
@@ -960,6 +991,65 @@ on public.credit_card_charges for delete
 to authenticated
 using ((select auth.uid()) = user_id);
 
+drop policy if exists "Users can read their email transaction candidates" on public.email_transaction_candidates;
+create policy "Users can read their email transaction candidates"
+on public.email_transaction_candidates for select
+to authenticated
+using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can insert their email transaction candidates" on public.email_transaction_candidates;
+create policy "Users can insert their email transaction candidates"
+on public.email_transaction_candidates for insert
+to authenticated
+with check (
+  (select auth.uid()) = user_id
+  and exists (
+    select 1
+    from public.budget_cycles
+    where budget_cycles.id = cycle_id
+      and budget_cycles.user_id = (select auth.uid())
+  )
+  and (
+    card_id is null
+    or exists (
+      select 1
+      from public.credit_cards
+      where credit_cards.id = card_id
+        and credit_cards.user_id = (select auth.uid())
+    )
+  )
+);
+
+drop policy if exists "Users can update their email transaction candidates" on public.email_transaction_candidates;
+create policy "Users can update their email transaction candidates"
+on public.email_transaction_candidates for update
+to authenticated
+using ((select auth.uid()) = user_id)
+with check (
+  (select auth.uid()) = user_id
+  and exists (
+    select 1
+    from public.budget_cycles
+    where budget_cycles.id = cycle_id
+      and budget_cycles.user_id = (select auth.uid())
+  )
+  and (
+    card_id is null
+    or exists (
+      select 1
+      from public.credit_cards
+      where credit_cards.id = card_id
+        and credit_cards.user_id = (select auth.uid())
+    )
+  )
+);
+
+drop policy if exists "Users can delete their email transaction candidates" on public.email_transaction_candidates;
+create policy "Users can delete their email transaction candidates"
+on public.email_transaction_candidates for delete
+to authenticated
+using ((select auth.uid()) = user_id);
+
 drop policy if exists "Users can read their push subscriptions" on public.push_subscriptions;
 create policy "Users can read their push subscriptions"
 on public.push_subscriptions for select
@@ -1005,6 +1095,7 @@ grant select, insert, update, delete on
   public.monthly_subscriptions,
   public.installment_plans,
   public.credit_card_charges,
+  public.email_transaction_candidates,
   public.push_subscriptions
 to authenticated;
 

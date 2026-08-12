@@ -35,6 +35,7 @@
     accountBalanceCardCharges: [],
     incomeRecords: [],
     subscriptions: [],
+    emailCandidates: [],
     historyCycles: [],
     historyTransactions: [],
     historyIncomeRecords: [],
@@ -333,7 +334,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260812-04")
+      navigator.serviceWorker.register("./sw.js?v=20260812-05")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
@@ -611,6 +612,7 @@
     renderTransfers();
     renderIncomeRecords();
     renderSubscriptions();
+    renderEmailCandidates();
     renderWishPurchases();
     renderBillReminders();
     renderMotherRequest();
@@ -778,6 +780,161 @@
         </div>
       </article>
     `).join("");
+  }
+
+  function compactText(value) {
+    return String(value || "").replace(/\s+/g, " ").trim();
+  }
+
+  function normalizeCandidateText(value) {
+    return compactText(value).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+  }
+
+  function merchantSimilarity(a, b) {
+    const left = normalizeCandidateText(a);
+    const right = normalizeCandidateText(b);
+    if (!left || !right) return 0;
+    if (left === right) return 1;
+    if (left.includes(right) || right.includes(left)) return 0.85;
+    const leftChars = new Set([...left]);
+    const rightChars = new Set([...right]);
+    const overlap = [...leftChars].filter((char) => rightChars.has(char)).length;
+    return overlap / Math.max(leftChars.size, rightChars.size);
+  }
+
+  function daysApart(a, b) {
+    if (!a || !b) return Infinity;
+    return Math.abs(Math.ceil((parseLocalDate(a) - parseLocalDate(b)) / 86400000));
+  }
+
+  function parseCandidateDate(text) {
+    const full = text.match(/(20\d{2})[/-](\d{1,2})[/-](\d{1,2})/);
+    if (full) {
+      return `${full[1]}-${String(full[2]).padStart(2, "0")}-${String(full[3]).padStart(2, "0")}`;
+    }
+    const short = text.match(/(?:消費|交易|授權|入帳|日期|時間)[^\d]{0,8}(\d{1,2})[/-](\d{1,2})/);
+    if (short) {
+      return `${today().slice(0, 4)}-${String(short[1]).padStart(2, "0")}-${String(short[2]).padStart(2, "0")}`;
+    }
+    return today();
+  }
+
+  function parseCandidateAmount(text) {
+    const amountPatterns = [
+      /(?:NT\$|TWD|新臺幣|新台幣|金額|消費金額|交易金額|授權金額)[^\d]{0,12}([\d,]+)(?:\.\d+)?/i,
+      /\$[\s]*([\d,]+)(?:\.\d+)?/
+    ];
+    for (const pattern of amountPatterns) {
+      const match = text.match(pattern);
+      const amount = toNumber(String(match?.[1] || "").replace(/,/g, ""));
+      if (amount > 0 && amount < 10000000) return amount;
+    }
+    const candidates = [...text.matchAll(/(?:^|[^\d])([\d,]{2,})(?:\.\d+)?(?:[^\d]|$)/g)]
+      .map((match) => toNumber(String(match[1]).replace(/,/g, "")))
+      .filter((amount) => amount > 0 && amount < 10000000)
+      .filter((amount) => !/^20\d{6}$/.test(String(amount)));
+    return candidates.length ? Math.max(...candidates) : 0;
+  }
+
+  function parseCandidateMerchant(text) {
+    const lines = String(text || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    const labelPatterns = [
+      /(?:商店|商家|特店|店家|消費店家|交易店家|merchant)[：:\s]+(.+)/i,
+      /(?:於|在)\s*([^，,。\n]{2,40})\s*(?:消費|交易|刷卡)/
+    ];
+    for (const line of lines) {
+      for (const pattern of labelPatterns) {
+        const match = line.match(pattern);
+        const value = compactText(match?.[1] || "").replace(/[。；;，,].*$/, "");
+        if (value && !/\d{4,}/.test(value)) return value.slice(0, 80);
+      }
+    }
+    const subject = lines.find((line) => /刷卡|消費|交易|授權|通知/.test(line));
+    return compactText(subject || lines[0] || "未命名消費").slice(0, 80);
+  }
+
+  function buildCandidateKey(row) {
+    return [
+      row.card_id || "no-card",
+      row.occurred_at,
+      toNumber(row.amount),
+      normalizeCandidateText(row.merchant).slice(0, 24)
+    ].join(":");
+  }
+
+  function parseEmailCandidateText(text, cardId) {
+    const raw = String(text || "").trim();
+    const amount = parseCandidateAmount(raw);
+    if (amount <= 0) throw new Error("找不到可信的消費金額");
+    const occurredAt = parseCandidateDate(raw);
+    const merchant = parseCandidateMerchant(raw);
+    const firstLine = raw.split(/\r?\n/).map((line) => line.trim()).find(Boolean) || "";
+    const candidate = {
+      card_id: cardId,
+      occurred_at: occurredAt,
+      merchant,
+      amount,
+      currency: "TWD",
+      raw_subject: firstLine.slice(0, 160),
+      raw_excerpt: raw.slice(0, 700),
+      source_type: "manual_email",
+      source_count: 1,
+      source_refs: [{ imported_at: new Date().toISOString(), subject: firstLine.slice(0, 160) }]
+    };
+    return { ...candidate, candidate_key: buildCandidateKey(candidate) };
+  }
+
+  function findSimilarCandidate(candidate) {
+    return state.emailCandidates.find((row) => (
+      ["pending", "duplicate"].includes(row.status)
+      && row.card_id === candidate.card_id
+      && toNumber(row.amount) === toNumber(candidate.amount)
+      && daysApart(row.occurred_at, candidate.occurred_at) <= 3
+      && merchantSimilarity(row.merchant, candidate.merchant) >= 0.55
+    ));
+  }
+
+  function findMatchedTransaction(candidate) {
+    return state.transactions.find((row) => (
+      row.payment_method === "credit_card"
+      && row.credit_card_id === candidate.card_id
+      && toNumber(row.gross_amount || row.amount) === toNumber(candidate.amount)
+      && daysApart(row.date, candidate.occurred_at) <= 3
+      && merchantSimilarity(row.title, candidate.merchant) >= 0.45
+    ));
+  }
+
+  function renderEmailCandidates() {
+    const list = $("emailCandidateList");
+    const count = $("emailCandidateCount");
+    if (!list) return;
+    const rows = [...state.emailCandidates]
+      .filter((row) => ["pending", "duplicate"].includes(row.status))
+      .sort((a, b) => String(b.occurred_at).localeCompare(String(a.occurred_at)));
+    if (count) count.textContent = rows.length ? `${rows.length} 筆待確認` : "沒有待確認";
+    if (!rows.length) {
+      list.innerHTML = '<p class="empty-state">目前沒有待確認交易。</p>';
+      return;
+    }
+
+    list.innerHTML = rows.map((row) => {
+      const card = state.creditCards.find((item) => item.id === row.card_id);
+      const duplicateText = row.matched_transaction_id ? " · 疑似已記錄" : "";
+      const sourceText = row.source_count > 1 ? ` · 合併 ${row.source_count} 封` : "";
+      return `
+        <article class="record-item ${row.matched_transaction_id ? "reminder-item" : ""}">
+          <div>
+            <p class="record-title">${escapeHtml(row.merchant)}</p>
+            <p class="record-meta">${row.occurred_at} · ${escapeHtml(cardDisplayName(card))}${sourceText}${duplicateText}</p>
+          </div>
+          <div class="record-amount">${money(row.amount)}</div>
+          <div class="record-actions">
+            <button type="button" data-accept-email-candidate="${row.id}">加入帳本</button>
+            <button type="button" data-skip-email-candidate="${row.id}">略過</button>
+          </div>
+        </article>
+      `;
+    }).join("");
   }
 
   function setupListTabs() {
@@ -963,7 +1120,7 @@
       ? activeCards.map((card) => `<option value="${card.id}">${escapeHtml(cardDisplayName(card))}</option>`).join("")
       : '<option value="">請先新增信用卡</option>';
 
-    ["expenseCardSelect", "advanceCardSelect", "openingBillCardSelect", "installmentCardSelect", "cardFeeCardSelect", "subscriptionCardSelect", "editCardSelect"].forEach((id) => {
+    ["expenseCardSelect", "advanceCardSelect", "openingBillCardSelect", "installmentCardSelect", "cardFeeCardSelect", "subscriptionCardSelect", "editCardSelect", "emailCandidateCardSelect"].forEach((id) => {
       const select = $(id);
       if (select) select.innerHTML = options;
     });
@@ -1851,7 +2008,7 @@
     await loadInstallmentPlans();
     await generateDueInstallments();
 
-    const [txResult, reimbursementResult, chargeResult] = await Promise.all([
+    const [txResult, reimbursementResult, chargeResult, candidateResult] = await Promise.all([
       client
         .from("transactions")
         .select("*")
@@ -1866,15 +2023,30 @@
         .from("credit_card_charges")
         .select("*")
         .eq("user_id", state.user.id)
+        .eq("cycle_id", state.cycle.id),
+      client
+        .from("email_transaction_candidates")
+        .select("*")
+        .eq("user_id", state.user.id)
         .eq("cycle_id", state.cycle.id)
+        .order("occurred_at", { ascending: false })
     ]);
 
     if (txResult.error) throw txResult.error;
     if (reimbursementResult.error) throw reimbursementResult.error;
     if (chargeResult.error) throw chargeResult.error;
+    if (candidateResult.error) {
+      if (candidateResult.error.code === "42P01") {
+        state.emailCandidates = [];
+        showConfigWarning("待確認交易資料表尚未建立", "請先在 Supabase SQL Editor 執行最新版 <code>schema.sql</code>。");
+      } else {
+        throw candidateResult.error;
+      }
+    }
     state.transactions = txResult.data || [];
     state.reimbursements = reimbursementResult.data || [];
     state.cardCharges = normalizeCardChargeAmounts(chargeResult.data);
+    state.emailCandidates = candidateResult.error ? [] : candidateResult.data || [];
   }
 
   async function loadCreditCards() {
@@ -2449,6 +2621,95 @@
       .single();
     if (error) throw error;
     return data;
+  }
+
+  async function importEmailCandidate(event) {
+    event.preventDefault();
+    const text = $("emailCandidateText").value;
+    const cardId = requireCard("emailCandidateCardSelect");
+    const parsed = parseEmailCandidateText(text, cardId);
+    const similar = findSimilarCandidate(parsed);
+    const matched = findMatchedTransaction(parsed);
+
+    if (similar) {
+      const refs = Array.isArray(similar.source_refs) ? similar.source_refs : [];
+      const { error } = await client
+        .from("email_transaction_candidates")
+        .update({
+          source_count: toNumber(similar.source_count) + 1,
+          source_refs: [...refs, ...parsed.source_refs],
+          raw_excerpt: parsed.raw_excerpt,
+          matched_transaction_id: similar.matched_transaction_id || matched?.id || null
+        })
+        .eq("id", similar.id)
+        .eq("user_id", state.user.id);
+      if (error) throw error;
+      showToast("已合併到既有待確認交易");
+    } else {
+      const { error } = await client
+        .from("email_transaction_candidates")
+        .insert({
+          user_id: state.user.id,
+          cycle_id: state.cycle.id,
+          ...parsed,
+          matched_transaction_id: matched?.id || null
+        });
+      if (error) {
+        if (error.code === "23505") {
+          showToast("這封信看起來已經匯入過");
+        } else {
+          throw error;
+        }
+      } else {
+        showToast(matched ? "已匯入，並標示疑似已記錄" : "已匯入待確認交易");
+      }
+    }
+
+    $("emailCandidateText").value = "";
+    await refresh();
+  }
+
+  async function acceptEmailCandidate(id) {
+    const row = state.emailCandidates.find((item) => item.id === id);
+    if (!row) return;
+    const title = row.merchant || "信用卡消費";
+    const tx = await insertTransaction({
+      kind: "expense",
+      date: row.occurred_at,
+      title,
+      amount: toNumber(row.amount),
+      gross_amount: toNumber(row.amount),
+      payment_method: "credit_card",
+      credit_card_id: row.card_id
+    }, false);
+    await insertCardCharge({
+      card_id: row.card_id,
+      transaction_id: tx.id,
+      source_type: "general",
+      title,
+      charge_date: row.occurred_at,
+      due_date: getCardDueDate(row.card_id, row.occurred_at),
+      amount: toNumber(row.amount)
+    });
+    const { error } = await client
+      .from("email_transaction_candidates")
+      .update({ status: "accepted", matched_transaction_id: tx.id })
+      .eq("id", id)
+      .eq("user_id", state.user.id);
+    if (error) throw error;
+    showToast("已加入帳本");
+    await refresh();
+  }
+
+  async function skipEmailCandidate(id) {
+    const { error } = await client
+      .from("email_transaction_candidates")
+      .update({ status: "skipped" })
+      .eq("id", id)
+      .eq("user_id", state.user.id);
+    if (error) throw error;
+    showToast("已略過");
+    await refresh();
   }
 
   function runWish(event) {
@@ -3286,6 +3547,7 @@
 
   function applyCopyOverrides() {
     ensureSubscriptionPanel();
+    ensureEmailCandidatePanel();
     organizeDashboardSections();
     wrapPanelElement("cardList", "管理信用卡");
     wrapPanelForm("cardForm", "新增信用卡");
@@ -3455,6 +3717,47 @@
     installmentPanel?.after(panel);
   }
 
+  function ensureEmailCandidatePanel() {
+    if ($("emailCandidatePanel")) return;
+    const menu = document.querySelector(".app-menu-list");
+    const recordsButton = menu?.querySelector('[data-panel="recordsPanel"]');
+    const button = document.createElement("button");
+    button.className = "tab-button";
+    button.type = "button";
+    button.dataset.panel = "emailCandidatePanel";
+    button.innerHTML = "<strong>待確認</strong><span>從通知信匯入候選交易</span>";
+    recordsButton?.before(button);
+
+    const panel = document.createElement("section");
+    panel.className = "work-panel";
+    panel.id = "emailCandidatePanel";
+    panel.innerHTML = `
+      <form id="emailCandidateForm" class="form-grid">
+        <label>
+          信用卡
+          <select id="emailCandidateCardSelect" required></select>
+        </label>
+        <label class="full-width">
+          Mail 內容
+          <textarea id="emailCandidateText" placeholder="貼上信用卡消費通知信內容" required></textarea>
+        </label>
+        <button class="primary-button full-width" type="submit">匯入待確認</button>
+        <p class="helper-text full-width">同卡片、同金額、日期接近、商家相似的通知會合併，不會直接入帳。</p>
+      </form>
+      <section class="list-section">
+        <div class="section-title">
+          <div>
+            <p class="eyebrow">Inbox</p>
+            <h2>待確認交易</h2>
+          </div>
+          <span id="emailCandidateCount">沒有待確認</span>
+        </div>
+        <div class="inline-list" id="emailCandidateList"></div>
+      </section>
+    `;
+    $("recordsPanel")?.before(panel);
+  }
+
   function wireEvents() {
     function getAuthCredentials() {
       const email = $("emailInput").value.trim();
@@ -3582,6 +3885,7 @@
     $("accountForm").addEventListener("submit", wrap(addAccount));
     $("transferForm").addEventListener("submit", wrap(addTransfer));
     $("editForm").addEventListener("submit", wrap(saveEdit));
+    $("emailCandidateForm").addEventListener("submit", wrap(importEmailCandidate));
     $("cancelEditButton").addEventListener("click", () => $("editDialog").close());
     $("backupButton").addEventListener("click", wrap(downloadBackup));
     $("historyButton").addEventListener("click", wrap(toggleHistory));
@@ -3593,6 +3897,12 @@
     });
     $("copyMotherRequestButton").addEventListener("click", wrap(copyMotherRequest));
     $("restoreInput").addEventListener("change", wrap(restoreBackup));
+    $("emailCandidateList").addEventListener("click", wrap(async (event) => {
+      const acceptId = event.target.closest("[data-accept-email-candidate]")?.dataset.acceptEmailCandidate;
+      const skipId = event.target.closest("[data-skip-email-candidate]")?.dataset.skipEmailCandidate;
+      if (acceptId) await acceptEmailCandidate(acceptId);
+      if (skipId) await skipEmailCandidate(skipId);
+    }));
     document.querySelectorAll("[data-expense-note]").forEach((button) => {
       button.addEventListener("click", () => {
         const input = $("expenseTitle");
@@ -3774,6 +4084,8 @@
         if (form) form.dataset.submitting = "true";
         if (submitter) submitter.disabled = true;
         await fn(event);
+        if (submitter) submitter.disabled = false;
+        if (form) delete form.dataset.submitting;
       } catch (error) {
         console.error(error);
         if (submitter) submitter.disabled = false;
