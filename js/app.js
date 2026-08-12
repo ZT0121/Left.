@@ -335,7 +335,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260812-14")
+      navigator.serviceWorker.register("./sw.js?v=20260812-15")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
@@ -2803,34 +2803,53 @@
     window.location.href = result.auth_url;
   }
 
-  function formatGmailSkipReasons(result) {
-    const labels = {
+  function showGmailSyncResult(title, result, resetText = "") {
+    const dialog = $("syncResultDialog");
+    const titleEl = $("syncResultTitle");
+    const body = $("syncResultBody");
+    const reasonLabels = {
       non_purchase: "非消費信",
       weak_purchase_signal: "不像刷卡通知",
       no_labeled_amount: "找不到金額"
     };
-    const entries = Object.entries(result.skip_reasons || {})
+    const stats = [
+      ["掃描", `${result.scanned || 0} 封`],
+      ["解析", `${result.parsed || 0} 筆`],
+      ["新增", `${result.imported || 0} 筆`],
+      ["合併", `${result.merged || 0} 筆`],
+      ["已記住", `${result.remembered || 0} 封`],
+      ["略過", `${result.skipped || 0} 封`]
+    ];
+    const reasonRows = Object.entries(result.skip_reasons || {})
       .filter(([, count]) => Number(count) > 0)
-      .map(([key, count]) => `${labels[key] || key} ${count}`);
-    return entries.length ? `，略過原因：${entries.join(" / ")}` : "";
-  }
+      .map(([key, count]) => `${reasonLabels[key] || key} ${count}`)
+      .join(" / ");
+    const sampleRows = (result.skip_samples || [])
+      .slice(0, 5)
+      .map((item) => `
+        <li>
+          <strong>${escapeHtml(reasonLabels[item.reason] || item.reason)}</strong><br>
+          ${escapeHtml(item.subject || "(無主旨)")}
+        </li>
+      `).join("");
 
-  function formatGmailSkipSamples(result) {
-    const labels = {
-      non_purchase: "非消費信",
-      weak_purchase_signal: "不像刷卡通知",
-      no_labeled_amount: "找不到金額"
-    };
-    const samples = (result.skip_samples || [])
-      .slice(0, 3)
-      .map((item) => `${labels[item.reason] || item.reason}：${item.subject || "(無主旨)"}`);
-    return samples.length ? `。樣本：${samples.join(" / ")}` : "";
+    titleEl.textContent = title;
+    body.innerHTML = `
+      ${resetText ? `<p class="sync-result-section"><strong>${escapeHtml(resetText)}</strong></p>` : ""}
+      <dl class="sync-result-grid">
+        ${stats.map(([label, value]) => `<div><dt>${label}</dt><dd>${value}</dd></div>`).join("")}
+      </dl>
+      ${reasonRows ? `<p class="sync-result-section"><strong>略過原因</strong><br>${escapeHtml(reasonRows)}</p>` : ""}
+      ${sampleRows ? `<div class="sync-result-section"><strong>略過樣本</strong><ul class="sync-sample-list">${sampleRows}</ul></div>` : ""}
+    `;
+    if (dialog?.showModal) dialog.showModal();
+    else showToast(`${title}：掃描 ${result.scanned || 0} 封，解析 ${result.parsed || 0} 筆`, 6000);
   }
 
   async function syncGmail() {
     const result = await callGmailSync("sync");
     if (result.failed) throw new Error(`Gmail 同步有 ${result.failed} 筆寫入失敗：${(result.failures || []).join(" / ")}`);
-    showToast(`Gmail 同步完成：掃描 ${result.scanned || 0} 封，解析 ${result.parsed || 0} 筆，已記住 ${result.remembered || 0} 封，新增 ${result.imported || 0} 筆，合併 ${result.merged || 0} 筆，略過 ${result.skipped || 0} 封${formatGmailSkipReasons(result)}${formatGmailSkipSamples(result)}`, 15000);
+    showGmailSyncResult("Gmail 同步完成", result);
     await refresh();
   }
 
@@ -2840,7 +2859,7 @@
     const resetText = result.reset_skipped
       ? "沒有解析到可匯入項目，已保留原 Inbox"
       : `清掉 ${result.reset || 0} 筆`;
-    showToast(`Inbox 已重跑：${resetText}，掃描 ${result.scanned || 0} 封，解析 ${result.parsed || 0} 筆，新增 ${result.imported || 0} 筆，合併 ${result.merged || 0} 筆，略過 ${result.skipped || 0} 封${formatGmailSkipReasons(result)}${formatGmailSkipSamples(result)}`, 15000);
+    showGmailSyncResult("Inbox 已重跑", result, resetText);
     await refresh();
   }
 
@@ -4037,6 +4056,7 @@
     $("syncGmailButton").addEventListener("click", wrap(syncGmail));
     $("rerunGmailInboxButton").addEventListener("click", wrap(rerunGmailInbox));
     $("cancelEditButton").addEventListener("click", () => $("editDialog").close());
+    $("closeSyncResultButton").addEventListener("click", () => $("syncResultDialog").close());
     $("backupButton").addEventListener("click", wrap(downloadBackup));
     $("historyButton").addEventListener("click", wrap(toggleHistory));
     $("enableNotificationsButton").addEventListener("click", wrap(enablePushNotifications));

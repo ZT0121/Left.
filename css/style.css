@@ -1114,6 +1114,59 @@ dialog::backdrop {
   background: var(--surface);
 }
 
+.sync-result-dialog {
+  gap: 14px;
+}
+
+.sync-result-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.sync-result-grid div {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: var(--surface-strong);
+}
+
+.sync-result-grid dt {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.sync-result-grid dd {
+  margin: 2px 0 0;
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+
+.sync-result-section {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.55;
+}
+
+.sync-result-section strong {
+  color: var(--ink);
+}
+
+.sync-sample-list {
+  display: grid;
+  gap: 7px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sync-sample-list li {
+  border-top: 1px solid var(--line);
+  padding-top: 7px;
+}
+
 @media (max-width: 390px) {
   .app-shell {
     padding-inline: 10px;
