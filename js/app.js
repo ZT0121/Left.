@@ -335,7 +335,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260812-13")
+      navigator.serviceWorker.register("./sw.js?v=20260812-14")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
@@ -948,11 +948,15 @@
       const sourceText = row.source_count > 1 ? ` · 合併 ${row.source_count} 封` : "";
       const kindText = row.candidate_kind === "statement" ? " · 實際帳單" : "";
       const acceptText = row.candidate_kind === "statement" ? "建立帳單" : "加入帳本";
+      const refs = Array.isArray(row.source_refs) ? row.source_refs : [];
+      const sourceSubject = row.raw_subject || refs.find((ref) => ref?.subject)?.subject || "";
+      const sourceLine = sourceSubject ? `<p class="record-meta">來源：${escapeHtml(sourceSubject)}</p>` : "";
       return `
         <article class="record-item ${row.matched_transaction_id ? "reminder-item" : ""}">
           <div>
             <p class="record-title">${escapeHtml(row.merchant)}</p>
             <p class="record-meta">${row.occurred_at} · ${escapeHtml(cardDisplayName(card))}${kindText}${sourceText}${duplicateText}</p>
+            ${sourceLine}
           </div>
           <div class="record-amount">${money(row.amount)}</div>
           <div class="record-actions">

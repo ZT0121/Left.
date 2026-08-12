@@ -85,7 +85,7 @@ function isNonPurchaseMessage(text: string) {
     /發票|統一發票|載具|中獎/,
     /同意書|同意願|詢問意願|滿意度|問卷/,
     /驗證碼|登入|密碼|安全性/,
-    /繳款|扣繳|轉帳|入帳通知/
+    /轉帳|入帳通知/
   ].some((pattern) => pattern.test(text));
 }
 
@@ -133,6 +133,7 @@ function parseMerchant(text: string, subject: string) {
     /(?:於|在)\s*([^，,。\n]{2,40})\s*(?:消費|交易|刷卡)/
   ];
   for (const line of lines) {
+    if (/本行|網路銀行|行動銀行|新增消費明細|功能|查詢此筆|查詢|帳單/.test(line)) continue;
     for (const pattern of patterns) {
       const value = compact(line.match(pattern)?.[1] || "").replace(/[，,].*$/, "");
       if (value && !/\d{4,}/.test(value)) return value.slice(0, 80);
@@ -170,7 +171,7 @@ function buildCandidate(message: any, cards: Card[]): CandidateBuildResult {
   const from = header(message, "from");
   const text = messageText(message);
   const combined = `${subject}\n${from}\n${text}`;
-  const candidateKind = isStatementMessage(combined) ? "statement" : "purchase";
+  const candidateKind = isStatementMessage(subject) ? "statement" : "purchase";
   if (candidateKind === "purchase" && isNonPurchaseMessage(combined)) {
     console.log("gmail candidate skipped: non_purchase", { subject, from });
     return { candidate: null, reason: "non_purchase", subject, from };
@@ -189,7 +190,7 @@ function buildCandidate(message: any, cards: Card[]): CandidateBuildResult {
     candidate_kind: candidateKind,
     source_type: "email" as const,
     source_count: 1,
-    source_refs: [{ gmail_id: message.id, thread_id: message.threadId, subject }],
+    source_refs: [{ gmail_id: message.id, thread_id: message.threadId, subject, from }],
     occurred_at: parseDate(combined),
     due_date: candidateKind === "statement" ? parseDueDate(combined) : null,
     merchant: parseMerchant(text, subject),
