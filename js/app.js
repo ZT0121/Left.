@@ -335,7 +335,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260812-09")
+      navigator.serviceWorker.register("./sw.js?v=20260812-10")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
@@ -2801,12 +2801,14 @@
 
   async function syncGmail() {
     const result = await callGmailSync("sync");
+    if (result.failed) throw new Error(`Gmail 同步有 ${result.failed} 筆寫入失敗：${(result.failures || []).join(" / ")}`);
     showToast(`Gmail 同步完成：掃描 ${result.scanned || 0} 封，已記住 ${result.remembered || 0} 封，新增 ${result.imported || 0} 筆，合併 ${result.merged || 0} 筆`);
     await refresh();
   }
 
   async function rerunGmailInbox() {
     const result = await callGmailSync("sync", { reset_pending: true });
+    if (result.failed) throw new Error(`Inbox 重跑有 ${result.failed} 筆寫入失敗：${(result.failures || []).join(" / ")}`);
     showToast(`Inbox 已重跑：清掉 ${result.reset || 0} 筆，掃描 ${result.scanned || 0} 封，新增 ${result.imported || 0} 筆`);
     await refresh();
   }

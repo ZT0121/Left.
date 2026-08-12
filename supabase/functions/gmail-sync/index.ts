@@ -371,6 +371,8 @@ Deno.serve(async (req) => {
 
       let imported = 0;
       let merged = 0;
+      let failed = 0;
+      const failures: string[] = [];
       for (const candidate of candidates) {
         const existing = await admin
           .from("email_transaction_candidates")
@@ -383,26 +385,36 @@ Deno.serve(async (req) => {
           const refs = Array.isArray(existing.data.source_refs) ? existing.data.source_refs : [];
           const ids = new Set(refs.map((ref: any) => ref.gmail_id));
           const nextRefs = ids.has(candidate.source_refs[0].gmail_id) ? refs : [...refs, ...candidate.source_refs];
-          if (candidate.source_refs[0].gmail_id) rememberedGmailIds.add(candidate.source_refs[0].gmail_id);
-          await admin.from("email_transaction_candidates").update({
+          const updateResult = await admin.from("email_transaction_candidates").update({
             source_count: nextRefs.length,
             source_refs: nextRefs,
             raw_excerpt: candidate.raw_excerpt
           }).eq("id", existing.data.id);
+          if (updateResult.error) {
+            failed += 1;
+            failures.push(`${candidate.raw_subject}: ${updateResult.error.message}`);
+            continue;
+          }
+          if (candidate.source_refs[0].gmail_id) rememberedGmailIds.add(candidate.source_refs[0].gmail_id);
           merged += 1;
         } else {
-          await admin.from("email_transaction_candidates").insert({
+          const insertResult = await admin.from("email_transaction_candidates").insert({
             user_id: user.id,
             cycle_id: cycleResult.data.id,
             ...candidate
           });
+          if (insertResult.error) {
+            failed += 1;
+            failures.push(`${candidate.raw_subject}: ${insertResult.error.message}`);
+            continue;
+          }
           if (candidate.source_refs[0].gmail_id) rememberedGmailIds.add(candidate.source_refs[0].gmail_id);
           imported += 1;
         }
       }
 
       await admin.from("gmail_connections").update({ last_sync_at: new Date().toISOString() }).eq("user_id", user.id);
-      return new Response(JSON.stringify({ scanned: messages.length, reset, remembered, parsed: candidates.length, imported, merged }), { headers: jsonHeaders });
+      return new Response(JSON.stringify({ scanned: messages.length, reset, remembered, parsed: candidates.length, imported, merged, failed, failures: failures.slice(0, 5) }), { headers: jsonHeaders });
     }
 
     return new Response(JSON.stringify({ error: "not_found" }), { status: 404, headers: jsonHeaders });
