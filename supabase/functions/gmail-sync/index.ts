@@ -80,12 +80,15 @@ function parseDate(text: string) {
   return formatTaipeiDate();
 }
 
-function isNonPurchaseMessage(text: string) {
+function isHardNonPurchaseMessage(text: string) {
+  return /轉帳|入帳通知/.test(text);
+}
+
+function isSoftNonPurchaseMessage(text: string) {
   return [
     /發票|統一發票|載具|中獎/,
     /同意書|同意願|詢問意願|滿意度|問卷/,
-    /驗證碼|登入|密碼|安全性/,
-    /轉帳|入帳通知/
+    /驗證碼|登入|密碼|安全性/
   ].some((pattern) => pattern.test(text));
 }
 
@@ -172,7 +175,13 @@ function buildCandidate(message: any, cards: Card[]): CandidateBuildResult {
   const text = messageText(message);
   const combined = `${subject}\n${from}\n${text}`;
   const candidateKind = isStatementMessage(subject) ? "statement" : "purchase";
-  if (candidateKind === "purchase" && isNonPurchaseMessage(combined)) {
+  const subjectHasPurchaseSignal = hasPurchaseSignal(subject);
+  if (candidateKind === "purchase" && isHardNonPurchaseMessage(combined)) {
+    console.log("gmail candidate skipped: non_purchase", { subject, from });
+    return { candidate: null, reason: "non_purchase", subject, from };
+  }
+  const amount = parseAmount(combined);
+  if (candidateKind === "purchase" && !subjectHasPurchaseSignal && !amount && isSoftNonPurchaseMessage(combined)) {
     console.log("gmail candidate skipped: non_purchase", { subject, from });
     return { candidate: null, reason: "non_purchase", subject, from };
   }
@@ -180,7 +189,6 @@ function buildCandidate(message: any, cards: Card[]): CandidateBuildResult {
     console.log("gmail candidate skipped: weak_purchase_signal", { subject, from });
     return { candidate: null, reason: "weak_purchase_signal", subject, from };
   }
-  const amount = parseAmount(combined);
   if (!amount) {
     console.log("gmail candidate skipped: no_labeled_amount", { subject, from });
     return { candidate: null, reason: "no_labeled_amount", subject, from };

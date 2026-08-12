@@ -1154,6 +1154,12 @@ dialog::backdrop {
   color: var(--ink);
 }
 
+.sync-debug-details summary {
+  cursor: pointer;
+  color: var(--ink);
+  font-weight: 800;
+}
+
 .sync-sample-list {
   display: grid;
   gap: 7px;

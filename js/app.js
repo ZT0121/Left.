@@ -335,7 +335,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260812-15")
+      navigator.serviceWorker.register("./sw.js?v=20260812-16")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
@@ -2824,14 +2824,18 @@
       .filter(([, count]) => Number(count) > 0)
       .map(([key, count]) => `${reasonLabels[key] || key} ${count}`)
       .join(" / ");
-    const sampleRows = (result.skip_samples || [])
-      .slice(0, 5)
+    const sampleRows = [...new Map((result.skip_samples || [])
+      .map((item) => [item.subject || "(無主旨)", item])).values()]
+      .slice(0, 4)
       .map((item) => `
         <li>
           <strong>${escapeHtml(reasonLabels[item.reason] || item.reason)}</strong><br>
           ${escapeHtml(item.subject || "(無主旨)")}
         </li>
       `).join("");
+    const skippedText = reasonRows
+      ? `${result.skipped || 0} 封略過：${reasonRows}`
+      : `${result.skipped || 0} 封略過`;
 
     titleEl.textContent = title;
     body.innerHTML = `
@@ -2839,8 +2843,8 @@
       <dl class="sync-result-grid">
         ${stats.map(([label, value]) => `<div><dt>${label}</dt><dd>${value}</dd></div>`).join("")}
       </dl>
-      ${reasonRows ? `<p class="sync-result-section"><strong>略過原因</strong><br>${escapeHtml(reasonRows)}</p>` : ""}
-      ${sampleRows ? `<div class="sync-result-section"><strong>略過樣本</strong><ul class="sync-sample-list">${sampleRows}</ul></div>` : ""}
+      ${(result.skipped || 0) ? `<p class="sync-result-section">${escapeHtml(skippedText)}</p>` : ""}
+      ${sampleRows ? `<details class="sync-result-section sync-debug-details"><summary>檢視略過樣本</summary><ul class="sync-sample-list">${sampleRows}</ul></details>` : ""}
     `;
     if (dialog?.showModal) dialog.showModal();
     else showToast(`${title}：掃描 ${result.scanned || 0} 封，解析 ${result.parsed || 0} 筆`, 6000);
