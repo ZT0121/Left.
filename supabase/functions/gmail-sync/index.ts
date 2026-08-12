@@ -26,6 +26,7 @@ type Candidate = {
   raw_excerpt: string;
   matched_transaction_id?: string | null;
 };
+type CandidateBuildResult = { candidate: Candidate | null; reason?: string };
 
 function env(name: string) {
   const value = Deno.env.get(name);
@@ -159,7 +160,7 @@ function gmailIdsFromSourceRefs(sourceRefs: unknown) {
     .filter(Boolean);
 }
 
-function buildCandidate(message: any, cards: Card[]): Candidate | null {
+function buildCandidate(message: any, cards: Card[]): CandidateBuildResult {
   const subject = header(message, "subject");
   const from = header(message, "from");
   const text = messageText(message);
@@ -167,16 +168,16 @@ function buildCandidate(message: any, cards: Card[]): Candidate | null {
   const candidateKind = isStatementMessage(combined) ? "statement" : "purchase";
   if (candidateKind === "purchase" && isNonPurchaseMessage(combined)) {
     console.log("gmail candidate skipped: non_purchase", { subject, from });
-    return null;
+    return { candidate: null, reason: "non_purchase" };
   }
   if (candidateKind === "purchase" && !hasPurchaseSignal(combined)) {
     console.log("gmail candidate skipped: weak_purchase_signal", { subject, from });
-    return null;
+    return { candidate: null, reason: "weak_purchase_signal" };
   }
   const amount = parseAmount(combined);
   if (!amount) {
     console.log("gmail candidate skipped: no_labeled_amount", { subject, from });
-    return null;
+    return { candidate: null, reason: "no_labeled_amount" };
   }
   const base = {
     card_id: inferCardId(combined, cards),
@@ -192,7 +193,7 @@ function buildCandidate(message: any, cards: Card[]): Candidate | null {
     raw_subject: subject.slice(0, 160),
     raw_excerpt: text.slice(0, 700)
   };
-  return { ...base, candidate_key: candidateKey(base) };
+  return { candidate: { ...base, candidate_key: candidateKey(base) } };
 }
 
 async function getAuthenticatedUser(req: Request) {
@@ -337,26 +338,17 @@ Deno.serve(async (req) => {
         await wait(150);
       }
 
-      let reset = 0;
-      if (syncBody.reset_pending || syncBody.resetPending) {
-        const resetResult = await admin
-          .from("email_transaction_candidates")
-          .delete()
-          .eq("user_id", user.id)
-          .eq("cycle_id", cycleResult.data.id)
-          .in("status", ["pending", "duplicate"])
-          .select("id");
-        if (resetResult.error) throw resetResult.error;
-        reset = resetResult.data?.length || 0;
-      }
+      const shouldResetPending = Boolean(syncBody.reset_pending || syncBody.resetPending);
 
       const existingCandidateRefs = await admin
         .from("email_transaction_candidates")
-        .select("source_refs")
+        .select("source_refs, status")
         .eq("user_id", user.id);
       if (existingCandidateRefs.error) throw existingCandidateRefs.error;
       const rememberedGmailIds = new Set(
-        (existingCandidateRefs.data || []).flatMap((row: any) => gmailIdsFromSourceRefs(row.source_refs))
+        (existingCandidateRefs.data || [])
+          .filter((row: any) => !shouldResetPending || !["pending", "duplicate"].includes(row.status))
+          .flatMap((row: any) => gmailIdsFromSourceRefs(row.source_refs))
       );
       let remembered = 0;
       const newMessages = messages.filter((message: any) => {
@@ -365,9 +357,33 @@ Deno.serve(async (req) => {
         return false;
       });
 
-      const candidates = newMessages
-        .map((message) => buildCandidate(message, cardResult.data || []))
+      const builtCandidates = newMessages.map((message) => buildCandidate(message, cardResult.data || []));
+      const skipReasons = builtCandidates.reduce((counts: Record<string, number>, result) => {
+        if (result.reason) counts[result.reason] = (counts[result.reason] || 0) + 1;
+        return counts;
+      }, {});
+      const candidates = builtCandidates
+        .map((result) => result.candidate)
         .filter(Boolean) as Candidate[];
+      const skipped = builtCandidates.length - candidates.length;
+
+      let reset = 0;
+      let resetSkipped = false;
+      if (shouldResetPending) {
+        if (candidates.length) {
+          const resetResult = await admin
+            .from("email_transaction_candidates")
+            .delete()
+            .eq("user_id", user.id)
+            .eq("cycle_id", cycleResult.data.id)
+            .in("status", ["pending", "duplicate"])
+            .select("id");
+          if (resetResult.error) throw resetResult.error;
+          reset = resetResult.data?.length || 0;
+        } else {
+          resetSkipped = true;
+        }
+      }
 
       let imported = 0;
       let merged = 0;
@@ -414,7 +430,19 @@ Deno.serve(async (req) => {
       }
 
       await admin.from("gmail_connections").update({ last_sync_at: new Date().toISOString() }).eq("user_id", user.id);
-      return new Response(JSON.stringify({ scanned: messages.length, reset, remembered, parsed: candidates.length, imported, merged, failed, failures: failures.slice(0, 5) }), { headers: jsonHeaders });
+      return new Response(JSON.stringify({
+        scanned: messages.length,
+        reset,
+        reset_skipped: resetSkipped,
+        remembered,
+        parsed: candidates.length,
+        skipped,
+        skip_reasons: skipReasons,
+        imported,
+        merged,
+        failed,
+        failures: failures.slice(0, 5)
+      }), { headers: jsonHeaders });
     }
 
     return new Response(JSON.stringify({ error: "not_found" }), { status: 404, headers: jsonHeaders });
