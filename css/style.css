@@ -542,6 +542,10 @@ body.detail-view-active .topbar {
   box-shadow: none;
 }
 
+.metric-card:nth-last-child(-n + 2) {
+  min-height: 104px;
+}
+
 .metric-card:nth-child(odd) {
   border-right: 1px solid var(--line);
 }
@@ -587,8 +591,7 @@ body.detail-view-active .topbar {
 }
 
 .action-tabs {
-  position: sticky;
-  bottom: max(10px, env(safe-area-inset-bottom));
+  position: static;
   z-index: 12;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
