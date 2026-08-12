@@ -335,7 +335,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260812-11")
+      navigator.serviceWorker.register("./sw.js?v=20260812-12")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
@@ -344,14 +344,14 @@
     });
   }
 
-  function showToast(message) {
+  function showToast(message, duration = 2600) {
     const toast = $("toast");
     toast.textContent = message;
     toast.hidden = false;
     window.clearTimeout(showToast.timer);
     showToast.timer = window.setTimeout(() => {
       toast.hidden = true;
-    }, 2600);
+    }, duration);
   }
 
   function setVisible(id, visible) {
@@ -2814,7 +2814,7 @@
   async function syncGmail() {
     const result = await callGmailSync("sync");
     if (result.failed) throw new Error(`Gmail 同步有 ${result.failed} 筆寫入失敗：${(result.failures || []).join(" / ")}`);
-    showToast(`Gmail 同步完成：掃描 ${result.scanned || 0} 封，解析 ${result.parsed || 0} 筆，已記住 ${result.remembered || 0} 封，新增 ${result.imported || 0} 筆，合併 ${result.merged || 0} 筆，略過 ${result.skipped || 0} 封${formatGmailSkipReasons(result)}`);
+    showToast(`Gmail 同步完成：掃描 ${result.scanned || 0} 封，解析 ${result.parsed || 0} 筆，已記住 ${result.remembered || 0} 封，新增 ${result.imported || 0} 筆，合併 ${result.merged || 0} 筆，略過 ${result.skipped || 0} 封${formatGmailSkipReasons(result)}`, 10000);
     await refresh();
   }
 
@@ -2824,7 +2824,7 @@
     const resetText = result.reset_skipped
       ? "沒有解析到可匯入項目，已保留原 Inbox"
       : `清掉 ${result.reset || 0} 筆`;
-    showToast(`Inbox 已重跑：${resetText}，掃描 ${result.scanned || 0} 封，解析 ${result.parsed || 0} 筆，新增 ${result.imported || 0} 筆，合併 ${result.merged || 0} 筆，略過 ${result.skipped || 0} 封${formatGmailSkipReasons(result)}`);
+    showToast(`Inbox 已重跑：${resetText}，掃描 ${result.scanned || 0} 封，解析 ${result.parsed || 0} 筆，新增 ${result.imported || 0} 筆，合併 ${result.merged || 0} 筆，略過 ${result.skipped || 0} 封${formatGmailSkipReasons(result)}`, 10000);
     await refresh();
   }
 
