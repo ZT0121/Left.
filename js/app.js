@@ -335,7 +335,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260812-12")
+      navigator.serviceWorker.register("./sw.js?v=20260812-13")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
@@ -2811,10 +2811,22 @@
     return entries.length ? `，略過原因：${entries.join(" / ")}` : "";
   }
 
+  function formatGmailSkipSamples(result) {
+    const labels = {
+      non_purchase: "非消費信",
+      weak_purchase_signal: "不像刷卡通知",
+      no_labeled_amount: "找不到金額"
+    };
+    const samples = (result.skip_samples || [])
+      .slice(0, 3)
+      .map((item) => `${labels[item.reason] || item.reason}：${item.subject || "(無主旨)"}`);
+    return samples.length ? `。樣本：${samples.join(" / ")}` : "";
+  }
+
   async function syncGmail() {
     const result = await callGmailSync("sync");
     if (result.failed) throw new Error(`Gmail 同步有 ${result.failed} 筆寫入失敗：${(result.failures || []).join(" / ")}`);
-    showToast(`Gmail 同步完成：掃描 ${result.scanned || 0} 封，解析 ${result.parsed || 0} 筆，已記住 ${result.remembered || 0} 封，新增 ${result.imported || 0} 筆，合併 ${result.merged || 0} 筆，略過 ${result.skipped || 0} 封${formatGmailSkipReasons(result)}`, 10000);
+    showToast(`Gmail 同步完成：掃描 ${result.scanned || 0} 封，解析 ${result.parsed || 0} 筆，已記住 ${result.remembered || 0} 封，新增 ${result.imported || 0} 筆，合併 ${result.merged || 0} 筆，略過 ${result.skipped || 0} 封${formatGmailSkipReasons(result)}${formatGmailSkipSamples(result)}`, 15000);
     await refresh();
   }
 
@@ -2824,7 +2836,7 @@
     const resetText = result.reset_skipped
       ? "沒有解析到可匯入項目，已保留原 Inbox"
       : `清掉 ${result.reset || 0} 筆`;
-    showToast(`Inbox 已重跑：${resetText}，掃描 ${result.scanned || 0} 封，解析 ${result.parsed || 0} 筆，新增 ${result.imported || 0} 筆，合併 ${result.merged || 0} 筆，略過 ${result.skipped || 0} 封${formatGmailSkipReasons(result)}`, 10000);
+    showToast(`Inbox 已重跑：${resetText}，掃描 ${result.scanned || 0} 封，解析 ${result.parsed || 0} 筆，新增 ${result.imported || 0} 筆，合併 ${result.merged || 0} 筆，略過 ${result.skipped || 0} 封${formatGmailSkipReasons(result)}${formatGmailSkipSamples(result)}`, 15000);
     await refresh();
   }
 

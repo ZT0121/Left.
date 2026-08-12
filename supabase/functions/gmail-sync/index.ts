@@ -26,7 +26,7 @@ type Candidate = {
   raw_excerpt: string;
   matched_transaction_id?: string | null;
 };
-type CandidateBuildResult = { candidate: Candidate | null; reason?: string };
+type CandidateBuildResult = { candidate: Candidate | null; reason?: string; subject?: string; from?: string };
 
 function env(name: string) {
   const value = Deno.env.get(name);
@@ -96,7 +96,7 @@ function isStatementMessage(text: string) {
 function hasPurchaseSignal(text: string) {
   return [
     /刷卡(?:消費)?(?:成功|通知)?/,
-    /消費(?:成功|通知|金額)/,
+    /(?:大筆|大額)?消費(?:成功|通知|彙整通知|彙總通知|金額)/,
     /交易(?:成功|通知|金額)/,
     /授權(?:成功|通知|金額)/,
     /特店|商店|商家|店家|merchant/i
@@ -168,16 +168,16 @@ function buildCandidate(message: any, cards: Card[]): CandidateBuildResult {
   const candidateKind = isStatementMessage(combined) ? "statement" : "purchase";
   if (candidateKind === "purchase" && isNonPurchaseMessage(combined)) {
     console.log("gmail candidate skipped: non_purchase", { subject, from });
-    return { candidate: null, reason: "non_purchase" };
+    return { candidate: null, reason: "non_purchase", subject, from };
   }
   if (candidateKind === "purchase" && !hasPurchaseSignal(combined)) {
     console.log("gmail candidate skipped: weak_purchase_signal", { subject, from });
-    return { candidate: null, reason: "weak_purchase_signal" };
+    return { candidate: null, reason: "weak_purchase_signal", subject, from };
   }
   const amount = parseAmount(combined);
   if (!amount) {
     console.log("gmail candidate skipped: no_labeled_amount", { subject, from });
-    return { candidate: null, reason: "no_labeled_amount" };
+    return { candidate: null, reason: "no_labeled_amount", subject, from };
   }
   const base = {
     card_id: inferCardId(combined, cards),
@@ -330,7 +330,7 @@ Deno.serve(async (req) => {
       if (cycleResult.error || !cycleResult.data) throw new Error("active_cycle_not_found");
       if (cardResult.error) throw cardResult.error;
 
-      const query = encodeURIComponent('newer_than:30d ("刷卡成功" OR "刷卡消費" OR "消費通知" OR "授權成功" OR "交易成功" OR "信用卡電子帳單" OR "信用卡帳單") -發票 -統一發票 -載具 -同意 -問卷 -in:spam -in:trash');
+      const query = encodeURIComponent('newer_than:30d ("刷卡成功" OR "刷卡消費" OR "消費通知" OR "大筆消費通知" OR "大額消費通知" OR "消費彙整通知" OR "消費彙總通知" OR "授權成功" OR "交易成功" OR "信用卡電子帳單" OR "信用卡帳單") -發票 -統一發票 -載具 -同意 -問卷 -in:spam -in:trash');
       const list = await gmailFetchWithRetry(`messages?q=${query}&maxResults=20`, token.access_token);
       const messages = [];
       for (const item of list.messages || []) {
@@ -366,6 +366,14 @@ Deno.serve(async (req) => {
         .map((result) => result.candidate)
         .filter(Boolean) as Candidate[];
       const skipped = builtCandidates.length - candidates.length;
+      const skipSamples = builtCandidates
+        .filter((result) => result.reason)
+        .slice(0, 5)
+        .map((result) => ({
+          reason: result.reason,
+          subject: result.subject || "",
+          from: result.from || ""
+        }));
 
       let reset = 0;
       let resetSkipped = false;
@@ -438,6 +446,7 @@ Deno.serve(async (req) => {
         parsed: candidates.length,
         skipped,
         skip_reasons: skipReasons,
+        skip_samples: skipSamples,
         imported,
         merged,
         failed,
