@@ -335,7 +335,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260817-01")
+      navigator.serviceWorker.register("./sw.js?v=20260817-02")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
@@ -2746,8 +2746,9 @@
 
   function splitStatementSheetTitle(title) {
     const [note, ...rest] = String(title || "").split(" / ");
+    const normalizedNote = /^(實際信用卡帳單|期初信用卡帳單|信用卡帳單)$/.test(note || "") ? "" : note;
     return {
-      note: note || "",
+      note: normalizedNote || "",
       noteAmount: parseSheetAmount(rest.join(" / "))
     };
   }
@@ -2813,6 +2814,7 @@
     const paymentSelect = $("statementSheetPaymentAccount");
     if (paymentSelect) paymentSelect.value = firstPaidAccount;
     $("statementSheetForm").dataset.loadedMonth = month;
+    updateStatementSheetTotals();
   }
 
   function ensureStatementSheetLoaded() {
@@ -2839,6 +2841,16 @@
     }).filter((item) => item.chargeId || item.amount || item.note || item.noteAmount || item.statementDate || item.dueDate || item.paid || item.paidAt);
   }
 
+  function updateStatementSheetTotals() {
+    const rows = getStatementSheetRows();
+    const amountTotal = rows.reduce((sum, row) => sum + toNumber(row.amount), 0);
+    const noteAmountTotal = rows.reduce((sum, row) => sum + toNumber(row.noteAmount), 0);
+    const amountCell = $("statementSheetAmountTotal");
+    const noteAmountCell = $("statementSheetNoteAmountTotal");
+    if (amountCell) amountCell.textContent = money(amountTotal);
+    if (noteAmountCell) noteAmountCell.textContent = money(noteAmountTotal);
+  }
+
   function addStatementSheetRow() {
     const body = $("statementSheetRows");
     const template = body?.querySelector("tr");
@@ -2847,6 +2859,36 @@
     clearStatementSheetRow(row);
     body.appendChild(row);
     renderCardOptions();
+    updateStatementSheetTotals();
+  }
+
+  function enableStatementSheetDragScroll() {
+    const scroller = document.querySelector(".statement-sheet-scroll");
+    if (!scroller || scroller.dataset.dragScrollReady === "true") return;
+    scroller.dataset.dragScrollReady = "true";
+    let pointerId = null;
+    let startX = 0;
+    let startScrollLeft = 0;
+
+    scroller.addEventListener("pointerdown", (event) => {
+      if (event.target.closest("input, select, button, textarea")) return;
+      pointerId = event.pointerId;
+      startX = event.clientX;
+      startScrollLeft = scroller.scrollLeft;
+      scroller.setPointerCapture(pointerId);
+    });
+
+    scroller.addEventListener("pointermove", (event) => {
+      if (pointerId !== event.pointerId) return;
+      scroller.scrollLeft = startScrollLeft - (event.clientX - startX);
+    });
+
+    const stop = (event) => {
+      if (pointerId !== event.pointerId) return;
+      pointerId = null;
+    };
+    scroller.addEventListener("pointerup", stop);
+    scroller.addEventListener("pointercancel", stop);
   }
 
   function resetStatementSheet() {
@@ -4351,12 +4393,18 @@
     }));
     $("cardForm").addEventListener("submit", wrap(addCreditCard));
     $("statementSheetForm")?.addEventListener("submit", wrap(addStatementSheetBills));
+    enableStatementSheetDragScroll();
     $("statementMonthTabs")?.addEventListener("click", (event) => {
       const month = event.target.closest("[data-statement-month]")?.dataset.statementMonth;
       if (month) setStatementSheetMonth(month);
     });
     $("loadStatementSheetButton")?.addEventListener("click", loadStatementSheetBills);
     $("addStatementSheetRowButton")?.addEventListener("click", addStatementSheetRow);
+    $("statementSheetRows")?.addEventListener("input", (event) => {
+      if (event.target.matches("[data-sheet-amount], [data-sheet-note-amount]")) {
+        updateStatementSheetTotals();
+      }
+    });
     $("openingBillForm").addEventListener("submit", wrap(addOpeningBill));
     $("installmentForm").addEventListener("submit", wrap(addInstallment));
     $("cardFeeForm").addEventListener("submit", wrap(addCardFee));

@@ -755,15 +755,71 @@ body.detail-view-active .topbar {
 
 .statement-sheet-scroll {
   overflow-x: auto;
+  overflow-y: hidden;
   border: 1px solid var(--line);
   border-radius: 8px;
+  padding-bottom: 12px;
   background: #ffffff;
+  cursor: grab;
+  scrollbar-color: rgba(111, 104, 96, 0.72) rgba(222, 216, 208, 0.8);
+  scrollbar-width: auto;
+}
+
+.statement-sheet-scroll:active {
+  cursor: grabbing;
+}
+
+.statement-sheet-scroll::-webkit-scrollbar {
+  height: 16px;
+}
+
+.statement-sheet-scroll::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(222, 216, 208, 0.8);
+}
+
+.statement-sheet-scroll::-webkit-scrollbar-thumb {
+  border: 3px solid rgba(222, 216, 208, 0.8);
+  border-radius: 999px;
+  background: rgba(111, 104, 96, 0.72);
 }
 
 .statement-sheet-table {
   width: 100%;
-  min-width: 880px;
+  min-width: 1120px;
   border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.statement-sheet-table th:nth-child(1),
+.statement-sheet-table td:nth-child(1) {
+  width: 72px;
+}
+
+.statement-sheet-table th:nth-child(2),
+.statement-sheet-table td:nth-child(2) {
+  width: 150px;
+}
+
+.statement-sheet-table th:nth-child(3),
+.statement-sheet-table td:nth-child(3),
+.statement-sheet-table th:nth-child(5),
+.statement-sheet-table td:nth-child(5) {
+  width: 130px;
+}
+
+.statement-sheet-table th:nth-child(4),
+.statement-sheet-table td:nth-child(4) {
+  width: 170px;
+}
+
+.statement-sheet-table th:nth-child(6),
+.statement-sheet-table td:nth-child(6),
+.statement-sheet-table th:nth-child(7),
+.statement-sheet-table td:nth-child(7),
+.statement-sheet-table th:nth-child(8),
+.statement-sheet-table td:nth-child(8) {
+  width: 156px;
 }
 
 .statement-sheet-table th,
@@ -784,6 +840,19 @@ body.detail-view-active .topbar {
   border-bottom: 0;
 }
 
+.statement-sheet-table tfoot td {
+  border-top: 2px solid var(--line);
+  border-right: 1px solid var(--line);
+  padding: 8px;
+  background: var(--surface-soft);
+  color: var(--primary-dark);
+  font-weight: 900;
+}
+
+.statement-sheet-table tfoot td:last-child {
+  border-right: 0;
+}
+
 .statement-sheet-table th {
   color: var(--primary-dark);
   background: var(--surface-soft);
@@ -793,12 +862,17 @@ body.detail-view-active .topbar {
 
 .statement-sheet-table input,
 .statement-sheet-table select {
+  min-width: 0;
   min-height: 36px;
   border: 0;
   border-radius: 6px;
   padding: 7px 8px;
   background: transparent;
   box-shadow: none;
+}
+
+.statement-sheet-table select[data-sheet-card] {
+  padding-right: 26px;
 }
 
 .statement-sheet-table input:focus,
