@@ -706,6 +706,91 @@ body.detail-view-active .topbar {
   padding-top: 14px;
 }
 
+.statement-sheet-form {
+  display: grid;
+  gap: 12px;
+}
+
+.sheet-form-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 180px);
+  gap: 12px;
+  align-items: end;
+}
+
+.sheet-form-heading h2 {
+  margin: 0;
+}
+
+.sheet-payment-account {
+  min-width: 0;
+}
+
+.statement-sheet-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.statement-sheet-table {
+  width: 100%;
+  min-width: 880px;
+  border-collapse: collapse;
+}
+
+.statement-sheet-table th,
+.statement-sheet-table td {
+  border-bottom: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  padding: 6px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.statement-sheet-table th:last-child,
+.statement-sheet-table td:last-child {
+  border-right: 0;
+}
+
+.statement-sheet-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.statement-sheet-table th {
+  color: var(--primary-dark);
+  background: var(--surface-soft);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.statement-sheet-table input,
+.statement-sheet-table select {
+  min-height: 36px;
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 8px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.statement-sheet-table input:focus,
+.statement-sheet-table select:focus {
+  background: #ffffff;
+  box-shadow: inset 0 0 0 2px rgba(111, 104, 96, 0.24);
+}
+
+.statement-sheet-table input[type="checkbox"] {
+  width: 22px;
+  min-height: 22px;
+  display: block;
+  margin: 0 auto;
+}
+
+.statement-sheet-actions {
+  justify-content: flex-end;
+}
+
 .wish-result {
   margin-top: 12px;
   border-radius: 8px;
@@ -1186,6 +1271,10 @@ dialog::backdrop {
   }
 
   .notification-setup {
+    grid-template-columns: 1fr;
+  }
+
+  .sheet-form-heading {
     grid-template-columns: 1fr;
   }
 

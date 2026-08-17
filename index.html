@@ -382,6 +382,52 @@
           <button class="primary-button full-width" type="submit">新增信用卡</button>
         </form>
 
+        <form id="statementSheetForm" class="statement-sheet-form sub-form">
+          <div class="sheet-form-heading">
+            <div>
+              <p class="eyebrow">Spreadsheet</p>
+              <h2>表格式帳單輸入</h2>
+            </div>
+            <label class="sheet-payment-account">
+              已繳帳戶
+              <select id="statementSheetPaymentAccount"></select>
+            </label>
+          </div>
+          <div class="statement-sheet-scroll">
+            <table class="statement-sheet-table">
+              <thead>
+                <tr>
+                  <th>完成繳費</th>
+                  <th>銀行</th>
+                  <th>金額</th>
+                  <th>備註</th>
+                  <th>備註金額</th>
+                  <th>帳單日</th>
+                  <th>繳款期限</th>
+                  <th>繳款日期</th>
+                </tr>
+              </thead>
+              <tbody id="statementSheetRows">
+                <tr>
+                  <td><input type="checkbox" data-sheet-paid></td>
+                  <td><select data-sheet-card></select></td>
+                  <td><input type="text" inputmode="numeric" data-sheet-amount placeholder="NT$0"></td>
+                  <td><input type="text" data-sheet-note placeholder="例如：遠雄"></td>
+                  <td><input type="text" inputmode="numeric" data-sheet-note-amount placeholder="NT$0"></td>
+                  <td><input type="date" data-sheet-date></td>
+                  <td><input type="date" data-sheet-due></td>
+                  <td><input type="date" data-sheet-paid-date></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="button-row statement-sheet-actions">
+            <button class="secondary-button" id="addStatementSheetRowButton" type="button">新增一列</button>
+            <button class="primary-button" type="submit">儲存表格帳單</button>
+          </div>
+          <p class="helper-text">像試算表一樣填就好；空白列會自動略過，勾選完成繳費的列會同時標記為已繳。</p>
+        </form>
+
         <form id="openingBillForm" class="form-grid sub-form">
           <label>
             期初帳單金額

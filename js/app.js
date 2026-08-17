@@ -1155,6 +1155,9 @@
       const select = $(id);
       if (select) select.innerHTML = options;
     });
+    document.querySelectorAll("[data-sheet-card]").forEach((select) => {
+      select.innerHTML = options;
+    });
 
     toggleCardFields();
     fillOpeningBillDatesFromCard();
@@ -1174,6 +1177,12 @@
       const select = $(id);
       if (select) select.innerHTML = id === "incomeAccountSelect" ? incomeOptions : options;
     });
+    const statementPaymentSelect = $("statementSheetPaymentAccount");
+    if (statementPaymentSelect) {
+      statementPaymentSelect.innerHTML = activeAccounts.length
+        ? `<option value="">不指定</option>${options}`
+        : '<option value="">不指定</option>';
+    }
 
     selectPreferredIncomeAccount(activeAccounts);
   }
@@ -2670,6 +2679,99 @@
     return data;
   }
 
+  function parseSheetAmount(value) {
+    return toNumber(String(value || "").replace(/[^\d.-]/g, ""));
+  }
+
+  function getStatementSheetRows() {
+    return [...document.querySelectorAll("#statementSheetRows tr")].map((row) => {
+      const cardId = row.querySelector("[data-sheet-card]")?.value || "";
+      const amount = parseSheetAmount(row.querySelector("[data-sheet-amount]")?.value);
+      const note = row.querySelector("[data-sheet-note]")?.value.trim() || "";
+      const noteAmount = parseSheetAmount(row.querySelector("[data-sheet-note-amount]")?.value);
+      const statementDate = row.querySelector("[data-sheet-date]")?.value || "";
+      const dueDate = row.querySelector("[data-sheet-due]")?.value || "";
+      const paid = Boolean(row.querySelector("[data-sheet-paid]")?.checked);
+      const paidAt = row.querySelector("[data-sheet-paid-date]")?.value || "";
+      return { row, cardId, amount, note, noteAmount, statementDate, dueDate, paid, paidAt };
+    }).filter((item) => item.amount || item.note || item.noteAmount || item.statementDate || item.dueDate || item.paid || item.paidAt);
+  }
+
+  function addStatementSheetRow() {
+    const body = $("statementSheetRows");
+    const template = body?.querySelector("tr");
+    if (!body || !template) return;
+    const row = template.cloneNode(true);
+    row.querySelectorAll("input").forEach((input) => {
+      if (input.type === "checkbox") input.checked = false;
+      else input.value = "";
+    });
+    row.querySelectorAll("select").forEach((select) => {
+      select.selectedIndex = 0;
+    });
+    body.appendChild(row);
+    renderCardOptions();
+  }
+
+  function resetStatementSheet() {
+    const body = $("statementSheetRows");
+    if (!body) return;
+    const first = body.querySelector("tr");
+    if (!first) return;
+    body.innerHTML = "";
+    body.appendChild(first);
+    first.querySelectorAll("input").forEach((input) => {
+      if (input.type === "checkbox") input.checked = false;
+      else input.value = "";
+    });
+    renderCardOptions();
+  }
+
+  async function addStatementSheetBills(event) {
+    event.preventDefault();
+    const rows = getStatementSheetRows();
+    if (!rows.length) {
+      showToast("先填一列帳單再儲存");
+      return;
+    }
+
+    const paymentAccountId = $("statementSheetPaymentAccount")?.value || null;
+    let savedCount = 0;
+    for (const row of rows) {
+      if (!row.cardId) throw new Error("每一列都要選銀行");
+      if (row.amount <= 0) throw new Error("帳單金額要大於 0");
+      const statementDate = row.statementDate || getLatestCardClosingDate(row.cardId, row.dueDate || today());
+      const noteAmountText = row.noteAmount > 0 ? ` / 備註金額 ${money(row.noteAmount)}` : "";
+      const title = `${row.note || "信用卡帳單"}${noteAmountText}`;
+      const tx = await insertTransaction({
+        kind: "opening_card_bill",
+        date: statementDate,
+        title,
+        amount: row.amount,
+        gross_amount: row.amount,
+        payment_method: "credit_card",
+        credit_card_id: row.cardId
+      }, false);
+      await insertCardCharge({
+        card_id: row.cardId,
+        transaction_id: tx.id,
+        source_type: "opening_bill",
+        title,
+        charge_date: statementDate,
+        due_date: row.dueDate || null,
+        amount: row.amount,
+        status: row.paid ? "paid" : "pending",
+        paid_at: row.paid ? (row.paidAt || today()) : null,
+        payment_account_id: row.paid ? paymentAccountId : null
+      });
+      savedCount += 1;
+    }
+
+    resetStatementSheet();
+    showToast(`已儲存 ${savedCount} 筆帳單`);
+    await refresh();
+  }
+
   async function importEmailCandidate(event) {
     event.preventDefault();
     const text = $("emailCandidateText").value;
@@ -4040,6 +4142,8 @@
       else if (deleteId) await deleteTransaction(deleteId);
     }));
     $("cardForm").addEventListener("submit", wrap(addCreditCard));
+    $("statementSheetForm")?.addEventListener("submit", wrap(addStatementSheetBills));
+    $("addStatementSheetRowButton")?.addEventListener("click", addStatementSheetRow);
     $("openingBillForm").addEventListener("submit", wrap(addOpeningBill));
     $("installmentForm").addEventListener("submit", wrap(addInstallment));
     $("cardFeeForm").addEventListener("submit", wrap(addCardFee));
