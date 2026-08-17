@@ -1246,6 +1246,7 @@
         <div class="record-amount">${money(account.balance)}</div>
         <div class="record-actions">
           <button type="button" data-edit-account="${account.id}">編輯</button>
+          <button type="button" data-delete-account="${account.id}">刪除</button>
         </div>
       </article>
     `;
@@ -3471,6 +3472,18 @@
     await refresh();
   }
 
+  async function deleteAccount(id) {
+    if (!window.confirm("確定刪除這個帳戶？相關轉帳會一起刪除，原本連到這個帳戶的紀錄會改成未指定帳戶。")) return;
+    const { error } = await client
+      .from("accounts")
+      .delete()
+      .eq("id", id)
+      .eq("user_id", state.user.id);
+    if (error) throw error;
+    showToast("帳戶已刪除");
+    await refresh();
+  }
+
   async function addTransfer(event) {
     event.preventDefault();
     const fromId = $("transferFromSelect").value;
@@ -4579,7 +4592,9 @@
 
     $("accountList").addEventListener("click", wrap(async (event) => {
       const editId = event.target.dataset.editAccount;
+      const deleteId = event.target.dataset.deleteAccount;
       if (editId) await editAccount(editId);
+      if (deleteId) await deleteAccount(deleteId);
     }));
 
     $("installmentList").addEventListener("click", wrap(async (event) => {
