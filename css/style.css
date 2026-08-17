@@ -726,6 +726,33 @@ body.detail-view-active .topbar {
   min-width: 0;
 }
 
+.statement-month-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 4px;
+}
+
+.statement-month-tabs button {
+  min-width: 88px;
+  min-height: 36px;
+  border: 1px solid transparent;
+  border-radius: 7px 7px 0 0;
+  padding: 7px 12px;
+  color: var(--primary-dark);
+  background: transparent;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.statement-month-tabs button.active {
+  border-color: var(--line);
+  border-bottom-color: #ffffff;
+  color: #1d5fd0;
+  background: #ffffff;
+}
+
 .statement-sheet-scroll {
   overflow-x: auto;
   border: 1px solid var(--line);

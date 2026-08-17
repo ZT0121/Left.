@@ -335,7 +335,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260812-17")
+      navigator.serviceWorker.register("./sw.js?v=20260817-01")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
@@ -604,11 +604,13 @@
     applyStatus(summary.safeToSpend);
     renderCardOptions();
     renderCreditCards();
+    renderStatementMonthTabs();
     renderTransactions();
     renderReimbursements();
     renderCardCharges();
     renderInstallments();
     renderAccountOptions();
+    ensureStatementSheetLoaded();
     renderAccounts();
     renderTransfers();
     renderIncomeRecords();
@@ -1156,7 +1158,9 @@
       if (select) select.innerHTML = options;
     });
     document.querySelectorAll("[data-sheet-card]").forEach((select) => {
+      const value = select.value;
       select.innerHTML = options;
+      if (value) select.value = value;
     });
 
     toggleCardFields();
@@ -1179,9 +1183,11 @@
     });
     const statementPaymentSelect = $("statementSheetPaymentAccount");
     if (statementPaymentSelect) {
+      const value = statementPaymentSelect.value;
       statementPaymentSelect.innerHTML = activeAccounts.length
         ? `<option value="">不指定</option>${options}`
         : '<option value="">不指定</option>';
+      if (value) statementPaymentSelect.value = value;
     }
 
     selectPreferredIncomeAccount(activeAccounts);
@@ -2683,8 +2689,144 @@
     return toNumber(String(value || "").replace(/[^\d.-]/g, ""));
   }
 
+  function getDefaultStatementSheetMonth() {
+    return state.cardCharges
+      .filter(isActualStatement)
+      .map((row) => String(row.charge_date || row.due_date || "").slice(0, 7))
+      .filter((month) => /^\d{4}-\d{2}$/.test(month))
+      .sort((a, b) => b.localeCompare(a))[0] || currentMonth();
+  }
+
+  function getStatementSheetMonth() {
+    const form = $("statementSheetForm");
+    if (!form?.dataset.month) form.dataset.month = getDefaultStatementSheetMonth();
+    return form.dataset.month;
+  }
+
+  function setStatementSheetMonth(month) {
+    const form = $("statementSheetForm");
+    if (!form) return;
+    form.dataset.month = month || currentMonth();
+    renderStatementMonthTabs();
+    loadStatementSheetBills();
+  }
+
+  function formatSheetMonth(month) {
+    return String(month || "").replace("-", "/");
+  }
+
+  function getStatementSheetMonths() {
+    const defaultMonth = getDefaultStatementSheetMonth();
+    const months = new Set([defaultMonth]);
+    state.cardCharges
+      .filter(isActualStatement)
+      .forEach((row) => {
+        const month = String(row.charge_date || row.due_date || "").slice(0, 7);
+        if (/^\d{4}-\d{2}$/.test(month)) months.add(month);
+      });
+
+    const base = parseLocalDate(`${defaultMonth}-01`);
+    for (let index = 1; index < 6; index += 1) {
+      const date = new Date(base);
+      date.setMonth(base.getMonth() - index);
+      months.add(formatDate(date).slice(0, 7));
+    }
+
+    return [...months].sort((a, b) => b.localeCompare(a));
+  }
+
+  function renderStatementMonthTabs() {
+    const tabs = $("statementMonthTabs");
+    if (!tabs) return;
+    const activeMonth = getStatementSheetMonth();
+    tabs.innerHTML = getStatementSheetMonths().map((month) => (
+      `<button type="button" class="${month === activeMonth ? "active" : ""}" data-statement-month="${month}">${formatSheetMonth(month)}</button>`
+    )).join("");
+  }
+
+  function splitStatementSheetTitle(title) {
+    const [note, ...rest] = String(title || "").split(" / ");
+    return {
+      note: note || "",
+      noteAmount: parseSheetAmount(rest.join(" / "))
+    };
+  }
+
+  function clearStatementSheetRow(row) {
+    delete row.dataset.sheetChargeId;
+    delete row.dataset.sheetTransactionId;
+    delete row.dataset.sheetPaymentAccountId;
+    row.querySelectorAll("input").forEach((input) => {
+      if (input.type === "checkbox") input.checked = false;
+      else input.value = "";
+    });
+    row.querySelectorAll("select").forEach((select) => {
+      select.selectedIndex = 0;
+    });
+  }
+
+  function setStatementSheetRow(row, values = {}) {
+    clearStatementSheetRow(row);
+    row.dataset.sheetChargeId = values.id || "";
+    row.dataset.sheetTransactionId = values.transaction_id || "";
+    row.dataset.sheetPaymentAccountId = values.payment_account_id || "";
+    const titleParts = splitStatementSheetTitle(values.title);
+    const paid = values.status === "paid";
+    const setValue = (selector, value) => {
+      const field = row.querySelector(selector);
+      if (field) field.value = value || "";
+    };
+    const paidInput = row.querySelector("[data-sheet-paid]");
+    if (paidInput) paidInput.checked = paid;
+    setValue("[data-sheet-card]", values.card_id);
+    setValue("[data-sheet-amount]", values.amount ? money(values.amount) : "");
+    setValue("[data-sheet-note]", titleParts.note);
+    setValue("[data-sheet-note-amount]", titleParts.noteAmount ? money(titleParts.noteAmount) : "");
+    setValue("[data-sheet-date]", values.charge_date);
+    setValue("[data-sheet-due]", values.due_date);
+    setValue("[data-sheet-paid-date]", paid ? values.paid_at : "");
+  }
+
+  function loadStatementSheetBills() {
+    const body = $("statementSheetRows");
+    const template = body?.querySelector("tr");
+    if (!body || !template) return;
+    const month = getStatementSheetMonth();
+    const rows = state.cardCharges
+      .filter(isActualStatement)
+      .filter((row) => String(row.charge_date || row.due_date || "").slice(0, 7) === month)
+      .sort((a, b) => `${a.due_date || ""}${a.created_at || ""}`.localeCompare(`${b.due_date || ""}${b.created_at || ""}`));
+
+    body.innerHTML = "";
+    const sourceRows = rows.length ? rows : [{}];
+    const sheetRows = sourceRows.map(() => {
+      const row = template.cloneNode(true);
+      body.appendChild(row);
+      return row;
+    });
+    renderCardOptions();
+    sheetRows.forEach((row, index) => {
+      setStatementSheetRow(row, sourceRows[index]);
+    });
+
+    const firstPaidAccount = rows.find((row) => row.payment_account_id)?.payment_account_id || "";
+    const paymentSelect = $("statementSheetPaymentAccount");
+    if (paymentSelect) paymentSelect.value = firstPaidAccount;
+    $("statementSheetForm").dataset.loadedMonth = month;
+  }
+
+  function ensureStatementSheetLoaded() {
+    const form = $("statementSheetForm");
+    if (!form) return;
+    if (form.dataset.loadedMonth === getStatementSheetMonth()) return;
+    loadStatementSheetBills();
+  }
+
   function getStatementSheetRows() {
     return [...document.querySelectorAll("#statementSheetRows tr")].map((row) => {
+      const chargeId = row.dataset.sheetChargeId || "";
+      const transactionId = row.dataset.sheetTransactionId || "";
+      const rowPaymentAccountId = row.dataset.sheetPaymentAccountId || "";
       const cardId = row.querySelector("[data-sheet-card]")?.value || "";
       const amount = parseSheetAmount(row.querySelector("[data-sheet-amount]")?.value);
       const note = row.querySelector("[data-sheet-note]")?.value.trim() || "";
@@ -2693,8 +2835,8 @@
       const dueDate = row.querySelector("[data-sheet-due]")?.value || "";
       const paid = Boolean(row.querySelector("[data-sheet-paid]")?.checked);
       const paidAt = row.querySelector("[data-sheet-paid-date]")?.value || "";
-      return { row, cardId, amount, note, noteAmount, statementDate, dueDate, paid, paidAt };
-    }).filter((item) => item.amount || item.note || item.noteAmount || item.statementDate || item.dueDate || item.paid || item.paidAt);
+      return { row, chargeId, transactionId, rowPaymentAccountId, cardId, amount, note, noteAmount, statementDate, dueDate, paid, paidAt };
+    }).filter((item) => item.chargeId || item.amount || item.note || item.noteAmount || item.statementDate || item.dueDate || item.paid || item.paidAt);
   }
 
   function addStatementSheetRow() {
@@ -2702,13 +2844,7 @@
     const template = body?.querySelector("tr");
     if (!body || !template) return;
     const row = template.cloneNode(true);
-    row.querySelectorAll("input").forEach((input) => {
-      if (input.type === "checkbox") input.checked = false;
-      else input.value = "";
-    });
-    row.querySelectorAll("select").forEach((select) => {
-      select.selectedIndex = 0;
-    });
+    clearStatementSheetRow(row);
     body.appendChild(row);
     renderCardOptions();
   }
@@ -2720,10 +2856,7 @@
     if (!first) return;
     body.innerHTML = "";
     body.appendChild(first);
-    first.querySelectorAll("input").forEach((input) => {
-      if (input.type === "checkbox") input.checked = false;
-      else input.value = "";
-    });
+    clearStatementSheetRow(first);
     renderCardOptions();
   }
 
@@ -2770,6 +2903,81 @@
     resetStatementSheet();
     showToast(`已儲存 ${savedCount} 筆帳單`);
     await refresh();
+  }
+
+  async function addStatementSheetBills(event) {
+    event.preventDefault();
+    const rows = getStatementSheetRows();
+    if (!rows.length) {
+      showToast("先填一列帳單再儲存");
+      return;
+    }
+
+    const paymentAccountId = $("statementSheetPaymentAccount")?.value || null;
+    let savedCount = 0;
+    for (const row of rows) {
+      if (!row.cardId) throw new Error("每一列都要選銀行");
+      if (row.amount <= 0) throw new Error("帳單金額要大於 0");
+      const statementDate = row.statementDate || `${getStatementSheetMonth()}-01`;
+      const noteAmountText = row.noteAmount > 0 ? ` / 備註金額 ${money(row.noteAmount)}` : "";
+      const title = `${row.note || "信用卡帳單"}${noteAmountText}`;
+      const chargePayload = {
+        card_id: row.cardId,
+        source_type: "opening_bill",
+        title,
+        charge_date: statementDate,
+        due_date: row.dueDate || null,
+        amount: row.amount,
+        status: row.paid ? "paid" : "pending",
+        paid_at: row.paid ? (row.paidAt || today()) : null,
+        payment_account_id: row.paid ? (paymentAccountId || row.rowPaymentAccountId || null) : null
+      };
+
+      if (row.chargeId) {
+        const { error } = await client
+          .from("credit_card_charges")
+          .update(chargePayload)
+          .eq("id", row.chargeId)
+          .eq("user_id", state.user.id);
+        if (error) throw error;
+
+        if (row.transactionId) {
+          const txError = await client
+            .from("transactions")
+            .update({
+              date: statementDate,
+              title,
+              amount: row.amount,
+              gross_amount: row.amount,
+              credit_card_id: row.cardId
+            })
+            .eq("id", row.transactionId)
+            .eq("user_id", state.user.id);
+          if (txError.error) throw txError.error;
+        }
+        savedCount += 1;
+        continue;
+      }
+
+      const tx = await insertTransaction({
+        kind: "opening_card_bill",
+        date: statementDate,
+        title,
+        amount: row.amount,
+        gross_amount: row.amount,
+        payment_method: "credit_card",
+        credit_card_id: row.cardId
+      }, false);
+      await insertCardCharge({
+        ...chargePayload,
+        transaction_id: tx.id
+      });
+      savedCount += 1;
+    }
+
+    showToast(`已儲存 ${savedCount} 筆帳單`);
+    await refresh();
+    loadStatementSheetBills();
   }
 
   async function importEmailCandidate(event) {
@@ -4143,6 +4351,11 @@
     }));
     $("cardForm").addEventListener("submit", wrap(addCreditCard));
     $("statementSheetForm")?.addEventListener("submit", wrap(addStatementSheetBills));
+    $("statementMonthTabs")?.addEventListener("click", (event) => {
+      const month = event.target.closest("[data-statement-month]")?.dataset.statementMonth;
+      if (month) setStatementSheetMonth(month);
+    });
+    $("loadStatementSheetButton")?.addEventListener("click", loadStatementSheetBills);
     $("addStatementSheetRowButton")?.addEventListener("click", addStatementSheetRow);
     $("openingBillForm").addEventListener("submit", wrap(addOpeningBill));
     $("installmentForm").addEventListener("submit", wrap(addInstallment));
