@@ -197,6 +197,20 @@ label {
   font-weight: 700;
 }
 
+.checkbox-label {
+  grid-template-columns: 22px 1fr;
+  align-items: center;
+  min-height: 46px;
+  gap: 8px;
+  color: var(--text);
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  min-height: 18px;
+  margin: 0;
+}
+
 input,
 textarea,
 select {

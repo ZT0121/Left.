@@ -1944,7 +1944,7 @@
     return Array.from({ length: count }, (_, index) => base + (index < remainder ? 1 : 0));
   }
 
-  function splitSharedFeeForMealRows(total, count, mealRowCount) {
+  function splitSharedFeeForMealRows(total, count, mealRowCount, ownParticipates = count > mealRowCount) {
     const otherCount = Math.max(0, mealRowCount);
     if (!total || !count) {
       return {
@@ -1953,7 +1953,6 @@
       };
     }
 
-    const ownParticipates = count > otherCount;
     const shares = splitSharedFee(total, count);
     return {
       own: ownParticipates ? shares[0] : 0,
@@ -2454,7 +2453,8 @@
     const shared = toNumber($("advanceShared").value);
     const mealRows = parseAmountLines($("advanceMeals").value, "別人的餐點明細");
     const usesMealSplit = mealRows.length > 0;
-    const ownParticipatesInMealSplit = usesMealSplit && personal > 0;
+    const ownSharesSharedFee = $("advanceOwnSharesShared")?.checked ?? true;
+    const ownParticipatesInMealSplit = usesMealSplit && personal > 0 && ownSharesSharedFee;
     const minimumSplitPeople = usesMealSplit
       ? mealRows.length + (ownParticipatesInMealSplit ? 1 : 0)
       : 0;
@@ -2469,7 +2469,12 @@
     if (usesMealSplit && splitPeople < minimumSplitPeople) {
       throw new Error("分攤人數不能少於有餐點明細的人數。");
     }
-    const mealShares = splitSharedFeeForMealRows(sharedToSplit, splitPeople, mealRows.length);
+    const mealShares = splitSharedFeeForMealRows(
+      sharedToSplit,
+      splitPeople,
+      mealRows.length,
+      ownParticipatesInMealSplit
+    );
     const ownMealTotal = personal + mealShares.own;
     const mealTotals = mealRows.map((row, index) => ({
       ...row,
