@@ -2451,15 +2451,19 @@
     const peopleInput = toNumber($("advancePeople").value);
     const personal = toNumber($("advancePersonal").value);
     const shared = toNumber($("advanceShared").value);
+    const hasOwnOverride = $("advanceOwn").value !== "";
+    const ownOverride = hasOwnOverride ? toNumber($("advanceOwn").value) : 0;
     const mealRows = parseAmountLines($("advanceMeals").value, "別人的餐點明細");
     const usesMealSplit = mealRows.length > 0;
-    const ownSharesSharedFee = $("advanceOwnSharesShared")?.checked ?? true;
-    const ownParticipatesInMealSplit = usesMealSplit && personal > 0 && ownSharesSharedFee;
+    const ownParticipatesInMealSplit = usesMealSplit && personal > 0 && !hasOwnOverride;
     const minimumSplitPeople = usesMealSplit
       ? mealRows.length + (ownParticipatesInMealSplit ? 1 : 0)
       : 0;
-    const splitPeople = peopleInput || minimumSplitPeople;
-    const mealSubtotal = personal + mealRows.reduce((sum, row) => sum + row.amount, 0);
+    const splitPeople = hasOwnOverride && usesMealSplit
+      ? mealRows.length
+      : peopleInput || minimumSplitPeople;
+    const otherMealSubtotal = mealRows.reduce((sum, row) => sum + row.amount, 0);
+    const mealSubtotal = (hasOwnOverride ? ownOverride : personal) + otherMealSubtotal;
     if (usesMealSplit && grossInput < mealSubtotal) {
       throw new Error(`個別餐點合計 ${money(mealSubtotal)}，已經超過總金額 ${money(grossInput)}。`);
     }
@@ -2475,7 +2479,7 @@
       mealRows.length,
       ownParticipatesInMealSplit
     );
-    const ownMealTotal = personal + mealShares.own;
+    const ownMealTotal = hasOwnOverride ? ownOverride : personal + mealShares.own;
     const mealTotals = mealRows.map((row, index) => ({
       ...row,
       amount: row.amount + (mealShares.others[index] || 0)
@@ -2490,8 +2494,8 @@
       throw new Error("有平均分攤費時，請填分攤人數或別人的餐點明細。");
     }
 
-    const own = $("advanceOwn").value
-      ? toNumber($("advanceOwn").value)
+    const own = hasOwnOverride
+      ? ownOverride
       : usesMealSplit
         ? ownMealTotal
       : usesItemizedSplit
