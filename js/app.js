@@ -1963,6 +1963,96 @@
     };
   }
 
+  function getAdvanceSplitFromForm() {
+    const grossInput = toNumber($("advanceGross").value);
+    const peopleInput = toNumber($("advancePeople").value);
+    const personal = toNumber($("advancePersonal").value);
+    const shared = toNumber($("advanceShared").value);
+    const hasOwnOverride = $("advanceOwn").value !== "";
+    const ownOverride = hasOwnOverride ? toNumber($("advanceOwn").value) : 0;
+    const mealRows = parseAmountLines($("advanceMeals").value, "別人的餐點明細");
+    const usesMealSplit = mealRows.length > 0;
+    const ownParticipatesInMealSplit = usesMealSplit && personal > 0 && !hasOwnOverride;
+    const minimumSplitPeople = usesMealSplit
+      ? mealRows.length + (ownParticipatesInMealSplit ? 1 : 0)
+      : 0;
+    const splitPeople = hasOwnOverride && usesMealSplit
+      ? mealRows.length
+      : peopleInput || minimumSplitPeople;
+    const otherMealSubtotal = mealRows.reduce((sum, row) => sum + row.amount, 0);
+    const mealSubtotal = (hasOwnOverride ? ownOverride : personal) + otherMealSubtotal;
+    if (usesMealSplit && grossInput < mealSubtotal) {
+      throw new Error(`個別餐點合計 ${money(mealSubtotal)}，已經超過總金額 ${money(grossInput)}。`);
+    }
+    const sharedToSplit = usesMealSplit
+      ? Math.max(0, grossInput - mealSubtotal)
+      : shared;
+    if (usesMealSplit && splitPeople < minimumSplitPeople) {
+      throw new Error("分攤人數不能少於有餐點明細的人數。");
+    }
+    const mealShares = splitSharedFeeForMealRows(
+      sharedToSplit,
+      splitPeople,
+      mealRows.length,
+      ownParticipatesInMealSplit
+    );
+    const ownMealTotal = hasOwnOverride ? ownOverride : personal + mealShares.own;
+    const mealTotals = mealRows.map((row, index) => ({
+      ...row,
+      baseAmount: row.amount,
+      sharedAmount: mealShares.others[index] || 0,
+      amount: row.amount + (mealShares.others[index] || 0)
+    }));
+    const mealTotal = ownMealTotal + mealTotals.reduce((sum, row) => sum + row.amount, 0);
+    const gross = usesMealSplit ? mealTotal : grossInput;
+    const usesItemizedSplit = Boolean($("advancePersonal").value || $("advanceShared").value);
+    if (!usesMealSplit && usesItemizedSplit && shared > 0 && peopleInput <= 0) {
+      throw new Error("有平均分攤費時，請填分攤人數。");
+    }
+    if (usesMealSplit && shared > 0 && splitPeople <= 0) {
+      throw new Error("有平均分攤費時，請填分攤人數或別人的餐點明細。");
+    }
+
+    const own = hasOwnOverride
+      ? ownOverride
+      : usesMealSplit
+        ? ownMealTotal
+      : usesItemizedSplit
+        ? personal + (peopleInput > 0 ? Math.ceil(shared / peopleInput) : 0)
+      : peopleInput > 0
+        ? Math.ceil(gross / peopleInput)
+        : gross;
+    if (own > gross) throw new Error("自己負擔不能大於總金額。");
+    const receivable = Math.max(0, gross - own);
+    const receivableRows = usesMealSplit
+      ? mealTotals
+      : [];
+    const detailedReceivable = receivableRows.reduce((sum, row) => sum + row.amount, 0);
+    if (receivableRows.length && detailedReceivable !== receivable) {
+      throw new Error(`待收明細合計 ${money(detailedReceivable)}，但應待收 ${money(receivable)}。`);
+    }
+
+    return {
+      gross,
+      own,
+      receivable,
+      receivableRows,
+      splitPeople,
+      peopleInput
+    };
+  }
+
+  function formatAdvanceRequestMessage(rows) {
+    return (rows || []).map((row) => {
+      const name = String(row.title || "").trim();
+      const prefix = name.startsWith("@") ? name : `@${name}`;
+      if (toNumber(row.sharedAmount) > 0) {
+        return `${prefix} ${money(row.baseAmount)}+平台費 ${money(row.sharedAmount)} = ${money(row.amount)}`;
+      }
+      return `${prefix} ${money(row.amount)}`;
+    }).join("\n");
+  }
+
   function fillOpeningBillDatesFromCard() {
     const select = $("openingBillCardSelect");
     if (!select?.value) return;
@@ -2447,71 +2537,7 @@
 
   async function addAdvance(event) {
     event.preventDefault();
-    const grossInput = toNumber($("advanceGross").value);
-    const peopleInput = toNumber($("advancePeople").value);
-    const personal = toNumber($("advancePersonal").value);
-    const shared = toNumber($("advanceShared").value);
-    const hasOwnOverride = $("advanceOwn").value !== "";
-    const ownOverride = hasOwnOverride ? toNumber($("advanceOwn").value) : 0;
-    const mealRows = parseAmountLines($("advanceMeals").value, "別人的餐點明細");
-    const usesMealSplit = mealRows.length > 0;
-    const ownParticipatesInMealSplit = usesMealSplit && personal > 0 && !hasOwnOverride;
-    const minimumSplitPeople = usesMealSplit
-      ? mealRows.length + (ownParticipatesInMealSplit ? 1 : 0)
-      : 0;
-    const splitPeople = hasOwnOverride && usesMealSplit
-      ? mealRows.length
-      : peopleInput || minimumSplitPeople;
-    const otherMealSubtotal = mealRows.reduce((sum, row) => sum + row.amount, 0);
-    const mealSubtotal = (hasOwnOverride ? ownOverride : personal) + otherMealSubtotal;
-    if (usesMealSplit && grossInput < mealSubtotal) {
-      throw new Error(`個別餐點合計 ${money(mealSubtotal)}，已經超過總金額 ${money(grossInput)}。`);
-    }
-    const sharedToSplit = usesMealSplit
-      ? Math.max(0, grossInput - mealSubtotal)
-      : shared;
-    if (usesMealSplit && splitPeople < minimumSplitPeople) {
-      throw new Error("分攤人數不能少於有餐點明細的人數。");
-    }
-    const mealShares = splitSharedFeeForMealRows(
-      sharedToSplit,
-      splitPeople,
-      mealRows.length,
-      ownParticipatesInMealSplit
-    );
-    const ownMealTotal = hasOwnOverride ? ownOverride : personal + mealShares.own;
-    const mealTotals = mealRows.map((row, index) => ({
-      ...row,
-      amount: row.amount + (mealShares.others[index] || 0)
-    }));
-    const mealTotal = ownMealTotal + mealTotals.reduce((sum, row) => sum + row.amount, 0);
-    const gross = usesMealSplit ? mealTotal : grossInput;
-    const usesItemizedSplit = Boolean($("advancePersonal").value || $("advanceShared").value);
-    if (!usesMealSplit && usesItemizedSplit && shared > 0 && peopleInput <= 0) {
-      throw new Error("有平均分攤費時，請填分攤人數。");
-    }
-    if (usesMealSplit && shared > 0 && splitPeople <= 0) {
-      throw new Error("有平均分攤費時，請填分攤人數或別人的餐點明細。");
-    }
-
-    const own = hasOwnOverride
-      ? ownOverride
-      : usesMealSplit
-        ? ownMealTotal
-      : usesItemizedSplit
-        ? personal + (peopleInput > 0 ? Math.ceil(shared / peopleInput) : 0)
-      : peopleInput > 0
-        ? Math.ceil(gross / peopleInput)
-        : gross;
-    if (own > gross) throw new Error("自己負擔不能大於總金額。");
-    const receivable = Math.max(0, gross - own);
-    const receivableRows = usesMealSplit
-      ? mealTotals
-      : [];
-    const detailedReceivable = receivableRows.reduce((sum, row) => sum + row.amount, 0);
-    if (receivableRows.length && detailedReceivable !== receivable) {
-      throw new Error(`待收明細合計 ${money(detailedReceivable)}，但應待收 ${money(receivable)}。`);
-    }
+    const split = getAdvanceSplitFromForm();
     const title = $("advanceTitle").value.trim() || "代墊";
     const paymentMethod = $("advancePaymentMethod").value;
     const cardId = paymentMethod === "credit_card" ? requireCard("advanceCardSelect") : null;
@@ -2520,9 +2546,9 @@
       kind: "advance",
       date: $("advanceDate").value,
       title,
-      amount: own,
-      gross_amount: gross,
-      participant_count: splitPeople || peopleInput || null,
+      amount: split.own,
+      gross_amount: split.gross,
+      participant_count: split.splitPeople || split.peopleInput || null,
       payment_method: paymentMethod,
       credit_card_id: cardId,
       account_id: accountId
@@ -2536,13 +2562,13 @@
         title,
         charge_date: tx.date,
         due_date: getCardDueDate(cardId, tx.date),
-        amount: gross
+        amount: split.gross
       });
     }
 
-    if (receivable > 0) {
-      const rows = receivableRows.length
-        ? receivableRows.map((row) => ({
+    if (split.receivable > 0) {
+      const rows = split.receivableRows.length
+        ? split.receivableRows.map((row) => ({
           user_id: state.user.id,
           cycle_id: state.cycle.id,
           transaction_id: tx.id,
@@ -2555,13 +2581,14 @@
           cycle_id: state.cycle.id,
           transaction_id: tx.id,
           title,
-          amount: receivable,
+          amount: split.receivable,
           status: "pending"
         }];
       const { error } = await client.from("reimbursements").insert(rows);
       if (error) throw error;
     }
 
+    $("advanceRequestMessage").value = formatAdvanceRequestMessage(split.receivableRows);
     event.target.reset();
     setDefaultDates();
     toggleCardFields();
@@ -3547,6 +3574,21 @@
     showToast("已複製給媽媽的訊息");
   }
 
+  function buildAdvanceRequestMessage() {
+    const split = getAdvanceSplitFromForm();
+    const text = formatAdvanceRequestMessage(split.receivableRows);
+    $("advanceRequestMessage").value = text;
+    if (!text) showToast("請先填別人的餐點明細");
+    return text;
+  }
+
+  async function copyAdvanceRequest() {
+    const text = $("advanceRequestMessage").value || buildAdvanceRequestMessage();
+    if (!text) return;
+    await navigator.clipboard.writeText(text);
+    showToast("已複製請款訊息");
+  }
+
   async function editTransaction(id) {
     const row = state.transactions.find((item) => item.id === id);
     if (!row) return;
@@ -4448,6 +4490,17 @@
       if (type === "reimbursement") showReimbursementDetails();
     });
     $("copyMotherRequestButton").addEventListener("click", wrap(copyMotherRequest));
+    $("buildAdvanceRequestButton").addEventListener("click", wrap(buildAdvanceRequestMessage));
+    $("copyAdvanceRequestButton").addEventListener("click", wrap(copyAdvanceRequest));
+    ["advanceGross", "advancePersonal", "advanceShared", "advancePeople", "advanceOwn", "advanceMeals"].forEach((id) => {
+      $(id).addEventListener("input", () => {
+        try {
+          $("advanceRequestMessage").value = formatAdvanceRequestMessage(getAdvanceSplitFromForm().receivableRows);
+        } catch {
+          $("advanceRequestMessage").value = "";
+        }
+      });
+    });
     $("restoreInput").addEventListener("change", wrap(restoreBackup));
     $("emailCandidateList").addEventListener("click", wrap(async (event) => {
       const acceptId = event.target.closest("[data-accept-email-candidate]")?.dataset.acceptEmailCandidate;

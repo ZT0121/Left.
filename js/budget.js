@@ -275,7 +275,7 @@
     const reimbursements = input.reimbursements || [];
     const support = toNumber(cycle.mother_support);
     const pending = reimbursements
-      .filter((row) => row.status === "pending")
+      .filter((row) => row.status === "pending" && isMotherReimbursement(row))
       .reduce((sum, row) => sum + toNumber(row.amount), 0);
 
     return {
@@ -283,6 +283,10 @@
       pending,
       total: support + pending
     };
+  }
+
+  function isMotherReimbursement(row) {
+    return /媽媽/.test(String(row?.title || ""));
   }
 
   function formatMoney(value, options = {}) {
@@ -312,7 +316,8 @@
 
   function formatMotherRequestMessage(input) {
     const request = calculateMotherRequest(input);
-    const pendingRows = (input.reimbursements || []).filter((row) => row.status === "pending");
+    const pendingRows = (input.reimbursements || [])
+      .filter((row) => row.status === "pending" && isMotherReimbursement(row));
     const pendingText = pendingRows.length
       ? `+${formatMoney(request.pending)}(${pendingRows.map(formatMotherRequestReason).join("、")})`
       : "";

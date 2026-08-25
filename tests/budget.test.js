@@ -390,7 +390,9 @@ function summarize(overrides = {}) {
   const result = budget.calculateMotherRequest({
     cycle,
     reimbursements: [
-      { amount: 600, status: "pending" },
+      { title: "媽媽信用卡帳單回補", amount: 600, status: "pending" },
+      { title: "東門豆花 - 映", amount: 80, status: "pending" },
+      { title: "LHiDS 磁吸板 - 請款", amount: 3758, status: "pending" },
       { amount: 300, status: "received" }
     ]
   });
@@ -404,13 +406,30 @@ function summarize(overrides = {}) {
   const message = budget.formatMotherRequestMessage({
     cycle,
     reimbursements: [
-      { title: "遠雄住宿 - 媽媽", amount: 31080, status: "pending" }
+      { title: "遠雄住宿 - 媽媽", amount: 31080, status: "pending" },
+      { title: "東門豆花 - 映", amount: 80, status: "pending" },
+      { title: "LHiDS 磁吸板 - 請款", amount: 3758, status: "pending" }
     ]
   });
 
   assert.equal(message, [
     "媽媽，這個月 $20,000+$31,080(花蓮住宿)",
     "給我 $50000 就好"
+  ].join("\n"));
+}
+
+{
+  const message = budget.formatMotherRequestMessage({
+    cycle,
+    reimbursements: [
+      { title: "LHiDS 磁吸板 - 請款", amount: 3758, status: "pending" },
+      { title: "東門豆花 - 映", amount: 80, status: "pending" }
+    ]
+  });
+
+  assert.equal(message, [
+    "媽媽，這個月 $20,000",
+    "給我 $20000 就好"
   ].join("\n"));
 }
 
