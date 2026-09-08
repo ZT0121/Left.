@@ -62,3 +62,23 @@ assert.deepEqual(Array.from(context.getEstimatedStatementGroups(),r=>r.due_date)
 context.state.cardCharges[0].status='paid';
 assert.deepEqual(Array.from(context.getEstimatedStatementGroups(),r=>r.due_date),['2026-10-03','2026-10-22']);
 console.log('one upcoming estimate per card checks passed');
+
+// A list container stores the active tab too; only tab buttons may trigger a rerender.
+const listenerStart = source.indexOf('    $("cardChargeList").addEventListener("click", wrap(async (event) => {');
+const listenerEnd = source.indexOf('\n    }));', listenerStart) + '\n    }));'.length;
+let onCardClick;
+let rerenders = 0;
+const clickContext = {
+  $: () => ({dataset:{cardStatementTab:'estimate'}, addEventListener: (_, handler) => {onCardClick=handler;}}),
+  wrap: fn => fn,
+  renderCardCharges: () => {rerenders++;}
+};
+vm.createContext(clickContext);
+vm.runInContext(source.slice(listenerStart, listenerEnd), clickContext);
+(async () => {
+  await onCardClick({target:{closest: selector => selector === '[data-card-statement-tab]' ? {dataset:{cardStatementTab:'estimate'}} : null}});
+  assert.equal(rerenders,0,'Clicking a summary must not redraw the list');
+  await onCardClick({target:{closest: selector => selector.includes('data-card-statement-tab') ? {dataset:{cardStatementTab:'paid'}} : null}});
+  assert.equal(rerenders,1,'Clicking a tab button must switch tabs');
+  console.log('statement disclosure click regression checks passed');
+})().catch(error => {console.error(error);process.exitCode=1;});

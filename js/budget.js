@@ -16,7 +16,7 @@
     next.setMonth(next.getMonth() + months, 1);
     const lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
     next.setDate(Math.min(day, lastDay));
-    return next.toISOString().slice(0, 10);
+    return formatDate(next);
   }
 
   function formatDate(date) {
@@ -125,7 +125,7 @@
     const installmentPlans = input.installmentPlans || [];
     const incomeRecords = input.incomeRecords || [];
     const subscriptions = input.subscriptions || [];
-    const today = extra.today || new Date().toISOString().slice(0, 10);
+    const today = extra.today || formatDate(new Date());
     const currentMonth = extra.currentMonth || today.slice(0, 7);
     const accountBalance = (input.accountBalances || [])
       .reduce((sum, row) => sum + toNumber(row.balance), 0);
@@ -222,7 +222,7 @@
     const transactions = input.transactions || [];
     const incomeRecords = input.incomeRecords || [];
     const cardCharges = input.cardCharges || [];
-    const asOfDate = input.asOfDate || new Date().toISOString().slice(0, 10);
+    const asOfDate = input.asOfDate || formatDate(new Date());
 
     return accounts.map((account) => {
       const opening = toNumber(account.opening_balance);

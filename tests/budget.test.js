@@ -447,3 +447,22 @@ function summarize(overrides = {}) {
 }
 
 console.log("budget tests passed");
+
+// Calendar dates must remain unchanged by UTC conversion, including Taiwan.
+{
+  const previousTimezone = process.env.TZ;
+  try {
+    for (const zone of ['Asia/Taipei', 'UTC', 'America/Los_Angeles']) {
+      process.env.TZ = zone;
+      assert.equal(budget.addMonths('2026-09-01', 1), '2026-10-01', zone);
+      assert.equal(budget.addMonths('2026-01-31', 1), '2026-02-28', zone);
+      assert.equal(budget.addMonths('2028-01-31', 1), '2028-02-29', zone);
+      assert.equal(budget.addMonths('2026-12-03', 1), '2027-01-03', zone);
+      assert.equal(budget.addMonths('2026-01-01', -1), '2025-12-01', zone);
+    }
+  } finally {
+    if (previousTimezone === undefined) delete process.env.TZ;
+    else process.env.TZ = previousTimezone;
+  }
+}
+console.log('calendar timezone regression checks passed');

@@ -358,7 +358,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260908-03")
+      navigator.serviceWorker.register("./sw.js?v=20260908-05")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
@@ -426,9 +426,7 @@
 
   function getDefaultNextPayDate() {
     const date = new Date();
-    date.setMonth(date.getMonth() + 1);
-    date.setDate(0);
-    return date.toISOString().slice(0, 10);
+    return formatDate(new Date(date.getFullYear(), date.getMonth() + 1, 0));
   }
 
   function calculateSummary(extraSpend = 0) {
@@ -4463,7 +4461,7 @@
     }));
 
     $("cardChargeList").addEventListener("click", wrap(async (event) => {
-      const tab = event.target.closest("[data-card-statement-tab]")?.dataset.cardStatementTab;
+      const tab = event.target.closest("button[data-card-statement-tab]")?.dataset.cardStatementTab;
       const paidButton = event.target.closest("[data-pay-card-charge]");
       const paidId = paidButton?.dataset.payCardCharge;
       const editId = event.target.closest("[data-edit-card-charge]")?.dataset.editCardCharge;
