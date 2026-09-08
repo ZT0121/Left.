@@ -86,12 +86,12 @@
     const count = Math.max(1, Math.trunc(toNumber(plan.installment_count)));
     const totalWithFees = toNumber(plan.total_amount) + toNumber(plan.fee_total);
     const base = Math.floor(totalWithFees / count);
-    const finalAmount = totalWithFees - (base * (count - 1));
+    const firstAmount = totalWithFees - (base * (count - 1));
 
     return Array.from({ length: count }, (_, index) => ({
       installment_number: index + 1,
       due_date: addMonths(plan.first_due_date, index),
-      amount: index === count - 1 ? finalAmount : base
+      amount: index === 0 ? firstAmount : base
     }));
   }
 

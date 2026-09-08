@@ -466,3 +466,11 @@ console.log("budget tests passed");
   }
 }
 console.log('calendar timezone regression checks passed');
+
+{
+  const schedule = budget.createInstallmentSchedule({total_amount:13000,fee_total:0,installment_count:6,first_due_date:'2026-04-21'});
+  assert.deepEqual(schedule.map(r=>r.amount),[2170,2166,2166,2166,2166,2166]);
+  assert.equal(schedule[5].due_date,'2026-09-21');
+  assert.equal(schedule[5].amount+497,2663);
+  assert.equal(schedule.reduce((sum,r)=>sum+r.amount,0),13000);
+}
