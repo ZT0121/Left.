@@ -7,10 +7,10 @@
   <link rel="icon" href="./assets/branding/left-favicon-v2-64.png" type="image/png" sizes="64x64">
   <link rel="shortcut icon" href="./assets/branding/left-favicon-v2-64.png" type="image/png">
   <link rel="apple-touch-icon" href="./assets/branding/left-icon-v2-192.png">
-  <link rel="manifest" href="./manifest.json?v=20260908-06">
+  <link rel="manifest" href="./manifest.json?v=20260908-09">
   <meta name="theme-color" content="#f3f1ee">
   <meta name="mobile-web-app-capable" content="yes">
-  <link rel="stylesheet" href="./css/style.css?v=20260908-06">
+  <link rel="stylesheet" href="./css/style.css?v=20260908-09">
 </head>
 <body>
   <main class="app-shell">
@@ -55,7 +55,7 @@
             const keys = await caches.keys();
             await Promise.all(keys.map((key) => caches.delete(key)));
           }
-          window.location.replace(`${window.location.pathname}?refresh=20260908-06`);
+          window.location.replace(`${window.location.pathname}?refresh=20260908-09`);
         });
       })();
     </script>
@@ -106,6 +106,9 @@
       <header class="detail-header" id="detailHeader" hidden>
         <button class="icon-button detail-back-button" id="detailBackButton" type="button" title="返回主頁" aria-label="返回主頁">←</button>
         <h2 id="detailTitle"></h2>
+        <button class="icon-button menu-icon-button" id="detailAppMenuButton" type="button" title="開啟選單" aria-label="開啟選單" aria-controls="appMenuBackdrop">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
+        </button>
       </header>
 
       <section class="hero-card" id="heroCard">
@@ -511,8 +514,9 @@
             <input id="installmentCount" type="number" min="1" step="1" inputmode="numeric" required>
           </label>
           <label>
-            首期日期
-            <input id="installmentFirstDate" type="date" required>
+            首期入帳日
+            <input id="installmentFirstDate" type="date" aria-describedby="installmentDateHelp" required>
+            <small id="installmentDateHelp">填帳單上第 1 期的入帳／消費日，例如 4/02；不要填原始交易日或繳款期限。</small>
           </label>
           <label>
             手續費／利息
@@ -678,7 +682,7 @@
         <button class="primary-button full-width" id="closeSyncResultButton" type="button">好</button>
       </div>
     </dialog>
-    <p class="app-version">v20260908-06</p>
+    <p class="app-version">v20260908-09</p>
   </main>
 
   <dialog id="editDialog">
@@ -704,14 +708,14 @@
     </form>
   </dialog>
 
-  <script src="./js/config.js?v=20260908-06"></script>
+  <script src="./js/config.js?v=20260908-09"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"></script>
   <script>
     if (!window.supabase) {
       document.write('<script src="https://unpkg.com/@supabase/supabase-js@2.110.3/dist/umd/supabase.min.js"><\/script>');
     }
   </script>
-  <script src="./js/budget.js?v=20260908-06"></script>
-  <script src="./js/app.js?v=20260908-06"></script>
+  <script src="./js/budget.js?v=20260908-09"></script>
+  <script src="./js/app.js?v=20260908-09"></script>
 </body>
 </html>

@@ -82,3 +82,30 @@ vm.runInContext(source.slice(listenerStart, listenerEnd), clickContext);
   assert.equal(rerenders,1,'Clicking a tab button must switch tabs');
   console.log('statement disclosure click regression checks passed');
 })().catch(error => {console.error(error);process.exitCode=1;});
+
+// Posting dates determine the statement; its actual due date can vary each month.
+{
+  const names = ['getInstallmentStatementSchedule', 'getCardClosingDate', 'getCardDueDate'];
+  const code = names.map(name => {
+    const start = source.indexOf(`  function ${name}(`);
+    return source.slice(start, source.indexOf('\n  function ', start + 1));
+  }).join('\n');
+  const testContext = {
+    window: {LeftBudget: require('../js/budget.js')},
+    state: {creditCards:[{id:'dbs',closing_day:6,payment_day:24}],cardCharges:[
+      {card_id:'dbs',source_type:'opening_bill',charge_date:'2026-04-06',due_date:'2026-04-24'},
+      {card_id:'dbs',source_type:'opening_bill',charge_date:'2026-09-03',due_date:'2026-09-21'}
+    ]},
+    isActualStatement:r=>r.source_type==='opening_bill',getCardStatementDate:r=>r.charge_date,
+    parseLocalDate:context.parseLocalDate,formatDate:context.formatDate
+  };
+  vm.createContext(testContext);vm.runInContext(code,testContext);
+  const schedule=testContext.getInstallmentStatementSchedule({card_id:'dbs',first_due_date:'2026-04-02',total_amount:13000,installment_count:6});
+  assert.equal(schedule[0].charge_date,'2026-04-02');
+  assert.equal(schedule[0].due_date,'2026-04-24');
+  assert.equal(schedule[5].charge_date,'2026-09-02');
+  assert.equal(schedule[5].due_date,'2026-09-21');
+  assert.equal(schedule[5].amount+497,2663);
+  assert.equal(schedule.length,6);
+  console.log('installment posting dates and variable bill deadlines passed');
+}

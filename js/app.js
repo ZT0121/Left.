@@ -148,7 +148,7 @@
   }
 
   function shouldDeriveStatementDate(row) {
-    return row.source_type === "general" || row.source_type === "advance" || row.source_type === "subscription";
+    return row.source_type === "general" || row.source_type === "advance" || row.source_type === "subscription" || row.source_type === "installment";
   }
 
   function getCardStatementDate(row) {
@@ -160,6 +160,10 @@
   }
 
   function getEffectiveCardChargeDueDate(row) {
+    if (row.source_type === "installment" && row.card_id) {
+      const actual = state.cardCharges.find((item) => isActualStatement(item) && cardStatementKey(item) === cardStatementKey(row));
+      if (actual?.due_date) return actual.due_date;
+    }
     if (!row.card_id) return row.due_date || "";
     if (isEstimatedCardCharge(row) && row.charge_date && shouldDeriveStatementDate(row)) {
       return getCardDueDate(row.card_id, row.charge_date);
@@ -257,6 +261,20 @@
         .filter((estimate) => estimate.charge_date.startsWith(month) || estimate.due_date >= `${month}-01`));
   }
 
+  function getInstallmentStatementSchedule(plan) {
+    // first_due_date is the legacy storage name for the first posting date.
+    return window.LeftBudget.createInstallmentSchedule(plan).map((item) => {
+      const chargeDate = item.charge_date || item.due_date;
+      const closingDate = getCardClosingDate(plan.card_id, chargeDate);
+      const actual = state.cardCharges.find((row) =>
+        isActualStatement(row) && row.card_id === plan.card_id &&
+        String(getCardStatementDate(row)).slice(0, 7) === closingDate.slice(0, 7)
+      );
+      return { ...item, charge_date: chargeDate,
+        due_date: actual?.due_date || getCardDueDate(plan.card_id, chargeDate) };
+    });
+  }
+
   function getUpcomingInstallmentEstimateRows() {
     const month = currentMonth();
     const nextMonth = window.LeftBudget.addMonths(`${month}-01`, 1).slice(0, 7);
@@ -269,7 +287,7 @@
 
     return state.installmentPlans
       .filter((plan) => plan.is_active !== false)
-      .flatMap((plan) => window.LeftBudget.createInstallmentSchedule(plan)
+      .flatMap((plan) => getInstallmentStatementSchedule(plan)
         .filter((item) => visibleMonths.has(String(item.due_date).slice(0, 7)))
         .filter((item) => !existingKeys.has(`${plan.id}:${item.installment_number}`))
         .map((item) => ({
@@ -279,7 +297,7 @@
           card_id: plan.card_id,
           installment_plan_id: plan.id,
           installment_number: item.installment_number,
-          charge_date: item.due_date,
+          charge_date: item.charge_date,
           due_date: item.due_date,
           amount: item.amount,
           status: "pending",
@@ -358,7 +376,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260908-06")
+      navigator.serviceWorker.register("./sw.js?v=20260908-09")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
@@ -1678,21 +1696,24 @@
 
     list.innerHTML = rows.map((plan) => {
       const card = state.creditCards.find((item) => item.id === plan.card_id);
-      const schedule = window.LeftBudget.createInstallmentSchedule(plan);
+      const schedule = getInstallmentStatementSchedule(plan);
       const billed = new Set(state.cardCharges
         .filter((charge) => charge.installment_plan_id === plan.id)
         .map((charge) => Number(charge.installment_number)));
-      const future = schedule
-        .filter((item) => !billed.has(item.installment_number) && item.due_date > state.cycle.expected_pay_date)
-        .reduce((sum, item) => sum + toNumber(item.amount), 0);
+      const futureItems = schedule
+        .filter((item) => !billed.has(item.installment_number) && item.due_date > state.cycle.expected_pay_date);
+      const future = futureItems.reduce((sum, item) => sum + toNumber(item.amount), 0);
+      const total = schedule.reduce((sum, item) => sum + toNumber(item.amount), 0);
 
       return `
         <article class="record-item">
           <div>
             <p class="record-title">${escapeHtml(plan.title)}</p>
-            <p class="record-meta">${escapeHtml(cardDisplayName(card))} · ${plan.installment_count} 期 · 首期 ${plan.first_due_date}</p>
+            <p class="record-meta">${escapeHtml(cardDisplayName(card))} · 共 ${plan.installment_count} 期 · 總額（含手續費）${money(total)}</p>
+            <p class="record-meta">首期入帳日 ${plan.first_due_date}</p>
           </div>
-          <div class="record-amount">${money(future)}</div>
+          <div class="record-amount"><span class="installment-amount-label">後續待繳（${futureItems.length} 期）</span>${money(future)}</div>
+          <p class="record-meta installment-amount-note">計算 ${state.cycle.expected_pay_date} 之後尚未列帳的分期合計；已列入帳單的金額請至信用卡帳單查看。</p>
           <div class="record-actions">
             <button type="button" data-delete-installment="${plan.id}">刪除</button>
           </div>
@@ -2182,15 +2203,15 @@
     )));
 
     for (const plan of state.installmentPlans.filter((item) => item.is_active !== false)) {
-      const schedule = window.LeftBudget.createInstallmentSchedule(plan);
+      const schedule = getInstallmentStatementSchedule(plan);
       for (const item of schedule) {
         const key = `${plan.id}:${item.installment_number}`;
         if (existingKeys.has(key)) continue;
-        if (!window.LeftBudget.isDateInCycle(item.due_date, state.cycle)) continue;
+        if (!window.LeftBudget.isDateInCycle(item.charge_date, state.cycle)) continue;
 
         const tx = await insertTransaction({
           kind: "installment",
-          date: item.due_date,
+          date: item.charge_date,
           title: `${plan.title} ${item.installment_number}/${plan.installment_count}`,
           amount: item.amount,
           gross_amount: item.amount,
@@ -2208,7 +2229,7 @@
           installment_number: item.installment_number,
           source_type: "installment",
           title: `${plan.title} ${item.installment_number}/${plan.installment_count}`,
-          charge_date: item.due_date,
+          charge_date: item.charge_date,
           due_date: item.due_date,
           amount: item.amount
         });
@@ -4390,8 +4411,10 @@
       $("appMenuBackdrop").hidden = true;
     };
 
-    $("openAppMenuButton").addEventListener("click", () => {
-      $("appMenuBackdrop").hidden = false;
+    ["openAppMenuButton", "detailAppMenuButton"].forEach((id) => {
+      $(id).addEventListener("click", () => {
+        $("appMenuBackdrop").hidden = false;
+      });
     });
     $("closeAppMenuButton").addEventListener("click", closeAppMenu);
     $("appMenuBackdrop").addEventListener("click", (event) => {

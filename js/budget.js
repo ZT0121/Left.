@@ -90,6 +90,7 @@
 
     return Array.from({ length: count }, (_, index) => ({
       installment_number: index + 1,
+      charge_date: addMonths(plan.first_due_date, index),
       due_date: addMonths(plan.first_due_date, index),
       amount: index === 0 ? firstAmount : base
     }));
@@ -143,7 +144,7 @@
     const receivedManualReimbursements = reimbursements
       .filter((row) => row.status === "received" && !row.transaction_id)
       .reduce((sum, row) => sum + toNumber(row.amount), 0);
-    const shouldDeriveStatementDate = (row) => row.source_type === "general" || row.source_type === "advance" || row.source_type === "subscription";
+    const shouldDeriveStatementDate = (row) => row.source_type === "general" || row.source_type === "advance" || row.source_type === "subscription" || row.source_type === "installment";
     const statementKey = (row) => {
       const statementDate = row.card_id && row.charge_date && shouldDeriveStatementDate(row)
         ? getCardClosingDate(creditCards, row.card_id, row.charge_date)

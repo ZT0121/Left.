@@ -1397,3 +1397,6 @@ dialog::backdrop {
 .statement-status-estimate { color: #1e40af; background: #eff6ff; }
 .statement-status-paid { color: #166534; background: #f0fdf4; }
 .statement-hint { padding: 12px; margin: 0; }
+
+.installment-amount-label { display: block; margin-bottom: 4px; color: var(--muted); font-size: 0.75rem; font-weight: 400; }
+.installment-amount-note { grid-column: 1 / -1; line-height: 1.5; }
