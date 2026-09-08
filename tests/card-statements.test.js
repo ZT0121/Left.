@@ -38,3 +38,27 @@ list.dataset.cardStatementTab='estimate'; context.renderCardCharges();
 assert.ok(list.innerHTML.includes('預估</span>'));
 assert.ok(!list.innerHTML.includes('data-pay-card-charge='));
 console.log('statement rendering and cross-month subscription checks passed');
+
+// Each card stays on its first unentered statement, advancing only on an actual bill.
+const groupStart = source.indexOf('  function getEstimatedStatementGroups()');
+const groupEnd = source.indexOf('\n  function ', groupStart + 1);
+vm.runInContext(source.slice(groupStart, groupEnd), context);
+context.isActualStatement = r => r.source_type === 'opening_bill';
+context.isEstimatedCardCharge = r => r.source_type === 'subscription';
+context.cardStatementKey = r => `${r.card_id}:${r.charge_date.slice(0,7)}`;
+context.getEffectiveCardChargeDueDate = r => r.due_date;
+context.uniqueCardEstimateItems = r => r;
+context.getUpcomingInstallmentEstimateRows = () => [];
+context.getSubscriptionCardEstimateRows = () => [
+  {card_id:'taishin', charge_date:'2026-09-05', due_date:'2026-09-22', source_type:'subscription',amount:500},
+  {card_id:'taishin', charge_date:'2026-10-05', due_date:'2026-10-22', source_type:'subscription',amount:500},
+  {card_id:'ctbc', charge_date:'2026-09-18', due_date:'2026-10-03', source_type:'subscription',amount:700},
+  {card_id:'ctbc', charge_date:'2026-10-18', due_date:'2026-11-03', source_type:'subscription',amount:700}
+];
+context.state.cardCharges = [];
+assert.deepEqual(Array.from(context.getEstimatedStatementGroups(),r=>r.due_date),['2026-09-22','2026-10-03']);
+context.state.cardCharges = [{card_id:'taishin',charge_date:'2026-09-05',due_date:'2026-09-22',source_type:'opening_bill',status:'pending'}];
+assert.deepEqual(Array.from(context.getEstimatedStatementGroups(),r=>r.due_date),['2026-10-03','2026-10-22']);
+context.state.cardCharges[0].status='paid';
+assert.deepEqual(Array.from(context.getEstimatedStatementGroups(),r=>r.due_date),['2026-10-03','2026-10-22']);
+console.log('one upcoming estimate per card checks passed');

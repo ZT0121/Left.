@@ -327,8 +327,23 @@
         groups.set(key, current);
       });
 
-    return [...groups.values()]
-      .sort((a, b) => `${b.due_date}${b.last_charge_date}`.localeCompare(`${a.due_date}${a.last_charge_date}`));
+    // Keep one upcoming statement per card, after its latest actual statement.
+    const latestActualKeys = new Map();
+    state.cardCharges.filter(isActualStatement).forEach((row) => {
+      const key = cardStatementKey(row);
+      if (key && key > (latestActualKeys.get(row.card_id) || "")) {
+        latestActualKeys.set(row.card_id, key);
+      }
+    });
+    const nextByCard = new Map();
+    [...groups.values()]
+      .sort((a, b) => a.key.localeCompare(b.key))
+      .forEach((group) => {
+        if (group.key <= (latestActualKeys.get(group.card_id) || "")) return;
+        if (!nextByCard.has(group.card_id)) nextByCard.set(group.card_id, group);
+      });
+    return [...nextByCard.values()]
+      .sort((a, b) => a.due_date.localeCompare(b.due_date));
   }
 
   function getCardStatementRows() {
@@ -343,7 +358,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260908-01")
+      navigator.serviceWorker.register("./sw.js?v=20260908-02")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
@@ -1648,7 +1663,7 @@
         <button type="button" class="${activeTab === "estimate" ? "active" : ""}" data-card-statement-tab="estimate">未出帳預估 <strong>${estimateRows.length}</strong></button>
         <button type="button" class="${activeTab === "paid" ? "active" : ""}" data-card-statement-tab="paid">已繳紀錄 <strong>${paidRows.length}</strong></button>
       </div>
-      <p class="record-meta statement-hint">${activeTab === "estimate" ? "依消費紀錄推算，尚未輸入實際帳單；應繳金額以銀行帳單為準。" : activeTab === "paid" ? "已繳清的帳單保留於此，方便查詢。" : "只顯示尚未繳款的實際帳單，標記已繳款後會移至「已繳紀錄」。"}</p>
+      <p class="record-meta statement-hint">${activeTab === "estimate" ? "每張卡只顯示最新實際帳單之後的第一期預估，輸入該期實際帳單後才顯示下一期。金額以銀行帳單為準。" : activeTab === "paid" ? "已繳清的帳單保留於此，方便查詢。" : "只顯示尚未繳款的實際帳單，標記已繳款後會移至「已繳紀錄」。"}</p>
       <div class="statement-tab-panel">${body}</div>
     `;
   }
