@@ -1146,7 +1146,7 @@ body.detail-view-active .topbar {
 
 .statement-tabbar {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   margin-bottom: 0;
   padding: 4px;
@@ -1391,3 +1391,9 @@ dialog::backdrop {
     grid-column: auto;
   }
 }
+
+.statement-status { display: inline-block; padding: 3px 7px; border-radius: 5px; font-size: 0.75rem; vertical-align: middle; }
+.statement-status-pending { color: #9a3412; background: #fff1e6; }
+.statement-status-estimate { color: #1e40af; background: #eff6ff; }
+.statement-status-paid { color: #166534; background: #f0fdf4; }
+.statement-hint { padding: 12px; margin: 0; }

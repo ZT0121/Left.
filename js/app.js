@@ -231,22 +231,30 @@
 
   function getSubscriptionCardEstimateRows() {
     const month = currentMonth();
+    const [year, monthNumber] = month.split("-").map(Number);
+    // A charge can become payable up to two calendar months later.
+    const chargeMonths = [0, -1, -2].map((offset) =>
+      formatDate(new Date(year, monthNumber - 1 + offset, 1)).slice(0, 7)
+    );
     return state.subscriptions
-      .filter((row) => isSubscriptionDueInMonth(row, month) && row.payment_method === "credit_card" && row.credit_card_id)
-      .map((row) => {
-        const chargeDate = dateForMonthDay(month, row.charge_day);
-        return {
-          id: `subscription:${row.id}:${month}`,
-          source_type: "subscription",
-          title: row.title,
-          card_id: row.credit_card_id,
-          charge_date: chargeDate,
-          due_date: getCardDueDate(row.credit_card_id, chargeDate),
-          amount: toNumber(row.amount),
-          status: "pending",
-          created_at: row.created_at || chargeDate
-        };
-      });
+      .filter((row) => row.payment_method === "credit_card" && row.credit_card_id)
+      .flatMap((row) => chargeMonths
+        .filter((chargeMonth) => isSubscriptionDueInMonth(row, chargeMonth))
+        .map((chargeMonth) => {
+          const chargeDate = dateForMonthDay(chargeMonth, row.charge_day);
+          return {
+            id: `subscription:${row.id}:${chargeMonth}`,
+            source_type: "subscription",
+            title: row.title,
+            card_id: row.credit_card_id,
+            charge_date: chargeDate,
+            due_date: getCardDueDate(row.credit_card_id, chargeDate),
+            amount: toNumber(row.amount),
+            status: "pending",
+            created_at: row.created_at || chargeDate
+          };
+        })
+        .filter((estimate) => estimate.charge_date.startsWith(month) || estimate.due_date >= `${month}-01`));
   }
 
   function getUpcomingInstallmentEstimateRows() {
@@ -592,9 +600,9 @@
     const cardDueDetail = $("cardDueDetail");
     if (cardDueDetail) {
       const paidActual = state.cardCharges
-        .filter((row) => isActualStatement(row) && row.status === "paid")
+        .filter((row) => isActualStatement(row) && row.status === "paid" && row.paid_at >= state.cycle.start_date && row.paid_at <= today())
         .reduce((sum, row) => sum + toNumber(row.amount), 0);
-      cardDueDetail.textContent = `已繳 ${money(paidActual)} · 預估未出帳 ${money(summary.cardDueEstimate)}`;
+      cardDueDetail.textContent = `本期已繳 ${money(paidActual)} · 預估未出帳 ${money(summary.cardDueEstimate)}`;
     }
     $("futureInstallmentAmount").textContent = money(summary.futureInstallmentBalance);
     $("cycleRange").textContent = `${state.cycle.start_date} 以來`;
@@ -1531,171 +1539,12 @@
 
   function renderCardCharges() {
     const list = $("cardChargeList");
-    const rows = [...state.cardCharges]
-      .sort((a, b) => `${b.due_date || ""}${b.created_at}`.localeCompare(`${a.due_date || ""}${a.created_at}`));
-
-    if (!rows.length) {
-      list.innerHTML = '<p class="empty-state">目前沒有未繳卡費。</p>';
-      return;
-    }
-
-    list.innerHTML = rows.map((row) => {
-      const card = state.creditCards.find((item) => item.id === row.card_id);
-      const closingDate = row.card_id ? getCardClosingDate(row.card_id, row.charge_date) : "";
-      const sourceLabel = {
-        general: "一般刷卡",
-        advance: "代墊刷卡",
-        installment: "本期分期",
-        opening_bill: "期初帳單",
-        fee: "費用／利息"
-      }[row.source_type] || "信用卡";
-
-      return `
-        <article class="record-item">
-          <div>
-            <p class="record-title">${escapeHtml(row.title)}</p>
-            <p class="record-meta">${sourceLabel} · ${escapeHtml(cardDisplayName(card))} · 消費 ${row.charge_date} · 結帳 ${closingDate || "未設定"} · 繳款 ${row.due_date || "未設定"}${row.status === "paid" ? ` · 已繳 ${row.paid_at || ""}` : ""}</p>
-          </div>
-          <div class="record-amount">${money(row.amount)}</div>
-          <div class="record-actions">
-            ${row.status === "pending" ? `<button type="button" data-pay-card-charge="${row.id}">標記已繳</button>` : ""}
-            <button type="button" data-edit-card-charge="${row.id}">編輯</button>
-            <button type="button" data-delete-card-charge="${row.id}">刪除</button>
-          </div>
-        </article>
-      `;
-    }).join("");
-  }
-
-  function renderCardCharges() {
-    const list = $("cardChargeList");
-    const rows = getCardStatementRows();
-
-    if (!rows.length) {
-      list.innerHTML = '<p class="empty-state">還沒有信用卡帳單。</p>';
-      return;
-    }
-
-    list.innerHTML = rows.map((row) => {
-      const card = state.creditCards.find((item) => item.id === row.card_id);
-
-      if (row.row_type === "estimate") {
-        const cardName = cardDisplayName(card);
-        const periodText = row.first_charge_date && row.last_charge_date
-          ? `${row.first_charge_date} 到 ${row.last_charge_date}`
-          : "依目前刷卡紀錄";
-        const sourceLabel = {
-          general: "一般刷卡",
-          advance: "代墊",
-          installment: "分期",
-          subscription: "訂閱"
-        };
-        const detailSourceLabel = {
-          general: "一般刷卡",
-          advance: "代墊",
-          installment: "分期",
-          subscription: "訂閱"
-        };
-        const detailRows = [...(row.items || [])]
-          .sort((a, b) => String(a.charge_date || "").localeCompare(String(b.charge_date || "")))
-          .map((item) => `
-            <div class="statement-detail-row">
-              <span>${item.charge_date || "未填"} · ${sourceLabel[item.source_type] || "預估"} · ${escapeHtml(item.title || "未命名")}</span>
-              <strong>${money(item.amount)}</strong>
-            </div>
-          `).join("");
-        const visibleDetailRows = [...(row.items || [])]
-          .sort((a, b) => String(a.charge_date || "").localeCompare(String(b.charge_date || "")))
-          .map((item) => `
-            <div class="statement-detail-row">
-              <span>${item.charge_date || "未填"} · ${detailSourceLabel[item.source_type] || "預估"} · ${escapeHtml(item.title || "未命名")}</span>
-              <strong>${money(item.amount)}</strong>
-            </div>
-          `).join("");
-        return `
-          <article class="record-item statement-estimate">
-            <div>
-              <p class="record-title">${escapeHtml(cardName)} 預估帳單</p>
-              <p class="record-meta">繳款日 ${row.due_date} · ${row.count} 筆紀錄預估 · ${periodText} · 尚未輸入實際帳單</p>
-              <details class="statement-details">
-                <summary>查看未出帳明細</summary>
-                <div class="statement-detail-list">${visibleDetailRows}</div>
-              </details>
-            </div>
-            <div class="record-amount">${money(row.amount)}</div>
-            <div class="record-actions"></div>
-          </article>
-        `;
-      }
-
-      const sourceLabel = {
-        opening_bill: "實際帳單",
-        installment: "分期",
-        fee: "費用／利息"
-      }[row.source_type] || "信用卡";
-      const cardName = cardDisplayName(card);
-      const displayTitle = isActualStatement(row)
-        ? `${cardName} ${sourceLabel}`
-        : `${cardName} ${row.title || sourceLabel}`;
-      const estimate = isActualStatement(row) ? getEstimateFor(row.card_id, row.due_date) : 0;
-      const diffText = isActualStatement(row) && row.due_date
-        ? ` · 預估 ${money(estimate)} · 差額 ${formatDifference(toNumber(row.amount) - estimate)}`
-        : "";
-      const paidText = row.status === "paid" ? ` · 已繳 ${row.paid_at || ""}` : "";
-      const estimateItems = isActualStatement(row) ? getEstimateItemsForActual(row) : [];
-      const estimateSourceLabel = {
-        general: "單筆消費",
-        advance: "代墊",
-        installment: "分期",
-        subscription: "訂閱"
-      };
-      const differenceAmount = toNumber(row.amount) - estimate;
-      const estimateDetailRows = estimateItems.map((item) => `
-        <div class="statement-detail-row">
-          <span>${item.charge_date || item.due_date || "未填日期"} · ${estimateSourceLabel[item.source_type] || "預估"} · ${escapeHtml(item.title || "未命名")}</span>
-          <strong>${money(item.amount)}</strong>
-        </div>
-      `).join("");
-      const differenceDetails = isActualStatement(row)
-        ? `
-          <details class="statement-details">
-            <summary>查看預估明細與差額</summary>
-            <div class="statement-detail-list">
-              ${estimateDetailRows || '<p class="record-meta">這期目前沒有 App 預估明細。</p>'}
-              <div class="statement-detail-row statement-difference-row">
-                <span>實際帳單 - App 預估</span>
-                <strong>${formatDifference(differenceAmount)}</strong>
-              </div>
-            </div>
-          </details>
-        `
-        : "";
-
-      return `
-        <article class="record-item">
-          <div>
-            <p class="record-title">${escapeHtml(displayTitle)}</p>
-            <p class="record-meta">${sourceLabel} · 帳單日 ${row.charge_date || "未填"} · 繳款日 ${row.due_date || "未填"}${diffText}${paidText}</p>
-            ${differenceDetails}
-          </div>
-          <div class="record-amount">${money(row.amount)}</div>
-          <div class="record-actions">
-            ${row.status === "pending" ? `<button type="button" data-pay-card-charge="${row.id}">已繳款</button>` : ""}
-            <button type="button" data-edit-card-charge="${row.id}">編輯</button>
-            <button type="button" data-delete-card-charge="${row.id}">刪除</button>
-          </div>
-        </article>
-      `;
-    }).join("");
-  }
-
-  function renderCardCharges() {
-    const list = $("cardChargeList");
     const rows = getCardStatementRows();
     const activeTab = list.dataset.cardStatementTab || "actual";
-    const actualRows = rows.filter((row) => row.row_type !== "estimate");
+    const actualRows = rows.filter((row) => row.row_type !== "estimate" && row.status !== "paid");
+    const paidRows = rows.filter((row) => row.row_type !== "estimate" && row.status === "paid");
     const estimateRows = rows.filter((row) => row.row_type === "estimate");
-    const visibleRows = activeTab === "estimate" ? estimateRows : actualRows;
+    const visibleRows = activeTab === "estimate" ? estimateRows : activeTab === "paid" ? paidRows : actualRows;
 
     const renderEstimateRow = (row) => {
       const card = state.creditCards.find((item) => item.id === row.card_id);
@@ -1718,9 +1567,9 @@
       return `
         <article class="record-item statement-estimate">
           <div>
-            <p class="record-title">${escapeHtml(cardName)} 下期預估帳單</p>
-            <p class="record-meta">繳款日 ${row.due_date || "未填"} · ${row.count} 筆未出帳預估</p>
-            <details class="statement-details" open>
+            <p class="record-title"><span class="statement-status statement-status-estimate">預估</span> ${escapeHtml(cardName)} 未出帳預估</p>
+            <p class="record-meta">預計繳款日 ${row.due_date || "未填"} · ${row.count} 筆未出帳預估</p>
+            <details class="statement-details">
               <summary>查看未出帳明細</summary>
               <div class="statement-detail-list">${detailRows}</div>
             </details>
@@ -1743,9 +1592,6 @@
         ? `${cardName} ${sourceLabel}`
         : `${cardName} ${row.title || sourceLabel}`;
       const estimate = isActualStatement(row) ? getEstimateFor(row.card_id, row.due_date) : 0;
-      const diffText = isActualStatement(row) && row.due_date
-        ? ` · 預估 ${money(estimate)} · 差額 ${formatDifference(toNumber(row.amount) - estimate)}`
-        : "";
       const paidText = row.status === "paid" ? ` · 已繳 ${row.paid_at || ""}` : "";
       const estimateItems = isActualStatement(row) ? getEstimateItemsForActual(row) : [];
       const estimateSourceLabel = {
@@ -1762,7 +1608,7 @@
       `).join("");
       const differenceDetails = isActualStatement(row)
         ? `
-          <details class="statement-details" open>
+          <details class="statement-details">
             <summary>查看預估明細（${estimateItems.length} 筆，共 ${money(estimate)}）</summary>
             <div class="statement-detail-list">
               ${estimateDetailRows || '<p class="record-meta">這期目前沒有 App 預估明細。</p>'}
@@ -1778,13 +1624,13 @@
       return `
         <article class="record-item">
           <div>
-            <p class="record-title">${escapeHtml(displayTitle)}</p>
-            <p class="record-meta">${sourceLabel} · 帳單日 ${row.charge_date || "未填"} · 繳款日 ${row.due_date || "未填"}${diffText}${paidText}</p>
+            <p class="record-title"><span class="statement-status ${row.status === "paid" ? "statement-status-paid" : "statement-status-pending"}">${row.status === "paid" ? "已繳清" : "待繳"}</span> ${escapeHtml(displayTitle)}</p>
+            <p class="record-meta">${sourceLabel} · 帳單日 ${row.charge_date || "未填"} · 繳款日 ${row.due_date || "未填"}${paidText}</p>
             ${differenceDetails}
           </div>
           <div class="record-amount">${money(row.amount)}</div>
           <div class="record-actions">
-            ${row.status === "pending" ? `<button type="button" data-pay-card-charge="${row.id}">已繳款</button>` : ""}
+            ${row.status === "pending" ? `<button type="button" data-pay-card-charge="${row.id}">標記已繳款</button>` : ""}
             <button type="button" data-edit-card-charge="${row.id}">編輯</button>
             <button type="button" data-delete-card-charge="${row.id}">刪除</button>
           </div>
@@ -1794,13 +1640,15 @@
 
     const body = visibleRows.length
       ? visibleRows.map((row) => activeTab === "estimate" ? renderEstimateRow(row) : renderActualRow(row)).join("")
-      : `<p class="empty-state">${activeTab === "estimate" ? "目前沒有下期預估帳單。" : "目前沒有實際信用卡帳單。"}</p>`;
+      : `<p class="empty-state">${activeTab === "estimate" ? "目前沒有未出帳預估。" : activeTab === "paid" ? "目前沒有已繳紀錄。" : "目前沒有待繳實際帳單，已繳款帳單可至「已繳紀錄」查看。"}</p>`;
 
     list.innerHTML = `
       <div class="statement-tabbar" role="tablist" aria-label="信用卡帳單分類">
-        <button type="button" class="${activeTab === "actual" ? "active" : ""}" data-card-statement-tab="actual">實際帳單 <strong>${actualRows.length}</strong></button>
-        <button type="button" class="${activeTab === "estimate" ? "active" : ""}" data-card-statement-tab="estimate">下期預估帳單 <strong>${estimateRows.length}</strong></button>
+        <button type="button" class="${activeTab === "actual" ? "active" : ""}" data-card-statement-tab="actual">待繳實際帳單 <strong>${actualRows.length}</strong></button>
+        <button type="button" class="${activeTab === "estimate" ? "active" : ""}" data-card-statement-tab="estimate">未出帳預估 <strong>${estimateRows.length}</strong></button>
+        <button type="button" class="${activeTab === "paid" ? "active" : ""}" data-card-statement-tab="paid">已繳紀錄 <strong>${paidRows.length}</strong></button>
       </div>
+      <p class="record-meta statement-hint">${activeTab === "estimate" ? "依消費紀錄推算，尚未輸入實際帳單；應繳金額以銀行帳單為準。" : activeTab === "paid" ? "已繳清的帳單保留於此，方便查詢。" : "只顯示尚未繳款的實際帳單，標記已繳款後會移至「已繳紀錄」。"}</p>
       <div class="statement-tab-panel">${body}</div>
     `;
   }
@@ -2150,7 +1998,7 @@
         .from("credit_card_charges")
         .select("*")
         .eq("user_id", state.user.id)
-        .eq("cycle_id", state.cycle.id),
+        .order("charge_date", { ascending: false }),
       client
         .from("email_transaction_candidates")
         .select("*")
