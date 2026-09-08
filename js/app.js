@@ -343,7 +343,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260817-03")
+      navigator.serviceWorker.register("./sw.js?v=20260908-01")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));

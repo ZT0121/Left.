@@ -1,5 +1,5 @@
-const CACHE_VERSION = "left-20260825-02";
-const APP_VERSION = "20260825-02";
+const CACHE_VERSION = "left-20260908-01";
+const APP_VERSION = "20260908-01";
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
