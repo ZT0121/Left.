@@ -358,7 +358,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260908-02")
+      navigator.serviceWorker.register("./sw.js?v=20260908-03")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
@@ -1583,7 +1583,7 @@
         <article class="record-item statement-estimate">
           <div>
             <p class="record-title"><span class="statement-status statement-status-estimate">預估</span> ${escapeHtml(cardName)} 未出帳預估</p>
-            <p class="record-meta">預計繳款日 ${row.due_date || "未填"} · ${row.count} 筆未出帳預估</p>
+            <p class="record-meta">繳款期限 ${row.due_date || "未填"} · ${row.count} 筆未出帳預估</p>
             <details class="statement-details">
               <summary>查看未出帳明細</summary>
               <div class="statement-detail-list">${detailRows}</div>
