@@ -1561,6 +1561,7 @@
         </div>
         <div class="record-amount">${card.is_active ? "啟用" : "停用"}</div>
         <div class="record-actions">
+          <button type="button" data-edit-card="${card.id}">編輯</button>
           <button type="button" data-toggle-card="${card.id}">${card.is_active ? "停用" : "啟用"}</button>
           <button type="button" data-delete-card="${card.id}">刪除</button>
         </div>
@@ -1782,20 +1783,21 @@
     const card = state.creditCards.find((item) => item.id === cardId);
     if (!card) return chargeDate;
     const date = parseLocalDate(chargeDate);
-    const chargeDay = date.getDate();
-    let closingMonth = date.getMonth();
-    let closingYear = date.getFullYear();
-    if (chargeDay > Number(card.closing_day)) {
-      closingMonth += 1;
-      if (closingMonth > 11) {
-        closingMonth = 0;
-        closingYear += 1;
-      }
+    // An entered statement defines that month's cutoff, even when it differs
+    // from the card's usual closing day. Purchases after it belong to next month.
+    for (const offset of [0, 1]) {
+      const month = new Date(date.getFullYear(), date.getMonth() + offset, 1);
+      const monthKey = formatDate(month).slice(0, 7);
+      const actual = (state.cardCharges || []).find((row) =>
+        row.source_type === "opening_bill" && row.card_id === cardId &&
+        String(row.charge_date || "").slice(0, 7) === monthKey
+      );
+      const lastDay = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+      const closing = actual?.charge_date || formatDate(new Date(
+        month.getFullYear(), month.getMonth(), Math.min(Number(card.closing_day), lastDay)
+      ));
+      if (closing >= chargeDate) return closing;
     }
-
-    const lastDay = new Date(closingYear, closingMonth + 1, 0).getDate();
-    const closing = new Date(closingYear, closingMonth, Math.min(Number(card.closing_day), lastDay));
-    return formatDate(closing);
   }
 
   function parseAmountLines(value, fieldName) {
@@ -1946,7 +1948,12 @@
   function getCardDueDate(cardId, chargeDate) {
     const card = state.creditCards.find((item) => item.id === cardId);
     if (!card) return chargeDate;
-    const closingDate = parseLocalDate(getCardClosingDate(cardId, chargeDate));
+    const statementDate = getCardClosingDate(cardId, chargeDate);
+    const actual = (state.cardCharges || []).find((row) =>
+      row.source_type === "opening_bill" && row.card_id === cardId && row.charge_date === statementDate
+    );
+    if (actual?.due_date) return actual.due_date;
+    const closingDate = parseLocalDate(statementDate);
     let paymentMonth = closingDate.getMonth();
     let paymentYear = closingDate.getFullYear();
 
@@ -3172,18 +3179,53 @@
     });
   }
 
+  function resetCreditCardForm() {
+    const form = $("cardForm");
+    form.reset();
+    delete form.dataset.editCardId;
+    $("cardSubmitButton").textContent = "新增信用卡";
+    $("cancelCardEdit").hidden = true;
+    const summary = form.closest("details")?.querySelector("summary");
+    if (summary) summary.textContent = "新增信用卡";
+  }
+
+  function editCreditCard(id) {
+    const card = state.creditCards.find((item) => item.id === id);
+    if (!card) return;
+    const form = $("cardForm");
+    form.dataset.editCardId = id;
+    $("cardName").value = card.name;
+    $("cardClosingDay").value = card.closing_day;
+    $("cardPaymentDay").value = card.payment_day;
+    $("cardSubmitButton").textContent = "儲存修改";
+    $("cancelCardEdit").hidden = false;
+    const details = form.closest("details");
+    if (details) {
+      details.open = true;
+      details.querySelector("summary").textContent = "編輯信用卡";
+    }
+    form.scrollIntoView({ block: "center" });
+    $("cardClosingDay").focus();
+  }
+
   async function addCreditCard(event) {
     event.preventDefault();
-    const { error } = await client.from("credit_cards").insert({
-      user_id: state.user.id,
+    const id = event.target.dataset.editCardId;
+    const values = {
       name: $("cardName").value.trim(),
       closing_day: toNumber($("cardClosingDay").value),
-      payment_day: toNumber($("cardPaymentDay").value),
-      is_active: true
-    });
+      payment_day: toNumber($("cardPaymentDay").value)
+    };
+    if (!values.name || ![values.closing_day, values.payment_day].every((day) =>
+      Number.isInteger(day) && day >= 1 && day <= 31
+    )) throw new Error("請填寫卡片名稱，結帳日與繳款日須為 1～31 的整數。");
+    const { error } = id
+      ? await client.from("credit_cards").update(values)
+        .eq("id", id).eq("user_id", state.user.id).select("id").single()
+      : await client.from("credit_cards").insert({ ...values, user_id: state.user.id, is_active: true });
     if (error) throw error;
-    event.target.reset();
-    showToast("信用卡已新增");
+    resetCreditCardForm();
+    showToast(id ? "信用卡已更新" : "信用卡已新增");
     await refresh();
   }
 
@@ -4338,6 +4380,7 @@
       else if (deleteId) await deleteTransaction(deleteId);
     }));
     $("cardForm").addEventListener("submit", wrap(addCreditCard));
+    $("cancelCardEdit").addEventListener("click", resetCreditCardForm);
     $("statementSheetForm")?.addEventListener("submit", wrap(addStatementSheetBills));
     enableStatementSheetDragScroll();
     $("statementMonthTabs")?.addEventListener("click", (event) => {
@@ -4530,6 +4573,8 @@
     }));
 
     $("cardList").addEventListener("click", wrap(async (event) => {
+      const editId = event.target.closest("[data-edit-card]")?.dataset.editCard;
+      if (editId) editCreditCard(editId);
       const toggleId = event.target.dataset.toggleCard;
       const deleteId = event.target.dataset.deleteCard;
       if (toggleId) await toggleCreditCard(toggleId);

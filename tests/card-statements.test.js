@@ -109,3 +109,46 @@ vm.runInContext(source.slice(listenerStart, listenerEnd), clickContext);
   assert.equal(schedule.length,6);
   console.log('installment posting dates and variable bill deadlines passed');
 }
+
+// Actual statement cutoffs override the configured day for every estimate source.
+{
+  const names = ['getCardClosingDate', 'getCardDueDate', 'getCardStatementDate',
+    'shouldDeriveStatementDate', 'cardStatementKey', 'getEstimateItemsForActual',
+    'getEstimateFor', 'getEstimatedStatementGroups', 'getEffectiveCardChargeDueDate'];
+  const code = names.map(name => {
+    const start = source.indexOf(`  function ${name}(`);
+    return source.slice(start, source.indexOf('\n  function ', start + 1));
+  }).join('\n');
+  const actual = {card_id:'cube',source_type:'opening_bill',charge_date:'2026-09-10',due_date:'2026-09-26'};
+  const charges = ['general','advance','subscription','installment'].flatMap(source_type =>
+    ['2026-08-13','2026-09-09','2026-09-10','2026-09-11','2026-09-12'].map(charge_date =>
+      ({card_id:'cube',source_type,charge_date,due_date:'2026-09-26',amount:100})));
+  const ctx = {
+    state:{creditCards:[{id:'cube',closing_day:15,payment_day:26}],cardCharges:[actual,...charges]},
+    parseLocalDate:context.parseLocalDate,formatDate:context.formatDate,toNumber:Number,
+    isActualStatement:r=>r.source_type==='opening_bill',
+    isEstimatedCardCharge:r=>r.source_type!=='opening_bill',
+    uniqueCardEstimateItems:r=>r,
+    getSubscriptionCardEstimateRows:()=>[], getUpcomingInstallmentEstimateRows:()=>[]
+  };
+  vm.createContext(ctx);vm.runInContext(code,ctx);
+  assert.equal(ctx.getCardClosingDate('cube','2026-09-12'),'2026-10-15');
+  assert.equal(ctx.getCardDueDate('cube','2026-09-12'),'2026-10-26');
+  assert.equal(ctx.getEstimateItemsForActual(actual).length,8);
+  assert.equal(ctx.getEstimateFor('cube','2026-09-26'),800);
+  const groups = ctx.getEstimatedStatementGroups();
+  assert.equal(groups.length,1);
+  assert.equal(groups[0].due_date,'2026-10-26');
+  assert.equal(groups[0].amount,800);
+  // A later actual cutoff also includes purchases after the usual closing day.
+  ctx.state.creditCards[0].closing_day=5;
+  assert.equal(ctx.getCardClosingDate('cube','2026-09-09'),'2026-09-10');
+  assert.equal(ctx.getCardDueDate('cube','2026-09-09'),'2026-09-26');
+  ctx.state.cardCharges=[];
+  ctx.state.creditCards[0].closing_day=10;
+  assert.equal(ctx.getCardClosingDate('cube','2026-12-12'),'2027-01-10');
+  assert.equal(ctx.getCardDueDate('cube','2026-12-12'),'2027-01-26');
+  ctx.state.creditCards[0].closing_day=31;
+  assert.equal(ctx.getCardClosingDate('cube','2026-02-28'),'2026-02-28');
+  console.log('actual statement cutoff and next-period estimate regression checks passed');
+}
