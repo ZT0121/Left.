@@ -152,3 +152,15 @@ vm.runInContext(source.slice(listenerStart, listenerEnd), clickContext);
   assert.equal(ctx.getCardClosingDate('cube','2026-02-28'),'2026-02-28');
   console.log('actual statement cutoff and next-period estimate regression checks passed');
 }
+
+vm.runInContext(functions, context);
+context.currentMonth = () => '2026-09';
+context.state.creditCards = [{id:'taishin', closing_day:5, payment_day:22}];
+context.state.subscriptions = [{id:'fixed', amount:500, charge_day:10, payment_method:'credit_card', credit_card_id:'taishin'}];
+context.state.subscriptions[0].billing_cycle = 'quarterly';
+context.state.subscriptions[0].charge_month = 11;
+assert.deepEqual(Array.from(context.getSubscriptionCardEstimateRows(), r => r.due_date), ['2026-09-22']);
+assert.equal(context.isSubscriptionDueInMonth(context.state.subscriptions[0], '2027-02'), true);
+assert.equal(context.isSubscriptionDueInMonth(context.state.subscriptions[0], '2027-03'), false);
+context.state.subscriptions[0].is_active = false;
+assert.equal(context.getSubscriptionCardEstimateRows().length, 0);

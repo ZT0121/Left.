@@ -87,8 +87,11 @@
 
   function isSubscriptionDueInMonth(row, month = currentMonth()) {
     if (row.is_active === false) return false;
-    if ((row.billing_cycle || "monthly") !== "yearly") return true;
-    return Number(row.charge_month) === Number(month.slice(5, 7));
+    const billingCycle = row.billing_cycle || "monthly";
+    const monthNumber = Number(String(month).slice(5, 7));
+    if (billingCycle === "quarterly") return (monthNumber - Number(row.charge_month) + 12) % 3 === 0;
+    if (billingCycle === "yearly") return Number(row.charge_month) === monthNumber;
+    return true;
   }
 
   function normalizedCardName(card) {
@@ -376,7 +379,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260914-01")
+      navigator.serviceWorker.register("./sw.js?v=20260915-01")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
@@ -1444,7 +1447,9 @@
         : accountsById.get(row.account_id)?.name || "帳戶／現金";
       const scheduleText = (row.billing_cycle || "monthly") === "yearly"
         ? `每年 ${row.charge_month || "?"} 月 ${row.charge_day} 日`
-        : `每月 ${row.charge_day} 日`;
+        : row.billing_cycle === "quarterly"
+          ? `每 3 個月 · ${Array.from({ length: 12 }, (_, i) => i + 1).filter(month => (month - Number(row.charge_month) + 12) % 3 === 0).join("、")} 月 ${row.charge_day} 日`
+          : `每月 ${row.charge_day} 日`;
       const statusText = row.is_active === false ? "已停用" : "自動納入預估";
 
       return `
@@ -1736,12 +1741,13 @@
     const expenseUsesCard = $("expensePaymentMethod")?.value === "credit_card";
     const advanceUsesCard = $("advancePaymentMethod")?.value === "credit_card";
     const subscriptionUsesCard = $("subscriptionPaymentMethod")?.value === "credit_card";
-    const subscriptionIsYearly = $("subscriptionBillingCycle")?.value === "yearly";
+    const subscriptionNeedsMonth = ["quarterly", "yearly"].includes($("subscriptionBillingCycle")?.value);
     const editUsesCard = $("editPaymentMethod")?.value === "credit_card";
     if ($("expenseCardLabel")) $("expenseCardLabel").hidden = !expenseUsesCard;
     if ($("advanceCardLabel")) $("advanceCardLabel").hidden = !advanceUsesCard;
     if ($("subscriptionCardLabel")) $("subscriptionCardLabel").hidden = !subscriptionUsesCard;
-    if ($("subscriptionMonthLabel")) $("subscriptionMonthLabel").hidden = !subscriptionIsYearly;
+    if ($("subscriptionMonthLabel")) $("subscriptionMonthLabel").hidden = !subscriptionNeedsMonth;
+    if ($("subscriptionMonth")) $("subscriptionMonth").required = subscriptionNeedsMonth;
     if ($("editCardLabel")) $("editCardLabel").hidden = !editUsesCard;
     if ($("expenseAccountLabel")) $("expenseAccountLabel").hidden = expenseUsesCard;
     if ($("advanceAccountLabel")) $("advanceAccountLabel").hidden = advanceUsesCard;
@@ -2542,7 +2548,7 @@
       title: $("subscriptionTitle").value.trim(),
       amount: toNumber($("subscriptionAmount").value),
       billing_cycle: billingCycle,
-      charge_month: billingCycle === "yearly" ? toNumber($("subscriptionMonth").value) : null,
+      charge_month: billingCycle !== "monthly" ? toNumber($("subscriptionMonth").value) : null,
       charge_day: toNumber($("subscriptionDay").value),
       payment_method: paymentMethod,
       credit_card_id: usesCard ? requireCard("subscriptionCardSelect") : null,
@@ -4164,15 +4170,16 @@
           繳費頻率
           <select id="subscriptionBillingCycle">
             <option value="monthly">月繳</option>
+            <option value="quarterly">每 3 個月</option>
             <option value="yearly">年繳</option>
           </select>
         </label>
         <label id="subscriptionMonthLabel" hidden>
-          扣款月份
+          扣款月份（每 3 個月請填其中一次的月份）
           <input id="subscriptionMonth" type="number" min="1" max="12" step="1" inputmode="numeric">
         </label>
         <label>
-          每月扣款日
+          扣款日
           <input id="subscriptionDay" type="number" min="1" max="31" step="1" inputmode="numeric" required>
         </label>
         <label class="full-width">

@@ -474,3 +474,12 @@ console.log('calendar timezone regression checks passed');
   assert.equal(schedule[5].amount+497,2663);
   assert.equal(schedule.reduce((sum,r)=>sum+r.amount,0),13000);
 }
+
+// Quarterly costs only reserve the full payment in a matching month, including across years.
+for (const [month, expected] of [["2026-08", 900], ["2026-09", 0], ["2026-11", 900], ["2027-02", 900]]) {
+  const result = budget.summarizeBudget({
+    cycle: { ...cycle, start_date: `${month}-01`, expected_pay_date: `${month}-28` },
+    subscriptions: [{ amount: 900, billing_cycle: "quarterly", charge_month: 11, charge_day: 10, is_active: true }]
+  }, { today: `${month}-01`, currentMonth: month });
+  assert.equal(result.subscriptionEstimate, expected, month);
+}

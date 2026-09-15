@@ -113,7 +113,7 @@ create table if not exists public.monthly_subscriptions (
   user_id uuid not null references auth.users(id) on delete cascade,
   title text not null,
   amount numeric(12, 0) not null check (amount > 0),
-  billing_cycle text not null default 'monthly' check (billing_cycle in ('monthly', 'yearly')),
+  billing_cycle text not null default 'monthly' check (billing_cycle in ('monthly', 'quarterly', 'yearly')),
   charge_month integer check (charge_month is null or charge_month between 1 and 12),
   charge_day integer not null check (charge_day between 1 and 31),
   payment_method text not null default 'cash' check (payment_method in ('cash', 'credit_card')),
@@ -128,15 +128,35 @@ create table if not exists public.monthly_subscriptions (
   ),
   check (
     (billing_cycle = 'monthly' and charge_month is null)
-    or (billing_cycle = 'yearly' and charge_month is not null)
+    or (billing_cycle in ('quarterly', 'yearly') and charge_month is not null)
   )
 );
 
 alter table public.monthly_subscriptions
   add column if not exists billing_cycle text not null default 'monthly'
-    check (billing_cycle in ('monthly', 'yearly')),
+    check (billing_cycle in ('monthly', 'quarterly', 'yearly')),
   add column if not exists charge_month integer
     check (charge_month is null or charge_month between 1 and 12);
+
+-- Allow quarterly subscriptions on both existing and new installations.
+do $$
+declare constraint_row record;
+begin
+  for constraint_row in
+    select conname from pg_constraint
+    where conrelid = 'public.monthly_subscriptions'::regclass
+      and contype = 'c'
+      and pg_get_constraintdef(oid) like '%billing_cycle%'
+  loop
+    execute format('alter table public.monthly_subscriptions drop constraint %I', constraint_row.conname);
+  end loop;
+end $$;
+alter table public.monthly_subscriptions
+  add constraint monthly_subscriptions_billing_cycle_check
+    check (billing_cycle in ('monthly', 'quarterly', 'yearly')),
+  add constraint monthly_subscriptions_billing_month_check
+    check ((billing_cycle = 'monthly' and charge_month is null)
+      or (billing_cycle in ('quarterly', 'yearly') and charge_month is not null));
 
 create table if not exists public.installment_plans (
   id uuid primary key default gen_random_uuid(),

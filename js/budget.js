@@ -78,8 +78,11 @@
 
   function isSubscriptionDueInMonth(row, month) {
     if (row.is_active === false) return false;
-    if ((row.billing_cycle || "monthly") !== "yearly") return true;
-    return Number(row.charge_month) === Number(String(month).slice(5, 7));
+    const billingCycle = row.billing_cycle || "monthly";
+    const monthNumber = Number(String(month).slice(5, 7));
+    if (billingCycle === "quarterly") return (monthNumber - Number(row.charge_month) + 12) % 3 === 0;
+    if (billingCycle === "yearly") return Number(row.charge_month) === monthNumber;
+    return true;
   }
 
   function createInstallmentSchedule(plan) {
