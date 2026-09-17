@@ -379,7 +379,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260917-01")
+      navigator.serviceWorker.register("./sw.js?v=20260917-02")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
@@ -1690,6 +1690,23 @@
     `;
   }
 
+  function getInstallmentPaymentState(plan, schedule) {
+    const periods = schedule.map((item) => {
+      const month = getCardClosingDate(plan.card_id, item.charge_date).slice(0, 7);
+      const statements = state.cardCharges.filter((row) => isActualStatement(row) &&
+        row.card_id === plan.card_id && String(getCardStatementDate(row)).slice(0, 7) === month);
+      const charges = statements.length ? statements : state.cardCharges.filter((row) =>
+        row.installment_plan_id === plan.id && Number(row.installment_number) === item.installment_number);
+      const paid = charges.length > 0 && charges.every((row) => row.status === "paid");
+      return { ...item, paid, pending: !paid && charges.some((row) => row.status === "pending") };
+    });
+    const settled = periods.length > 0 && periods.every((item) => item.paid);
+    const last = periods[periods.length - 1];
+    const label = settled ? "已結清" : last?.charge_date <= today()
+      ? (last.pending ? "最後一期待繳" : "繳款待確認") : "分期中";
+    return { settled, label, last };
+  }
+
   function renderInstallments() {
     const list = $("installmentList");
     const rows = [...state.installmentPlans]
@@ -1700,7 +1717,9 @@
       return;
     }
 
-    list.innerHTML = rows.map((plan) => {
+    const activeRows = [];
+    const settledRows = [];
+    rows.forEach((plan) => {
       const card = state.creditCards.find((item) => item.id === plan.card_id);
       const schedule = getInstallmentStatementSchedule(plan);
       const billed = new Set(state.cardCharges
@@ -1715,22 +1734,26 @@
         ? `已到第 ${latestPosted.installment_number}/${plan.installment_count} 期${latestPosted.installment_number === Number(plan.installment_count) ? "（最後一期）" : ""} · 本期分期 ${money(latestPosted.amount)}`
         : "尚未到首期入帳日";
 
-      return `
+      const payment = getInstallmentPaymentState(plan, schedule);
+      const markup = `
         <article class="record-item">
           <div>
-            <p class="record-title">${escapeHtml(plan.title)}</p>
+            <p class="record-title"><span class="statement-status ${payment.settled ? "statement-status-paid" : "statement-status-pending"}">${payment.label}</span> ${escapeHtml(plan.title)}</p>
             <p class="record-meta">${escapeHtml(cardDisplayName(card))} · 共 ${plan.installment_count} 期 · 總額（含手續費）${money(total)}</p>
             <p class="record-meta">首期入帳日 ${plan.first_due_date}</p>
-            <p class="record-meta">${progressText}</p>
+            <p class="record-meta">${payment.settled ? "所有期數皆已確認繳清" : progressText}</p>
           </div>
-          <div class="record-amount"><span class="installment-amount-label">後續未入帳（${futureItems.length} 期）</span>${money(future)}</div>
-          <p class="record-meta installment-amount-note">截至 ${today()}，只計算之後尚未入帳的分期；本期與過往是否已繳清，請至信用卡帳單查看。</p>
+          ${payment.settled ? '<div class="record-amount">已結清</div>' : `<div class="record-amount"><span class="installment-amount-label">後續未入帳（${futureItems.length} 期）</span>${money(future)}</div>`}
+          <p class="record-meta installment-amount-note">${payment.settled ? "保留分期紀錄供查詢。" : payment.label === "最後一期待繳" ? `最後一期 ${money(payment.last.amount)} 尚未繳清；過往期數仍以帳單繳款紀錄為準。` : payment.label === "繳款待確認" ? "分期已全數入帳，仍有期數缺少已繳清紀錄，請至信用卡帳單確認。" : `截至 ${today()}，只計算之後尚未入帳的分期；本期與過往是否已繳清，請至信用卡帳單查看。`}</p>
           <div class="record-actions">
             <button type="button" data-delete-installment="${plan.id}">刪除</button>
           </div>
         </article>
       `;
-    }).join("");
+      (payment.settled ? settledRows : activeRows).push(markup);
+    });
+    list.innerHTML = (activeRows.join("") || '<p class="empty-state">目前沒有進行中的分期。</p>') +
+      (settledRows.length ? `<details class="panel-disclosure"><summary>已結清分期（${settledRows.length} 筆）</summary>${settledRows.join("")}</details>` : "");
   }
 
   function escapeHtml(value) {

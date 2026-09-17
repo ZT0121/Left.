@@ -176,7 +176,11 @@ assert.equal(context.getSubscriptionCardEstimateRows().length, 0);
     $:()=>output, today:()=> '2026-09-17', toNumber:Number, money:String, escapeHtml:String, cardDisplayName:()=> '星展',
     getInstallmentStatementSchedule:p=>require('../js/budget.js').createInstallmentSchedule(p)
   };
-  vm.createContext(c);vm.runInContext(source.slice(start,end),c);c.renderInstallments();
+  c.getCardClosingDate = (_, date) => date;
+  c.getCardStatementDate = row => row.charge_date;
+  c.isActualStatement = row => row.source_type === 'opening_bill';
+  const helperStart = source.indexOf('  function getInstallmentPaymentState(');
+  vm.createContext(c);vm.runInContext(source.slice(helperStart,start) + source.slice(start,end),c);c.renderInstallments();
   assert.ok(output.innerHTML.includes('第 6/6 期（最後一期）'));
   assert.ok(output.innerHTML.includes('本期分期 2166'));
   assert.ok(output.innerHTML.includes('後續未入帳（0 期）</span>0'));
@@ -184,4 +188,19 @@ assert.equal(context.getSubscriptionCardEstimateRows().length, 0);
   c.today=()=> '2026-08-17';c.renderInstallments();
   assert.ok(output.innerHTML.includes('後續未入帳（1 期）</span>2166'));
   console.log('installment progress ignores stale salary-cycle dates');
+  c.today=()=> '2026-09-17';
+  const schedule=c.getInstallmentStatementSchedule(plan);
+  assert.equal(c.getInstallmentPaymentState(plan,schedule).label,'繳款待確認');
+  c.state.cardCharges=schedule.map(item=>({source_type:'opening_bill',card_id:'dbs',charge_date:item.charge_date,status:'paid'}));
+  c.state.cardCharges[5].status='pending';
+  assert.equal(c.getInstallmentPaymentState(plan,schedule).label,'最後一期待繳');
+  c.state.cardCharges[5].status='paid';
+  assert.equal(c.getInstallmentPaymentState(plan,schedule).settled,true);
+  c.renderInstallments();
+  assert.ok(output.innerHTML.includes('已結清分期（1 筆）'));
+  assert.ok(!output.innerHTML.includes('<details class="panel-disclosure" open'));
+  c.state.cardCharges.shift();
+  assert.equal(c.getInstallmentPaymentState(plan,schedule).settled,false);
+  assert.equal(c.getInstallmentPaymentState(plan,schedule).label,'繳款待確認');
+  console.log('settled installments require payment evidence for every period');
 }
