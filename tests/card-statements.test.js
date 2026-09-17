@@ -164,3 +164,24 @@ assert.equal(context.isSubscriptionDueInMonth(context.state.subscriptions[0], '2
 assert.equal(context.isSubscriptionDueInMonth(context.state.subscriptions[0], '2027-03'), false);
 context.state.subscriptions[0].is_active = false;
 assert.equal(context.getSubscriptionCardEstimateRows().length, 0);
+
+// An expired salary cycle must not make August/September installments future again.
+{
+  const start = source.indexOf('  function renderInstallments()');
+  const end = source.indexOf('\n  function ', start + 1);
+  const plan = {id:'phone',title:'門號預繳',card_id:'dbs',total_amount:13000,installment_count:6,first_due_date:'2026-04-02'};
+  const output = {innerHTML:''};
+  const c = {
+    state:{creditCards:[],installmentPlans:[plan],cardCharges:[],cycle:{expected_pay_date:'2026-07-31'}},
+    $:()=>output, today:()=> '2026-09-17', toNumber:Number, money:String, escapeHtml:String, cardDisplayName:()=> '星展',
+    getInstallmentStatementSchedule:p=>require('../js/budget.js').createInstallmentSchedule(p)
+  };
+  vm.createContext(c);vm.runInContext(source.slice(start,end),c);c.renderInstallments();
+  assert.ok(output.innerHTML.includes('第 6/6 期（最後一期）'));
+  assert.ok(output.innerHTML.includes('本期分期 2166'));
+  assert.ok(output.innerHTML.includes('後續未入帳（0 期）</span>0'));
+  assert.ok(!output.innerHTML.includes('4332'));
+  c.today=()=> '2026-08-17';c.renderInstallments();
+  assert.ok(output.innerHTML.includes('後續未入帳（1 期）</span>2166'));
+  console.log('installment progress ignores stale salary-cycle dates');
+}

@@ -379,7 +379,7 @@
   function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js?v=20260915-01")
+      navigator.serviceWorker.register("./sw.js?v=20260917-01")
         .then((registration) => {
           registration.update()
             .catch((error) => console.warn("Service worker update check failed", error));
@@ -1707,9 +1707,13 @@
         .filter((charge) => charge.installment_plan_id === plan.id)
         .map((charge) => Number(charge.installment_number)));
       const futureItems = schedule
-        .filter((item) => !billed.has(item.installment_number) && item.due_date > state.cycle.expected_pay_date);
+        .filter((item) => !billed.has(item.installment_number) && item.charge_date > today());
       const future = futureItems.reduce((sum, item) => sum + toNumber(item.amount), 0);
       const total = schedule.reduce((sum, item) => sum + toNumber(item.amount), 0);
+      const latestPosted = [...schedule].reverse().find((item) => item.charge_date <= today());
+      const progressText = latestPosted
+        ? `已到第 ${latestPosted.installment_number}/${plan.installment_count} 期${latestPosted.installment_number === Number(plan.installment_count) ? "（最後一期）" : ""} · 本期分期 ${money(latestPosted.amount)}`
+        : "尚未到首期入帳日";
 
       return `
         <article class="record-item">
@@ -1717,9 +1721,10 @@
             <p class="record-title">${escapeHtml(plan.title)}</p>
             <p class="record-meta">${escapeHtml(cardDisplayName(card))} · 共 ${plan.installment_count} 期 · 總額（含手續費）${money(total)}</p>
             <p class="record-meta">首期入帳日 ${plan.first_due_date}</p>
+            <p class="record-meta">${progressText}</p>
           </div>
-          <div class="record-amount"><span class="installment-amount-label">後續待繳（${futureItems.length} 期）</span>${money(future)}</div>
-          <p class="record-meta installment-amount-note">計算 ${state.cycle.expected_pay_date} 之後尚未列帳的分期合計；已列入帳單的金額請至信用卡帳單查看。</p>
+          <div class="record-amount"><span class="installment-amount-label">後續未入帳（${futureItems.length} 期）</span>${money(future)}</div>
+          <p class="record-meta installment-amount-note">截至 ${today()}，只計算之後尚未入帳的分期；本期與過往是否已繳清，請至信用卡帳單查看。</p>
           <div class="record-actions">
             <button type="button" data-delete-installment="${plan.id}">刪除</button>
           </div>

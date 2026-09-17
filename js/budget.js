@@ -185,6 +185,7 @@
         const futureAmount = createInstallmentSchedule(plan)
           .filter((item) => {
             if (paidNumbers.has(item.installment_number)) return false;
+            if (item.charge_date <= today) return false;
             if (isDateInCycle(item.due_date, cycle)) return false;
             return item.due_date > cycle.expected_pay_date;
           })
